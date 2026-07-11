@@ -53,7 +53,7 @@ input,select,textarea{font-family:inherit;font-size:14px}
 .nav-item .dot{margin-left:auto;width:6px;height:6px;border-radius:50%;background:var(--purple-2)}
 .side-foot{margin-top:auto;padding-top:14px}
 
-.main{margin-left:238px;flex:1;padding:30px 40px 60px;max-width:1180px}
+.main{margin-left:238px;flex:1;min-width:0;padding:30px 40px 60px;max-width:1180px}
 .page-title{font-family:var(--serif);font-size:44px;font-weight:500;line-height:1;margin-bottom:6px;position:relative;display:inline-block}
 .page-title::after{content:"";position:absolute;left:2px;right:-6px;bottom:-7px;height:3px;background:var(--rose);border-radius:3px;opacity:.85}
 .page-sub{color:var(--muted);font-size:14px;margin:16px 0 26px;max-width:560px;line-height:1.55}
@@ -91,6 +91,8 @@ input,select,textarea{font-family:inherit;font-size:14px}
 .progress > i{display:block;height:100%;background:#fff;border-radius:6px}
 
 table{width:100%;border-collapse:collapse}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -20px;padding:0 20px}
+.table-wrap table{min-width:560px}
 th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);padding:8px 10px;border-bottom:1px solid var(--line);font-weight:600}
 td{padding:11px 10px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle}
 tr:last-child td{border-bottom:none}
@@ -129,6 +131,8 @@ tr:last-child td{border-bottom:none}
 .mc-head:first-child{border-left:none}
 .mc-cell{border-bottom:1px solid var(--line);border-left:1px solid var(--line);min-height:96px;padding:6px}
 .mc-cell:nth-child(7n+1){border-left:none}
+.cal-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.cal-scroll .mcal{min-width:640px}
 .mc-empty{background:var(--card-2)}
 .mc-num{font-size:12px;color:var(--faint);font-weight:600;margin-bottom:4px}
 .mc-today .mc-num{background:var(--purple);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
@@ -153,13 +157,34 @@ tr:last-child td{border-bottom:none}
 .st-select{padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:12px;font-weight:600}
 .st-select:focus{outline:none;border-color:var(--purple-2)}
 .alert-late{border:1px solid var(--red);background:var(--red-soft)}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(10,8,14,.45);z-index:55}
+.sidebar-overlay.show{display:block}
 @media(max-width:820px){
+  html,body{overflow-x:hidden}
   .sidebar{transform:translateX(-100%);transition:transform .2s;z-index:60}
   .sidebar.open{transform:none}
   .main{margin-left:0;padding:20px}
   .menu-btn{display:flex !important}
-  .stat-row{grid-template-columns:1fr 1fr 1fr}
+  .stat-row{grid-template-columns:1fr 1fr 1fr;padding:18px}
+  .stat b{font-size:24px}
   .grid2{grid-template-columns:1fr}
+  input,select,textarea{font-size:16px}
+  .page-title{font-size:34px}
+  .modal{width:100%;max-width:none;border-radius:16px 16px 0 0;position:fixed;left:0;right:0;bottom:0;max-height:88vh;padding:22px 20px calc(20px + env(safe-area-inset-bottom))}
+  .modal-bg{align-items:flex-end;padding:0}
+  .row{flex-direction:column}
+  .row .card{min-width:0}
+}
+@media(max-width:420px){
+  .stat-row{grid-template-columns:1fr 1fr 1fr;gap:6px;padding:14px}
+  .stat b{font-size:19px}
+  .stat span{font-size:10px}
+  .page-title{font-size:28px}
+  .main{padding:14px}
+  .area-tabs{gap:6px}
+  .area-tab{padding:6px 11px;font-size:12px}
+  table{font-size:13px}
+  th,td{padding:9px 7px}
 }
 .menu-btn{display:none;position:fixed;top:14px;left:14px;z-index:70;background:var(--sidebar);color:#fff;width:40px;height:40px;border-radius:10px;align-items:center;justify-content:center;font-size:18px}
 </style>
@@ -167,7 +192,8 @@ tr:last-child td{border-bottom:none}
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
-<button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+<button class="menu-btn" onclick="toggleSidebar()">☰</button>
+<div class="sidebar-overlay" onclick="toggleSidebar(false)"></div>
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
@@ -356,7 +382,12 @@ function renderNav(){
   const il=document.getElementById('temaIc'),ll=document.getElementById('temaLbl');
   if(il)il.textContent=esc?'☀':'◐'; if(ll)ll.textContent=esc?'Modo claro':'Modo escuro';
 }
-function go(id){current=id;renderNav();document.querySelector('.sidebar').classList.remove('open');
+function toggleSidebar(force){
+  const sb=document.querySelector('.sidebar'), ov=document.querySelector('.sidebar-overlay');
+  const openNow = force!==undefined ? force : !sb.classList.contains('open');
+  sb.classList.toggle('open',openNow); ov.classList.toggle('show',openNow);
+}
+function go(id){current=id;renderNav();toggleSidebar(false);
   window.scrollTo(0,0);({dashboard:vDashboard,calendario:vCalendario,pendencias:vPendencias,
    diarios:vDiarios,grade:vGrade,unitins:vUnitins,analytics:vAnalytics}[id])();}
 
@@ -511,7 +542,7 @@ function vCalendario(){
         <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--red);vertical-align:middle"></i> Atrasado</span>
       </div>
     </div>
-    <div class="mcal">${cells}</div>`;
+    <div class="cal-scroll"><div class="mcal">${cells}</div></div>`;
 }
 function novaPendenciaNoDia(iso,ev){
   if(ev&&ev.target&&ev.target.classList.contains('cal-ev'))return; // clicou num evento, não cria
@@ -578,12 +609,12 @@ function vDiarios(){
       <button class="btn sm" style="margin-left:auto" onclick="mNovaSessao('${sel==='all'?'':sel}')">+ Nova sessão</button>
     </div>
     <div class="card" style="padding:6px 20px">
-      ${logs.length?`<table><thead><tr><th>Data</th><th>Área</th><th>Atividade</th><th>Observações</th><th>Horário</th><th>Duração</th><th></th></tr></thead>
+      ${logs.length?`<div class="table-wrap"><table><thead><tr><th>Data</th><th>Área</th><th>Atividade</th><th>Observações</th><th>Horário</th><th>Duração</th><th></th></tr></thead>
       <tbody>${logs.map(l=>`<tr>
         <td>${fmtBR(l.data)}</td><td>${areaPill(l.area)}</td><td>${h(l.atividade||'—')}</td>
         <td style="color:var(--muted);max-width:220px">${l.obs?h(l.obs):'—'}</td>
         <td>${l.ini}–${l.fim}</td><td><b>${fmtDur(durH(l.ini,l.fim))}</b></td>
-        <td style="white-space:nowrap"><button class="icon-btn" onclick="mNovaSessao(null,'${l.id}')" title="Editar">✎</button><button class="icon-btn" onclick="delLog('${l.id}')" title="Excluir">✕</button></td></tr>`).join('')}</tbody></table>`
+        <td style="white-space:nowrap"><button class="icon-btn" onclick="mNovaSessao(null,'${l.id}')" title="Editar">✎</button><button class="icon-btn" onclick="delLog('${l.id}')" title="Excluir">✕</button></td></tr>`).join('')}</tbody></table></div>`
       :'<div class="empty">Nenhuma sessão registrada ainda.</div>'}
     </div>`;
 }
@@ -681,7 +712,7 @@ function vUnitins(){
   if(t==='materias'){
     body=`<button class="btn sm" style="margin-bottom:14px" onclick="mNovaMateria()">+ Nova matéria</button>
     <div class="card" style="padding:6px 20px">${store.materias.length?
-      `<table><thead><tr><th>Matéria</th><th>Status</th><th>Progresso aulas</th><th>Próximo prazo</th><th></th></tr></thead><tbody>
+      `<div class="table-wrap"><table><thead><tr><th>Matéria</th><th>Status</th><th>Progresso aulas</th><th>Próximo prazo</th><th></th></tr></thead><tbody>
       ${store.materias.map(m=>{const aulas=store.aulas.filter(a=>a.materia===m.id);
         const feitas=aulas.filter(a=>a.done).length;const prog=aulas.length?Math.round(feitas/aulas.length*100):null;
         const prox=store.entregaveis.filter(e=>e.materia===m.id&&e.prazo&&e.status!=='Entregue').sort((a,b)=>a.prazo.localeCompare(b.prazo))[0];
@@ -690,20 +721,20 @@ function vUnitins(){
           <td>${prog===null?'<span style="color:var(--faint)">sem aulas</span>':`${feitas}/${aulas.length} · ${prog}%`}</td>
           <td>${prox?fmtBR(prox.prazo):'—'}</td>
           <td><button class="icon-btn" onclick="delMateria('${m.id}')">✕</button></td></tr>`;}).join('')}
-      </tbody></table>`:'<div class="empty">Cadastre suas matérias da UNITINS.</div>'}</div>`;
+      </tbody></table></div>`:'<div class="empty">Cadastre suas matérias da UNITINS.</div>'}</div>`;
   }else if(t==='aulas'){
     body=`<button class="btn sm" style="margin-bottom:14px" onclick="mNovaAula()">+ Nova aula</button>
     <div class="card" style="padding:6px 20px">${store.aulas.length?
-      `<table><thead><tr><th></th><th>Aula</th><th>Matéria</th><th></th></tr></thead><tbody>
+      `<div class="table-wrap"><table><thead><tr><th></th><th>Aula</th><th>Matéria</th><th></th></tr></thead><tbody>
       ${store.aulas.map(a=>`<tr><td><div class="check ${a.done?'on':''}" onclick="toggleAula('${a.id}')">${a.done?'✓':''}</div></td>
         <td class="${a.done?'':''}" style="${a.done?'text-decoration:line-through;color:var(--faint)':''}">${h(a.nome)}</td>
         <td>${h(materiaNome(a.materia))}</td>
         <td><button class="icon-btn" onclick="delAula('${a.id}')">✕</button></td></tr>`).join('')}
-      </tbody></table>`:'<div class="empty">Nenhuma aula cadastrada.</div>'}</div>`;
+      </tbody></table></div>`:'<div class="empty">Nenhuma aula cadastrada.</div>'}</div>`;
   }else{
     body=`<button class="btn sm" style="margin-bottom:14px" onclick="mNovoEntreg()">+ Novo entregável</button>
     <div class="card" style="padding:6px 20px">${store.entregaveis.length?
-      `<table><thead><tr><th>Entregável</th><th>Matéria</th><th>Prazo</th><th>Status</th><th>Urgência</th><th></th></tr></thead><tbody>
+      `<div class="table-wrap"><table><thead><tr><th>Entregável</th><th>Matéria</th><th>Prazo</th><th>Status</th><th>Urgência</th><th></th></tr></thead><tbody>
       ${store.entregaveis.sort((a,b)=>(a.prazo||'9').localeCompare(b.prazo||'9')).map(e=>`<tr>
         <td><b>${h(e.nome)}</b></td><td>${h(materiaNome(e.materia))}</td><td>${fmtBR(e.prazo)}</td>
         <td><select class="st-select" onchange="setEntregStatus('${e.id}',this.value)">
@@ -711,7 +742,7 @@ function vUnitins(){
         </select></td>
         <td>${urgPill(e)}</td>
         <td><button class="icon-btn" onclick="delEntreg('${e.id}')">✕</button></td></tr>`).join('')}
-      </tbody></table>`:'<div class="empty">Nenhum entregável com prazo cadastrado.</div>'}</div>`;
+      </tbody></table></div>`:'<div class="empty">Nenhum entregável com prazo cadastrado.</div>'}</div>`;
   }
   document.getElementById('view').innerHTML=`
     <div class="page-title">hub unitins</div>
