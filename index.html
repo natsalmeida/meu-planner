@@ -153,7 +153,9 @@ tr:last-child td{border-bottom:none}
   box-shadow:0 6px 18px rgba(124,58,237,.4);transition:transform .12s}
 .timer-fab:hover{transform:scale(1.06)}
 .timer-fab-running{width:auto;min-width:56px;padding:0 18px;border-radius:28px;gap:8px;font-family:var(--sans);font-size:14px;font-weight:700;letter-spacing:.02em;background:var(--rose)}
+.timer-fab-paused{width:auto;min-width:56px;padding:0 18px;border-radius:28px;gap:8px;font-family:var(--sans);font-size:14px;font-weight:700;letter-spacing:.02em;background:var(--amber)}
 .timer-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:timerPulse 1.2s infinite ease-in-out}
+.timer-dot-paused{animation:none;opacity:.9}
 @keyframes timerPulse{0%,100%{opacity:1}50%{opacity:.3}}
 .timer-panel{position:fixed;right:24px;bottom:24px;z-index:40;width:270px;max-width:calc(100vw - 32px);
   background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;
@@ -328,7 +330,10 @@ function toggleTema(){
 const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
 /* ---------------- Cronômetro ---------------- */
-let timerState = {running:false, area:'unitins', atividade:'', startedAt:null};
+// origStart: momento do 1º "Iniciar" (fixo, usado como data/hora início ao salvar)
+// segStart: momento em que o trecho ATUAL em execução começou (null se pausado/parado)
+// accumMs: soma dos trechos já concluídos (pausas não entram aqui)
+let timerState = {running:false, area:'unitins', atividade:'', origStart:null, segStart:null, accumMs:0};
 let timerPanelOpen = false;
 let timerIntervalId = null;
 
@@ -346,12 +351,15 @@ function fmtHMS(ms){
   const p=n=>String(n).padStart(2,'0');
   return hh>0?`${p(hh)}:${p(mm)}:${p(ss)}`:`${p(mm)}:${p(ss)}`;
 }
+function timerElapsedMs(){
+  return timerState.accumMs + (timerState.running&&timerState.segStart ? Date.now()-timerState.segStart : 0);
+}
 function timerEnsureTicking(){
   clearInterval(timerIntervalId);
   if(timerState.running){
     timerIntervalId=setInterval(()=>{
       const el=document.getElementById('timerClock');
-      if(el) el.textContent=fmtHMS(Date.now()-timerState.startedAt);
+      if(el) el.textContent=fmtHMS(timerElapsedMs());
     },1000);
   }
 }
@@ -364,31 +372,45 @@ function timerStart(){
   const areaSel=document.getElementById('tmArea'); const atSel=document.getElementById('tmAtividade');
   if(areaSel)timerState.area=areaSel.value;
   if(atSel)timerState.atividade=atSel.value.trim();
-  timerState.running=true; timerState.startedAt=Date.now();
+  const now=Date.now();
+  timerState.running=true; timerState.origStart=now; timerState.segStart=now; timerState.accumMs=0;
+  saveTimerState(); timerEnsureTicking(); renderTimerWidget();
+}
+function timerPause(){
+  if(!timerState.running)return;
+  timerState.accumMs=timerElapsedMs(); timerState.running=false; timerState.segStart=null;
+  saveTimerState(); timerEnsureTicking(); renderTimerWidget();
+}
+function timerResume(){
+  if(timerState.running||!timerState.origStart)return;
+  timerState.segStart=Date.now(); timerState.running=true;
   saveTimerState(); timerEnsureTicking(); renderTimerWidget();
 }
 function timerDiscard(){
   clearInterval(timerIntervalId);
-  timerState={running:false,area:timerState.area,atividade:'',startedAt:null};
+  timerState={running:false,area:timerState.area,atividade:'',origStart:null,segStart:null,accumMs:0};
   saveTimerState(); timerPanelOpen=false; renderTimerWidget();
   toast('Cronômetro descartado');
 }
 function timerStop(){
-  const start=new Date(timerState.startedAt);
-  const now=new Date();
+  const elapsed=timerElapsedMs();
+  const start=new Date(timerState.origStart);
+  const end=new Date(timerState.origStart+elapsed); // ignora o tempo pausado, soma só o tempo ativo
   const pad=n=>String(n).padStart(2,'0');
   const data=start.getFullYear()+'-'+pad(start.getMonth()+1)+'-'+pad(start.getDate());
   const ini=pad(start.getHours())+':'+pad(start.getMinutes());
-  const fim=pad(now.getHours())+':'+pad(now.getMinutes());
+  const fim=pad(end.getHours())+':'+pad(end.getMinutes());
   const prefill={area:timerState.area,atividade:timerState.atividade,data,ini,fim};
   clearInterval(timerIntervalId);
-  timerState={running:false,area:prefill.area,atividade:'',startedAt:null};
+  timerState={running:false,area:prefill.area,atividade:'',origStart:null,segStart:null,accumMs:0};
   saveTimerState(); timerPanelOpen=false; renderTimerWidget();
   mNovaSessao('',null,prefill);
 }
 function renderTimerWidget(){
   const el=document.getElementById('timerWidget'); if(!el)return;
-  if(!timerState.running){
+  const idle = !timerState.origStart;
+  const paused = !idle && !timerState.running;
+  if(idle){
     if(!timerPanelOpen){
       el.innerHTML=`<button class="timer-fab" onclick="timerOpenPanel()" title="Cronômetro">⏱</button>`;
     }else{
@@ -404,26 +426,28 @@ function renderTimerWidget(){
         <button class="btn" style="width:100%;justify-content:center" onclick="timerStart()">▶ Iniciar</button>
       </div>`;
     }
+    return;
+  }
+  const elapsed=fmtHMS(timerElapsedMs());
+  if(!timerPanelOpen){
+    el.innerHTML=`<button class="timer-fab ${paused?'timer-fab-paused':'timer-fab-running'}" onclick="timerOpenPanel()" title="${paused?'Cronômetro pausado':'Cronômetro rodando'}">
+      <span class="timer-dot ${paused?'timer-dot-paused':''}"></span><span id="timerClock">${elapsed}</span></button>`;
   }else{
-    const elapsed=fmtHMS(Date.now()-timerState.startedAt);
-    if(!timerPanelOpen){
-      el.innerHTML=`<button class="timer-fab timer-fab-running" onclick="timerOpenPanel()" title="Cronômetro rodando">
-        <span class="timer-dot"></span><span id="timerClock">${elapsed}</span></button>`;
-    }else{
-      el.innerHTML=`<div class="timer-panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <b style="font-size:14px"><span class="timer-dot" style="position:static;display:inline-block;margin-right:6px"></span>Cronômetro rodando</b>
-          <button class="icon-btn" onclick="timerClosePanel()">✕</button>
-        </div>
-        <div class="timer-clock-big" id="timerClock">${elapsed}</div>
-        <div style="font-size:12px;color:var(--faint);margin-bottom:10px">${areaById(timerState.area).nome}${timerState.atividade?' · '+h(timerState.atividade):''}</div>
-        <input id="tmAtividade" placeholder="Atividade (opcional)" value="${h(timerState.atividade)}" oninput="timerSetAtividade(this.value)" style="margin-bottom:10px">
-        <div style="display:flex;gap:8px">
-          <button class="btn line" style="flex:1;justify-content:center" onclick="timerDiscard()">Descartar</button>
-          <button class="btn" style="flex:1;justify-content:center" onclick="timerStop()">■ Parar e salvar</button>
-        </div>
-      </div>`;
-    }
+    el.innerHTML=`<div class="timer-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <b style="font-size:14px"><span class="timer-dot ${paused?'timer-dot-paused':''}" style="position:static;display:inline-block;margin-right:6px"></span>${paused?'Cronômetro pausado':'Cronômetro rodando'}</b>
+        <button class="icon-btn" onclick="timerClosePanel()">✕</button>
+      </div>
+      <div class="timer-clock-big" id="timerClock" style="${paused?'color:var(--amber)':''}">${elapsed}</div>
+      <div style="font-size:12px;color:var(--faint);margin-bottom:10px">${areaById(timerState.area).nome}${timerState.atividade?' · '+h(timerState.atividade):''}</div>
+      <input id="tmAtividade" placeholder="Atividade (opcional)" value="${h(timerState.atividade)}" oninput="timerSetAtividade(this.value)" style="margin-bottom:10px">
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        ${paused?`<button class="btn" style="flex:1;justify-content:center" onclick="timerResume()">▶ Continuar</button>`
+                :`<button class="btn ghost" style="flex:1;justify-content:center" onclick="timerPause()">⏸ Pausar</button>`}
+        <button class="btn line" style="flex:1;justify-content:center" onclick="timerDiscard()">Descartar</button>
+      </div>
+      <button class="btn" style="width:100%;justify-content:center;background:var(--rose)" onclick="timerStop()">■ Parar e salvar</button>
+    </div>`;
   }
 }
 
