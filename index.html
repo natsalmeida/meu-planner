@@ -147,6 +147,22 @@ tr:last-child td{border-bottom:none}
 .modal-actions .btn{flex:1;justify-content:center}
 
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 20px;border-radius:11px;font-size:13px;z-index:80;opacity:0;transition:opacity .2s,transform .2s}
+
+.timer-fab{position:fixed;right:24px;bottom:24px;z-index:40;width:56px;height:56px;border-radius:50%;
+  background:var(--purple);color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 18px rgba(124,58,237,.4);transition:transform .12s}
+.timer-fab:hover{transform:scale(1.06)}
+.timer-fab-running{width:auto;min-width:56px;padding:0 18px;border-radius:28px;gap:8px;font-family:var(--sans);font-size:14px;font-weight:700;letter-spacing:.02em;background:var(--rose)}
+.timer-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:timerPulse 1.2s infinite ease-in-out}
+@keyframes timerPulse{0%,100%{opacity:1}50%{opacity:.3}}
+.timer-panel{position:fixed;right:24px;bottom:24px;z-index:40;width:270px;max-width:calc(100vw - 32px);
+  background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;
+  box-shadow:0 12px 32px rgba(20,16,28,.22)}
+.timer-panel input,.timer-panel select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card-2);color:var(--ink)}
+.timer-clock-big{font-family:var(--serif);font-size:38px;font-weight:600;color:var(--rose);text-align:center;margin:6px 0 4px}
+@media(max-width:820px){
+  .timer-fab,.timer-panel{right:16px;bottom:16px}
+}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
 
 
@@ -211,6 +227,7 @@ tr:last-child td{border-bottom:none}
   <main class="main" id="view"></main>
 </div>
 <div id="modalRoot"></div>
+<div id="timerWidget"></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -309,6 +326,106 @@ function toggleTema(){
   go(current); 
 }
 const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+/* ---------------- Cronômetro ---------------- */
+let timerState = {running:false, area:'unitins', atividade:'', startedAt:null};
+let timerPanelOpen = false;
+let timerIntervalId = null;
+
+function loadTimerState(){
+  try{const raw=localStorage.getItem('planner_timer_v1');
+    if(raw){const d=JSON.parse(raw); if(d&&typeof d==='object')Object.assign(timerState,d);}
+  }catch(e){}
+}
+function saveTimerState(){
+  try{localStorage.setItem('planner_timer_v1',JSON.stringify(timerState));}catch(e){}
+}
+function fmtHMS(ms){
+  const s=Math.max(0,Math.floor(ms/1000));
+  const hh=Math.floor(s/3600), mm=Math.floor((s%3600)/60), ss=s%60;
+  const p=n=>String(n).padStart(2,'0');
+  return hh>0?`${p(hh)}:${p(mm)}:${p(ss)}`:`${p(mm)}:${p(ss)}`;
+}
+function timerEnsureTicking(){
+  clearInterval(timerIntervalId);
+  if(timerState.running){
+    timerIntervalId=setInterval(()=>{
+      const el=document.getElementById('timerClock');
+      if(el) el.textContent=fmtHMS(Date.now()-timerState.startedAt);
+    },1000);
+  }
+}
+function timerOpenPanel(){timerPanelOpen=true;renderTimerWidget();}
+function timerClosePanel(){timerPanelOpen=false;renderTimerWidget();}
+function timerTogglePanel(){timerPanelOpen=!timerPanelOpen;renderTimerWidget();}
+function timerSetArea(v){timerState.area=v;saveTimerState();}
+function timerSetAtividade(v){timerState.atividade=v;saveTimerState();}
+function timerStart(){
+  const areaSel=document.getElementById('tmArea'); const atSel=document.getElementById('tmAtividade');
+  if(areaSel)timerState.area=areaSel.value;
+  if(atSel)timerState.atividade=atSel.value.trim();
+  timerState.running=true; timerState.startedAt=Date.now();
+  saveTimerState(); timerEnsureTicking(); renderTimerWidget();
+}
+function timerDiscard(){
+  clearInterval(timerIntervalId);
+  timerState={running:false,area:timerState.area,atividade:'',startedAt:null};
+  saveTimerState(); timerPanelOpen=false; renderTimerWidget();
+  toast('Cronômetro descartado');
+}
+function timerStop(){
+  const start=new Date(timerState.startedAt);
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const data=start.getFullYear()+'-'+pad(start.getMonth()+1)+'-'+pad(start.getDate());
+  const ini=pad(start.getHours())+':'+pad(start.getMinutes());
+  const fim=pad(now.getHours())+':'+pad(now.getMinutes());
+  const prefill={area:timerState.area,atividade:timerState.atividade,data,ini,fim};
+  clearInterval(timerIntervalId);
+  timerState={running:false,area:prefill.area,atividade:'',startedAt:null};
+  saveTimerState(); timerPanelOpen=false; renderTimerWidget();
+  mNovaSessao('',null,prefill);
+}
+function renderTimerWidget(){
+  const el=document.getElementById('timerWidget'); if(!el)return;
+  if(!timerState.running){
+    if(!timerPanelOpen){
+      el.innerHTML=`<button class="timer-fab" onclick="timerOpenPanel()" title="Cronômetro">⏱</button>`;
+    }else{
+      el.innerHTML=`<div class="timer-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <b style="font-size:14px">⏱ Cronômetro</b>
+          <button class="icon-btn" onclick="timerClosePanel()">✕</button>
+        </div>
+        <div class="field" style="margin-bottom:8px"><label>Área</label>
+          <select id="tmArea" onchange="timerSetArea(this.value)">${areaOptions(timerState.area)}</select></div>
+        <div class="field" style="margin-bottom:10px"><label>Atividade (opcional)</label>
+          <input id="tmAtividade" placeholder="Ex: Aula de Cálculo" value="${h(timerState.atividade)}" oninput="timerSetAtividade(this.value)"></div>
+        <button class="btn" style="width:100%;justify-content:center" onclick="timerStart()">▶ Iniciar</button>
+      </div>`;
+    }
+  }else{
+    const elapsed=fmtHMS(Date.now()-timerState.startedAt);
+    if(!timerPanelOpen){
+      el.innerHTML=`<button class="timer-fab timer-fab-running" onclick="timerOpenPanel()" title="Cronômetro rodando">
+        <span class="timer-dot"></span><span id="timerClock">${elapsed}</span></button>`;
+    }else{
+      el.innerHTML=`<div class="timer-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <b style="font-size:14px"><span class="timer-dot" style="position:static;display:inline-block;margin-right:6px"></span>Cronômetro rodando</b>
+          <button class="icon-btn" onclick="timerClosePanel()">✕</button>
+        </div>
+        <div class="timer-clock-big" id="timerClock">${elapsed}</div>
+        <div style="font-size:12px;color:var(--faint);margin-bottom:10px">${areaById(timerState.area).nome}${timerState.atividade?' · '+h(timerState.atividade):''}</div>
+        <input id="tmAtividade" placeholder="Atividade (opcional)" value="${h(timerState.atividade)}" oninput="timerSetAtividade(this.value)" style="margin-bottom:10px">
+        <div style="display:flex;gap:8px">
+          <button class="btn line" style="flex:1;justify-content:center" onclick="timerDiscard()">Descartar</button>
+          <button class="btn" style="flex:1;justify-content:center" onclick="timerStop()">■ Parar e salvar</button>
+        </div>
+      </div>`;
+    }
+  }
+}
 
 /* ---------------- Date helpers ---------------- */
 const todayISO = ()=> new Date().toISOString().slice(0,10);
@@ -494,6 +611,7 @@ function vDashboard(){
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn" onclick="mNovaSessao()">+ Nova sessão</button>
           <button class="btn ghost" onclick="mPendencia()">+ Nova pendência</button>
+          <button class="btn line" onclick="timerOpenPanel()">⏱ Iniciar cronômetro</button>
         </div>
       </div>
     </div>`;
@@ -628,22 +746,28 @@ function recentActivities(area){
       if(a&&!seen.has(a)){seen.add(a);out.push(a);}});
   return out.slice(0,10);
 }
-function mNovaSessao(areaSel='',editId=null){
+function mNovaSessao(areaSel='',editId=null,prefill=null){
   const ed = editId?store.logs.find(l=>l.id===editId):null;
-  const areaEff = ed?ed.area:(areaSel||'unitins');
+  const areaEff = ed?ed.area:(prefill?prefill.area:(areaSel||'unitins'));
   const rec=recentActivities(areaEff);
   const chips = rec.length ? `<div class="hist-chips" id="histChips">${rec.map(a=>
     `<button type="button" class="chip" onclick="document.getElementById('sat').value=this.textContent">${h(a)}</button>`).join('')}</div>` : '';
-  modal(`<h3>${ed?'Editar sessão':'Nova sessão de estudo'}</h3>
+  const atividadeVal = ed?(ed.atividade||''):(prefill?(prefill.atividade||''):'');
+  const dataVal = ed?ed.data:(prefill?prefill.data:todayISO());
+  const iniVal = ed?ed.ini:(prefill?prefill.ini:'');
+  const fimVal = ed?ed.fim:(prefill?prefill.fim:'');
+  const obsVal = ed?(ed.obs||''):(prefill?(prefill.obs||''):'');
+  modal(`<h3>${ed?'Editar sessão':prefill?'Salvar sessão do cronômetro':'Nova sessão de estudo'}</h3>
+  ${prefill?`<div class="pill purple" style="margin-bottom:14px">⏱ Tempo cronometrado: ${fmtDur(durH(iniVal,fimVal))}</div>`:''}
   <div class="field"><label>Área</label><select id="sa" onchange="refreshHistChips(this.value)">${areaOptions(areaEff)}</select></div>
-  <div class="field"><label>Atividade</label><input id="sat" placeholder="Ex: Busuu, BBC, Aula 04 de Cálculo" value="${ed?h(ed.atividade||''):''}">
+  <div class="field"><label>Atividade</label><input id="sat" placeholder="Ex: Busuu, BBC, Aula 04 de Cálculo" value="${h(atividadeVal)}">
     ${rec.length?`<div style="font-size:11px;color:var(--faint);margin:7px 0 4px" id="histLabel">Últimas atividades desta área (toque para reaproveitar):</div>`:`<div style="font-size:11px;color:var(--faint);margin:7px 0 4px;display:none" id="histLabel">Últimas atividades desta área (toque para reaproveitar):</div>`}${chips||'<div class="hist-chips" id="histChips"></div>'}</div>
-  <div class="field"><label>Data</label><input type="date" id="sd" value="${ed?ed.data:todayISO()}"></div>
+  <div class="field"><label>Data</label><input type="date" id="sd" value="${dataVal}"></div>
   <div class="grid2">
-    <div class="field"><label>Hora início</label><input type="time" id="si" value="${ed?ed.ini:''}"></div>
-    <div class="field"><label>Hora fim</label><input type="time" id="sf" value="${ed?ed.fim:''}"></div>
+    <div class="field"><label>Hora início</label><input type="time" id="si" value="${iniVal}"></div>
+    <div class="field"><label>Hora fim</label><input type="time" id="sf" value="${fimVal}"></div>
   </div>
-  <div class="field"><label>Observações (opcional)</label><textarea id="so" rows="2">${ed?h(ed.obs||''):''}</textarea></div>
+  <div class="field"><label>Observações (opcional)</label><textarea id="so" rows="2">${h(obsVal)}</textarea></div>
   <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
   <button class="btn" onclick="addLog(${ed?`'${editId}'`:'null'})">${ed?'Salvar':'Salvar sessão'}</button></div>`);}
 function refreshHistChips(area){
@@ -838,6 +962,9 @@ function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReade
 
 /* ---------------- Boot ---------------- */
 load();
+loadTimerState();
+timerEnsureTicking();
+renderTimerWidget();
 </script>
 </body>
 </html>
