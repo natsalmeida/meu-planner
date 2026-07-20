@@ -195,6 +195,19 @@ tr:last-child td{border-bottom:none}
 .habit-stat .hs-name{width:130px;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
 .habit-stat .hs-metrics{display:flex;gap:8px;margin-left:auto;align-items:center}
 @media(max-width:640px){.habit-stat .hs-metrics{margin-left:0;width:100%}}
+/* Heatmap */
+.hm-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+.hm-row{display:flex;gap:3px}
+.hm-col{display:flex;flex-direction:column;gap:3px}
+.hm-cell{width:14px;height:14px;border-radius:3px;border:1px solid var(--line);background:var(--card-2);flex:0 0 14px}
+.hm-cell.out{opacity:.22;border-style:dashed}
+.hm-today{box-shadow:0 0 0 2px var(--rose)}
+.hm-months{margin-bottom:4px;height:14px}
+.hm-mcol{width:14px;flex:0 0 14px;font-size:10px;color:var(--faint);white-space:nowrap;overflow:visible}
+.hm-wd{display:flex;flex-direction:column;gap:3px;font-size:9px;color:var(--faint);padding-top:18px}
+.hm-wd span{height:14px;line-height:14px}
+.hm-legend{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--faint);margin-top:10px}
+.hm-legend .sq{width:13px;height:13px;border-radius:3px;border:1px solid var(--line)}
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(10,8,14,.45);z-index:55}
 .sidebar-overlay.show{display:block}
 @media(max-width:820px){
@@ -228,6 +241,7 @@ tr:last-child td{border-bottom:none}
 </style>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 </head>
 <body>
 <button class="menu-btn" onclick="toggleSidebar()">☰</button>
@@ -241,6 +255,7 @@ tr:last-child td{border-bottom:none}
     <nav id="nav"></nav>
     <div class="side-foot">
       <button class="nav-item" onclick="toggleTema()"><span class="ic" id="temaIc">◐</span> <span id="temaLbl">Modo escuro</span></button>
+      <button class="nav-item" onclick="enableNotifs()"><span class="ic">🔔</span> Ativar avisos de prazo</button>
       <button class="nav-item" onclick="exportData()"><span class="ic">⭳</span> Exportar dados</button>
       <button class="nav-item" onclick="document.getElementById('importFile').click()"><span class="ic">⭱</span> Importar dados</button>
       <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(this)">
@@ -313,6 +328,7 @@ const db = firebase.database();
 // === FIM DA CONEXÃO ===
 
 const store = {
+  version: 3,
   logs:[], pendencias:[], materias:[], aulas:[], entregaveis:[],
   grade: DEFAULT_GRADE.map(g=>({...g})),
   habitos: DEFAULT_HABITOS.map(x=>({...x})),
@@ -321,32 +337,113 @@ const store = {
   metasArea: {}, 
   tema: 'claro',
 };
+const SCHEMA_VERSION = 3;
+const ROOT = 'meu_planner';       // caminho preservado (mantém seu histórico)
+const LS_KEY = 'planner_store_v1';
 
+let authReady = false;            // true quando há sessão anônima
+let syncAttached = false;
+let lastPushedJSON = '';          // p/ ignorar o eco do nosso próprio write
+let pendingRerender = false;      // re-render adiado enquanto um modal está aberto
+
+/* ---- validação de shape (protege contra import/registro corrompido) ---- */
+function isPlainObj(o){return o&&typeof o==='object'&&!Array.isArray(o);}
+function validateStore(d){
+  if(!isPlainObj(d)) return false;
+  const arrays=['logs','pendencias','materias','aulas','entregaveis','grade','habitos'];
+  for(const k of arrays){ if(k in d && !Array.isArray(d[k])) return false; }
+  const objs=['habitLog','metasArea'];
+  for(const k of objs){ if(k in d && !isPlainObj(d[k])) return false; }
+  if('metaSemanal' in d && typeof d.metaSemanal!=='number' && d.metaSemanal!=null) return false;
+  return true;
+}
+/* ---- normaliza defaults/migrações num só lugar ---- */
+function normalizeStore(){
+  if(!Array.isArray(store.grade)||!store.grade.length) store.grade=DEFAULT_GRADE.map(g=>({...g}));
+  if(!Array.isArray(store.habitos)) store.habitos=DEFAULT_HABITOS.map(x=>({...x}));
+  if(!isPlainObj(store.habitLog)) store.habitLog={};
+  if(store.metaSemanal==null) store.metaSemanal=20;
+  if(!isPlainObj(store.metasArea)) store.metasArea={};
+  if(!store.tema) store.tema='claro';
+  store.version=SCHEMA_VERSION;
+}
+/* aplica um objeto de dados vindo do Firebase ou do localStorage */
+function applyData(d){
+  if(!validateStore(d)) return false;
+  Object.assign(store, d);
+  normalizeStore();
+  return true;
+}
+
+function mirrorLocal(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(store)); }catch(e){} }
+function hydrateLocal(){
+  try{ const raw=localStorage.getItem(LS_KEY);
+    if(raw){ const d=JSON.parse(raw); if(applyData(d)) return true; } }catch(e){}
+  return false;
+}
+
+/* save principal: espelha local sempre; escreve no Firebase se autenticado */
 function save(){
-  db.ref('meu_planner').set(store);
+  normalizeStore();
+  mirrorLocal();
+  if(authReady){
+    lastPushedJSON = JSON.stringify(store);
+    db.ref(ROOT).set(store).catch(err=>{ console.error('save falhou',err); toast('Sem conexão — salvo localmente'); });
+  }
+}
+/* write granular para o toggle de hábito (operação mais frequente) */
+function saveHabitDay(iso){
+  normalizeStore();
+  mirrorLocal();
+  if(authReady){
+    lastPushedJSON=''; // este write é parcial; não suprimir o eco do sync
+    db.ref(ROOT+'/habitLog/'+iso).set(store.habitLog[iso]||null)
+      .catch(err=>{ console.error(err); toast('Sem conexão — salvo localmente'); });
+  }
+}
+
+/* ---- Auth anônimo + sincronização ao vivo ---- */
+function initAuth(){
+  firebase.auth().onAuthStateChanged(user=>{
+    if(user){ authReady=true; attachSync(); }
+  });
+  firebase.auth().signInAnonymously().catch(err=>{
+    authReady=false;
+    console.error('Auth anônimo falhou:', err.code, err.message);
+    if(err.code==='auth/operation-not-allowed'){
+      toast('Ative o login Anônimo no Firebase (Authentication → Sign-in method)');
+    }else if(err.code==='auth/configuration-not-found'){
+      toast('Habilite Authentication no console do Firebase');
+    }else{
+      toast('Rodando offline (sem sincronização)');
+    }
+  });
+}
+function attachSync(){
+  if(syncAttached) return; syncAttached=true;
+  db.ref(ROOT).on('value', snap=>{
+    const d=snap.val();
+    if(d==null){ save(); return; }               // banco vazio: sobe o estado inicial
+    const incoming=JSON.stringify(d);
+    if(incoming===lastPushedJSON) return;         // eco do nosso próprio set
+    if(incoming===JSON.stringify(store)) return;  // nada mudou de fato
+    if(!applyData(d)) return;                      // ignora payload inválido
+    mirrorLocal();
+    if(document.querySelector('.modal-bg')){ pendingRerender=true; } // não destrói modal aberto
+    else { aplicarTema(); renderNav(); renderCurrent(); renderTimerWidget(); }
+  }, err=>{
+    console.error('Sync falhou:', err.code||err);
+    if((err.code||'').includes('permission')) toast('Regras do Firebase bloqueando — confira as rules');
+  });
 }
 
 function load(){
-  db.ref('meu_planner').once('value').then((snapshot) => {
-    const d = snapshot.val();
-    if(d){
-      Object.assign(store, d);
-      if(!store.grade) store.grade=DEFAULT_GRADE.map(g=>({...g}));
-      if(!store.habitos) store.habitos=DEFAULT_HABITOS.map(x=>({...x}));
-      if(!store.habitLog) store.habitLog={};
-      if(store.metaSemanal==null) store.metaSemanal=20;
-      if(!store.metasArea) store.metasArea={};
-      if(!store.tema) store.tema='claro';
-    }
-    aplicarTema();
-    renderNav();
-    go('dashboard');
-  }).catch((error) => {
-    console.error("Erro ao carregar dados:", error);
-    aplicarTema();
-    renderNav();
-    go('dashboard');
-  });
+  hydrateLocal();          // pinta a UI instantaneamente (funciona offline)
+  aplicarTema();
+  renderNav();
+  go('dashboard');
+  initAuth();              // conecta o Firebase e passa a sincronizar ao vivo
+  setTimeout(checkDeadlineAlerts, 1200);
 }
 
 function aplicarTema(){document.documentElement.setAttribute('data-tema',store.tema||'claro');}
@@ -431,7 +528,7 @@ function timerStop(){
   const data=start.getFullYear()+'-'+pad(start.getMonth()+1)+'-'+pad(start.getDate());
   const ini=pad(start.getHours())+':'+pad(start.getMinutes());
   const fim=pad(end.getHours())+':'+pad(end.getMinutes());
-  const prefill={area:timerState.area,atividade:timerState.atividade,data,ini,fim};
+  const prefill={area:timerState.area,atividade:timerState.atividade,data,ini,fim,origem:'timer'};
   clearInterval(timerIntervalId);
   timerState={running:false,area:prefill.area,atividade:'',origStart:null,segStart:null,accumMs:0};
   saveTimerState(); timerPanelOpen=false; renderTimerWidget();
@@ -528,7 +625,8 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1900);}
 function modal(html){document.getElementById('modalRoot').innerHTML=
   `<div class="modal-bg"><div class="modal">${html}</div></div>`;}
-function closeModal(){document.getElementById('modalRoot').innerHTML='';}
+function closeModal(){document.getElementById('modalRoot').innerHTML='';
+  if(pendingRerender){pendingRerender=false;aplicarTema();renderNav();renderCurrent();}}
 function h(s){return(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function areaOptions(sel,includeTre=true){return AREAS.filter(a=>includeTre||a.conta)
   .map(a=>`<option value="${a.id}" ${a.id===sel?'selected':''}>${a.nome}</option>`).join('');}
@@ -563,9 +661,11 @@ function toggleSidebar(force){
   const openNow = force!==undefined ? force : !sb.classList.contains('open');
   sb.classList.toggle('open',openNow); ov.classList.toggle('show',openNow);
 }
+const VIEWS={dashboard:vDashboard,calendario:vCalendario,pendencias:vPendencias,
+  habitos:vHabitos,diarios:vDiarios,grade:vGrade,unitins:vUnitins,analytics:vAnalytics};
+function renderCurrent(){ (VIEWS[current]||vDashboard)(); } // re-render sem scroll/side-effects
 function go(id){current=id;renderNav();toggleSidebar(false);
-  window.scrollTo(0,0);({dashboard:vDashboard,calendario:vCalendario,pendencias:vPendencias,
-   habitos:vHabitos,diarios:vDiarios,grade:vGrade,unitins:vUnitins,analytics:vAnalytics}[id])();}
+  window.scrollTo(0,0);(VIEWS[id]||vDashboard)();}
 
 /* ---------------- Views ---------------- */
 function metaSemanalCard(){
@@ -642,6 +742,13 @@ function vDashboard(){
         <div class="li-body"><div class="t">${h(a.nome)}</div>
         <div class="m"><span class="pill red">${a.tipo}</span> venceu em ${fmtBR(a.prazo)}</div></div></div>`).join('')}
     </div>`:''}
+    ${(()=>{const vb=upcomingDeadlines().filter(it=>it.d>=0);return vb.length?`<div class="card" style="margin-bottom:20px;border:1px solid var(--amber);background:var(--amber-soft)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:18px">⏳</span><h3 style="color:var(--amber)">Vence em breve — próximos 3 dias (${vb.length})</h3></div>
+      ${vb.map(it=>`<div class="list-item">
+        <div class="li-body"><div class="t">${h(it.nome)}</div>
+        <div class="m"><span class="pill ${it.d<=1?'red':'amber'}">${it.tipo}</span> ${labelPrazo(it.d)} · ${fmtBR(it.prazo)}</div></div></div>`).join('')}
+    </div>`:'';})()}
     <div class="stat-row" style="margin-bottom:20px">
       <div class="stat"><b>${fmtDur(hEstHoje)}</b><span>estudadas hoje</span></div>
       <div class="stat"><b>🔥 ${streak}</b><span>${streak===1?'dia seguido':'dias seguidos'}</span></div>
@@ -668,7 +775,7 @@ function vDashboard(){
     <div class="row" style="margin-top:18px">
       <div class="card" style="flex:1;min-width:280px">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><h3>Hábitos de hoje</h3><div class="h-sub" style="margin-bottom:0">${habitDoneToday()} de ${store.habitos.length} · toque para marcar</div></div>
+          <div><h3>Hábitos de hoje</h3><div class="h-sub" style="margin-bottom:0">Toque no que você fez · sem meta diária</div></div>
           <button class="btn sm line" onclick="go('habitos')">Ver tudo</button>
         </div>
         <div style="margin-top:12px">${dashHabitChips()}</div>
@@ -823,8 +930,8 @@ function mNovaSessao(areaSel='',editId=null,prefill=null){
   const iniVal = ed?ed.ini:(prefill?prefill.ini:'');
   const fimVal = ed?ed.fim:(prefill?prefill.fim:'');
   const obsVal = ed?(ed.obs||''):(prefill?(prefill.obs||''):'');
-  modal(`<h3>${ed?'Editar sessão':prefill?'Salvar sessão do cronômetro':'Nova sessão de estudo'}</h3>
-  ${prefill?`<div class="pill purple" style="margin-bottom:14px">⏱ Tempo cronometrado: ${fmtDur(durH(iniVal,fimVal))}</div>`:''}
+  modal(`<h3>${ed?'Editar sessão':(prefill&&prefill.origem==='timer')?'Salvar sessão do cronômetro':'Nova sessão de estudo'}</h3>
+  ${(prefill&&prefill.origem==='timer')?`<div class="pill purple" style="margin-bottom:14px">⏱ Tempo cronometrado: ${fmtDur(durH(iniVal,fimVal))}</div>`:''}
   <div class="field"><label>Área</label><select id="sa" onchange="refreshHistChips(this.value)">${areaOptions(areaEff)}</select></div>
   <div class="field"><label>Atividade</label><input id="sat" placeholder="Ex: Busuu, BBC, Aula 04 de Cálculo" value="${h(atividadeVal)}">
     ${rec.length?`<div style="font-size:11px;color:var(--faint);margin:7px 0 4px" id="histLabel">Últimas atividades desta área (toque para reaproveitar):</div>`:`<div style="font-size:11px;color:var(--faint);margin:7px 0 4px;display:none" id="histLabel">Últimas atividades desta área (toque para reaproveitar):</div>`}${chips||'<div class="hist-chips" id="histChips"></div>'}</div>
@@ -852,25 +959,82 @@ function addLog(editId=null){const area=document.getElementById('sa').value,ini=
   if(current==='diarios')vDiarios();else if(current==='dashboard')vDashboard();}
 
 function vGrade(){
+  const adh=gradeAdherence();
+  const hoje=todayISO();
+  const aColor=adh.pct>=70?'var(--green)':adh.pct>=40?'var(--amber)':'var(--rose)';
   document.getElementById('view').innerHTML=`
     <div class="page-title">grade semanal</div>
-    <div class="page-sub">Sua rotina de estudos, dia a dia — edite à vontade: adicione, altere ou remova blocos. Ela é o modelo da semana e não conta horas sozinha. Use "Registrar" para lançar rapidamente uma sessão no Diário.</div>
+    <div class="page-sub">Sua rotina de estudos, dia a dia — edite à vontade. Cada bloco de estudo vira um botão "Registrar hoje" que lança a sessão no Diário com o horário já preenchido, num toque.</div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div><h3>Aderência da semana</h3><div class="h-sub" style="margin-bottom:0">Blocos de estudo já cumpridos nesta semana (só conta até hoje)</div></div>
+        <span style="font-family:var(--serif);font-size:30px;font-weight:600;color:${aColor}">${adh.pct}%</span>
+      </div>
+      <div class="progress" style="height:10px"><i style="width:${adh.pct}%;background:${aColor}"></i></div>
+      <div class="h-sub" style="margin-top:8px;margin-bottom:0">${adh.done} de ${adh.total} blocos cumpridos · TRE não entra</div>
+    </div>
     <div style="display:flex;margin-bottom:16px"><button class="btn sm" style="margin-left:auto" onclick="mBloco()">+ Novo bloco</button></div>
     ${DIAS.map(d=>{const blocos=store.grade.filter(g=>g.dia===d).sort((a,b)=>gradeStartMin(a.horario)-gradeStartMin(b.horario));
       return `<div class="card" style="margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <h3>${d}</h3><button class="btn sm line" onclick="mBloco(null,'${d}')">+ Adicionar em ${d}</button></div>
-        ${blocos.length?blocos.map(g=>`<div class="list-item">
+        ${blocos.length?blocos.map(g=>{const conta=areaById(g.area).conta;const ft=conta&&gradeFulfilledOn(g,hoje);
+          return `<div class="list-item">
           <span class="tag-dot" style="background:${areaById(g.area).cor}"></span>
           <div class="li-body"><div class="t">${h(g.atividade)}</div><div class="m">${h(g.horario)} · ${areaById(g.area).nome}</div></div>
-          ${areaById(g.area).conta?`<button class="btn sm line" onclick="regFromGrade('${g.area}','${h(g.atividade)}')">Registrar</button>`:'<span class="pill gray">não conta</span>'}
+          ${conta?(ft?`<span class="pill green">✓ hoje</span>`:`<button class="btn sm line" onclick="cumprirBloco('${g.id}')">Registrar hoje</button>`)
+                 :'<span class="pill gray">não conta</span>'}
           <button class="icon-btn" onclick="mBloco('${g.id}')" title="Editar">✎</button>
           <button class="icon-btn" onclick="delBloco('${g.id}')" title="Excluir">✕</button>
-        </div>`).join(''):'<div class="empty" style="padding:16px">Sem blocos neste dia.</div>'}
+        </div>`;}).join(''):'<div class="empty" style="padding:16px">Sem blocos neste dia.</div>'}
       </div>`;}).join('')}`;
 }
 function gradeStartMin(hor){const m=hor.match(/(\d{1,2})h(\d{0,2})/);if(!m)return 9999;return parseInt(m[1])*60+(m[2]?parseInt(m[2]):0);}
-function regFromGrade(area,ativ){mNovaSessao(area);setTimeout(()=>{document.getElementById('sat').value=ativ;},60);}
+function parseGradeTime(hor){
+  const m=String(hor).match(/(\d{1,2})h(\d{0,2})\s*[-–]\s*(\d{1,2})h(\d{0,2})/);
+  if(!m)return null;
+  const p=(hh,mm)=>String(hh).padStart(2,'0')+':'+String(mm||'00').padStart(2,'0');
+  return {ini:p(m[1],m[2]), fim:p(m[3],m[4])};
+}
+function overlapMin(aIni,aFim,bIni,bFim){
+  const t=s=>{const[hh,mm]=s.split(':').map(Number);return hh*60+mm;};
+  let a1=t(aIni),a2=t(aFim),b1=t(bIni),b2=t(bFim);
+  if(a2<a1)a2+=1440; if(b2<b1)b2+=1440;
+  return Math.max(0, Math.min(a2,b2)-Math.max(a1,b1));
+}
+function gradeFulfilledOn(g,iso){
+  const t=parseGradeTime(g.horario);
+  return store.logs.some(l=>{
+    if(l.area!==g.area||l.data!==iso)return false;
+    if(!t)return true;
+    return overlapMin(t.ini,t.fim,l.ini,l.fim)>0;
+  });
+}
+function gradeAdherence(){
+  const mon=anMonday(0), hoje=todayISO(); let done=0,total=0;
+  store.grade.forEach(g=>{
+    if(!areaById(g.area).conta)return;
+    const di=DIAS.indexOf(g.dia); if(di<0)return;
+    const dt=new Date(mon); dt.setDate(dt.getDate()+di); const iso=localISO(dt);
+    if(iso>hoje)return;
+    total++; if(gradeFulfilledOn(g,iso))done++;
+  });
+  return {done,total,pct: total?Math.round(done/total*100):0};
+}
+function cumprirBloco(id){
+  const g=store.grade.find(x=>x.id===id); if(!g)return;
+  const iso=todayISO();
+  if(gradeFulfilledOn(g,iso)){toast('Este bloco já está no Diário de hoje');return;}
+  const t=parseGradeTime(g.horario);
+  if(!t){ regFromGrade(id); return; }
+  store.logs.push({id:uid(),area:g.area,atividade:g.atividade,data:iso,ini:t.ini,fim:t.fim,obs:''});
+  save(); vGrade(); toast('✓ Registrado no Diário ('+fmtDur(durH(t.ini,t.fim))+')');
+}
+function regFromGrade(id){
+  const g=store.grade.find(x=>x.id===id); if(!g)return;
+  const t=parseGradeTime(g.horario);
+  mNovaSessao(g.area,null,{area:g.area,atividade:g.atividade,data:todayISO(),ini:t?t.ini:'',fim:t?t.fim:''});
+}
 function mBloco(id=null,diaSel=''){
   const b = id ? store.grade.find(g=>g.id===id) : null;
   modal(`<h3>${b?'Editar bloco':'Novo bloco'}</h3>
@@ -985,6 +1149,36 @@ function addEntreg(){const n=document.getElementById('een').value.trim();if(!n)r
 function delEntreg(id){store.entregaveis=store.entregaveis.filter(e=>e.id!==id);save();vUnitins();}
 function setEntregStatus(id,status){const e=store.entregaveis.find(x=>x.id===id);if(!e)return;e.status=status;save();vUnitins();toast('Status atualizado');}
 
+function studyHeatmap(){
+  const START='2026-07-11', END='2026-12-06';
+  const s=new Date(START+'T12:00'); s.setDate(s.getDate()-((s.getDay()+6)%7)); // segunda <= START
+  const end=new Date(END+'T12:00');
+  const cols=[]; let cur=new Date(s);
+  while(cur<=end){const week=[];for(let i=0;i<7;i++){const d=new Date(cur);d.setDate(d.getDate()+i);week.push(localISO(d));}cols.push(week);cur.setDate(cur.getDate()+7);}
+  const colorOf=lv=>['transparent','rgba(124,58,237,.28)','rgba(124,58,237,.52)','rgba(124,58,237,.74)','rgba(124,58,237,1)'][lv];
+  const shade=hh=>hh<=0?0:hh<1?1:hh<2?2:hh<3?3:4;
+  const inRange=iso=>iso>=START&&iso<=END;
+  const hoje=todayISO();
+  const mAbbr=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  let prevM=-1;
+  const monthRow=cols.map(week=>{const m=new Date(week[0]+'T12:00').getMonth();let lbl='';
+    if(m!==prevM){lbl=mAbbr[m];prevM=m;}return `<div class="hm-mcol">${lbl}</div>`;}).join('');
+  const grid=cols.map(week=>`<div class="hm-col">${week.map(iso=>{
+      if(!inRange(iso))return `<div class="hm-cell out"></div>`;
+      const hh=hoursOnDay(iso),lv=shade(hh);
+      return `<div class="hm-cell${iso===hoje?' hm-today':''}" title="${fmtBR(iso)} · ${hh>0?fmtDur(hh):'sem estudo'}" style="background:${colorOf(lv)};${lv?'border-color:transparent':''}"></div>`;
+    }).join('')}</div>`).join('');
+  const wd=['S','T','Q','Q','S','S','D'];
+  const legenda=`<div class="hm-legend">menos ${[0,1,2,3,4].map(l=>`<span class="sq" style="background:${colorOf(l)};${l?'border-color:transparent':''}"></span>`).join('')} mais · cada quadrado = 1 dia</div>`;
+  return `<div class="hm-wrap"><div style="display:flex;gap:6px">
+      <div class="hm-wd">${wd.map(x=>`<span>${x}</span>`).join('')}</div>
+      <div style="min-width:0"><div class="hm-row hm-months">${monthRow}</div><div class="hm-row">${grid}</div></div>
+    </div>${legenda}</div>`;
+}
+let anWeekOffset=0;
+function anMonday(offset){const d=new Date();const day=(d.getDay()+6)%7;d.setHours(0,0,0,0);d.setDate(d.getDate()-day+offset*7);return d;}
+function hoursOnDay(iso){return countableLogs().filter(l=>l.data===iso).reduce((s,l)=>s+durH(l.ini,l.fim),0);}
+function anNavWeek(delta){anWeekOffset+=delta;vAnalytics();}
 function vAnalytics(){
   const bySem=hoursBy(l=>weekKey(l.data));
   const byMes=hoursBy(l=>monthKey(l.data));
@@ -996,17 +1190,52 @@ function vAnalytics(){
   const maxMes=Math.max(1,...Object.values(byMes));
   const areasComH=AREAS.filter(a=>a.conta);
   const maxArea=Math.max(1,...areasComH.map(a=>byArea[a.id]||0));
+  // horas por dia da semana selecionada
+  const mon=anMonday(anWeekOffset);
+  const abbr=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+  const semDias=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(d.getDate()+i);semDias.push(localISO(d));}
+  const horasDia=semDias.map(hoursOnDay);
+  const maxDia=Math.max(1,...horasDia);
+  const totalSemana=horasDia.reduce((a,b)=>a+b,0);
+  const diasEstudados=horasDia.filter(x=>x>0).length;
+  const mediaDia=diasEstudados?totalSemana/diasEstudados:0;
+  const hojeIso=todayISO();
+  const labelRange=fmtBR(semDias[0]).slice(0,5)+' – '+fmtBR(semDias[6]).slice(0,5);
+  const dayBars=semDias.map((iso,i)=>{const v=horasDia[i];const isToday=iso===hojeIso;
+    return `<div class="bar-row"><div class="lbl" style="${isToday?'font-weight:700;color:var(--purple)':''}">${abbr[i]} ${fmtBR(iso).slice(0,5)}</div>
+      <div class="bar-track"><i style="width:${Math.round(v/maxDia*100)}%;background:${isToday?'var(--rose)':'var(--purple)'}"></i></div>
+      <div class="val">${v>0?fmtDur(v):'—'}</div></div>`;}).join('');
   const barSet=(entries,max,colorFn,lblFn)=> entries.length? entries.map(([k,v])=>`
     <div class="bar-row"><div class="lbl">${lblFn(k)}</div>
     <div class="bar-track"><i style="width:${Math.round(v/max*100)}%;background:${colorFn(k)}"></i></div>
     <div class="val">${fmtDur(v)}</div></div>`).join('') : '<div class="empty">Sem dados ainda.</div>';
   document.getElementById('view').innerHTML=`
     <div class="page-title">analytics</div>
-    <div class="page-sub">Horas estudadas por semana, mês e área. O TRE fica de fora de todos os cálculos.</div>
+    <div class="page-sub">Horas estudadas por dia, semana, mês e área. O TRE fica de fora de todos os cálculos, sempre.</div>
     <div class="stat-row" style="margin-bottom:20px">
       <div class="stat"><b>${fmtDur(total)}</b><span>total estudadas</span></div>
       <div class="stat"><b>${fmtDur(hoursThisWeek())}</b><span>esta semana</span></div>
       <div class="stat"><b>${countableLogs().length}</b><span>sessões registradas</span></div>
+    </div>
+    <div class="card" style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        <div><h3>Horas por dia</h3><div class="h-sub" style="margin-bottom:0">Distribuição do estudo na semana (Seg–Dom)</div></div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          <button class="btn line sm" onclick="anNavWeek(-1)">‹</button>
+          <b style="font-size:13px;min-width:112px;text-align:center">${labelRange}${anWeekOffset===0?' · atual':''}</b>
+          <button class="btn line sm" onclick="anNavWeek(1)">›</button>
+        </div>
+      </div>
+      <div class="bars">${dayBars}</div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)">
+        <span>Total da semana: <b style="color:var(--ink)">${fmtDur(totalSemana)}</b></span>
+        <span>Média por dia estudado: <b style="color:var(--ink)">${fmtDur(mediaDia)}</b></span>
+        <span>Dias com estudo: <b style="color:var(--ink)">${diasEstudados}/7</b></span>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:18px">
+      <h3>Mapa do período · 11/07 → 06/12/2026</h3><div class="h-sub">Intensidade de estudo por dia — encontre as quedas de consistência num relance</div>
+      ${studyHeatmap()}
     </div>
     <div class="card" style="margin-bottom:18px"><h3>Horas por área</h3><div class="h-sub">Comparativo geral entre as áreas</div>
       <div class="bars">${barSet(areasComH.map(a=>[a.id,byArea[a.id]||0]),maxArea,k=>areaById(k).cor,k=>areaById(k).nome)}</div></div>
@@ -1032,7 +1261,7 @@ function toggleHabito(id,iso){
   if(store.habitLog[iso][id]){delete store.habitLog[iso][id];
     if(!Object.keys(store.habitLog[iso]).length)delete store.habitLog[iso];}
   else store.habitLog[iso][id]=true;
-  save();
+  saveHabitDay(iso);
   if(current==='habitos')vHabitos(); else if(current==='dashboard')vDashboard();
 }
 function habitStreak(id){
@@ -1045,6 +1274,25 @@ function habitRate(id,days){let done=0;const d=new Date();
   for(let i=0;i<days;i++){if(habitDone(id,localISO(d)))done++;d.setDate(d.getDate()-1);}
   return Math.round(done/days*100);}
 function habitDoneToday(){const t=todayISO();return store.habitos.filter(hb=>habitDone(hb.id,t)).length;}
+function habitYearCount(id,ano){ano=ano||new Date().getFullYear();const y=String(ano);
+  const hb=store.habitos.find(x=>x.id===id);
+  if(hb&&hb.auto){const set=new Set(countableLogs().filter(l=>l.data.startsWith(y)).map(l=>l.data));return set.size;}
+  return Object.keys(store.habitLog).filter(iso=>iso.startsWith(y)&&store.habitLog[iso]&&store.habitLog[iso][id]).length;}
+function habitYearBestStreak(id,ano){ano=ano||new Date().getFullYear();const y=String(ano);
+  // maior sequência de dias consecutivos com o hábito feito dentro do ano
+  const dias=new Set();
+  const hb=store.habitos.find(x=>x.id===id);
+  if(hb&&hb.auto){countableLogs().filter(l=>l.data.startsWith(y)).forEach(l=>dias.add(l.data));}
+  else{Object.keys(store.habitLog).forEach(iso=>{if(iso.startsWith(y)&&store.habitLog[iso]&&store.habitLog[iso][id])dias.add(iso);});}
+  if(!dias.size)return 0;
+  const sorted=[...dias].sort();let best=1,cur=1;
+  for(let i=1;i<sorted.length;i++){const prev=new Date(sorted[i-1]+'T12:00');prev.setDate(prev.getDate()+1);
+    if(localISO(prev)===sorted[i]){cur++;best=Math.max(best,cur);}else cur=1;}
+  return best;}
+function diasAtivosAno(ano){ano=ano||new Date().getFullYear();const y=String(ano);const set=new Set();
+  Object.keys(store.habitLog).forEach(iso=>{if(iso.startsWith(y)&&store.habitLog[iso]&&Object.keys(store.habitLog[iso]).length)set.add(iso);});
+  countableLogs().filter(l=>l.data.startsWith(y)).forEach(l=>set.add(l.data));
+  return set.size;}
 
 function dashHabitChips(){
   if(!store.habitos.length)return '<div class="empty" style="padding:14px">Nenhum hábito ainda. <button class="btn sm ghost" onclick="go(\'habitos\')">Criar</button></div>';
@@ -1057,13 +1305,14 @@ function dashHabitChips(){
 
 function vHabitos(){
   const total=store.habitos.length;
-  const feitosHoje=habitDoneToday();
-  const pct=total?Math.round(feitosHoje/total*100):0;
   const dias7=lastDays(7);
   const hoje=todayISO();
+  const ano=new Date().getFullYear();
   const melhorStreak=store.habitos.reduce((mx,hb)=>Math.max(mx,habitStreak(hb.id)),0);
+  const marcAno=store.habitos.reduce((s,hb)=>s+habitYearCount(hb.id,ano),0);
+  const ativosAno=diasAtivosAno(ano);
 
-  // rows de marcação de hoje
+  // rows de marcação (toque quando fizer — sem obrigação diária)
   const rowsHoje=store.habitos.map(hb=>{const on=habitDone(hb.id,hoje);
     return `<div class="habit-toggle ${hb.auto?'auto':''}" ${hb.auto?'':`onclick="toggleHabito('${hb.id}')"`}
       style="${on?`background:${hb.cor}18;border-color:${hb.cor}55`:''}">
@@ -1072,7 +1321,7 @@ function vHabitos(){
       <div class="habit-mark" style="${on?`background:${hb.cor};border-color:${hb.cor}`:''}">${on?'✓':''}</div>
     </div>`;}).join('');
 
-  // estatísticas: streak + grade 7 dias clicável + taxa 30d
+  // consistência por hábito: grade 7 dias clicável + streak + taxa 30d + total no ano
   const stats=store.habitos.map(hb=>{
     const grid=dias7.map(iso=>{const on=habitDone(hb.id,iso);const isToday=iso===hoje;
       return `<div class="hg-col"><span class="wd">${weekdayLetter(iso)}</span>
@@ -1081,6 +1330,7 @@ function vHabitos(){
           style="${on?`background:${hb.cor}`:''}" title="${fmtBR(iso)}${hb.auto?' (automático)':''}">${on?'✓':''}</div>
       </div>`;}).join('');
     const st=habitStreak(hb.id), r30=habitRate(hb.id,30);
+    const yc=habitYearCount(hb.id,ano), ybs=habitYearBestStreak(hb.id,ano);
     const rColor=r30>=70?'green':r30>=40?'amber':'red';
     return `<div class="habit-stat">
       <div class="hs-name"><span class="tag-dot" style="background:${hb.cor}"></span>${hb.icon||''} ${h(hb.nome)}</div>
@@ -1088,30 +1338,30 @@ function vHabitos(){
       <div class="hs-metrics">
         <span class="pill ${st>0?'purple':'gray'}">🔥 ${st}d</span>
         <span class="pill ${rColor}">${r30}% · 30d</span>
-        ${hb.auto?'':`<button class="icon-btn" onclick="mHabito('${hb.id}')" title="Editar">✎</button>
-        <button class="icon-btn" onclick="delHabito('${hb.id}')" title="Excluir">✕</button>`}
-        ${hb.auto?`<button class="icon-btn" onclick="mHabito('${hb.id}')" title="Editar">✎</button>`:''}
+        <span class="pill blue" title="Vezes registradas em ${ano} · melhor sequência do ano: ${ybs} dias">📅 ${yc}× em ${ano}</span>
+        ${hb.auto?`<button class="icon-btn" onclick="mHabito('${hb.id}')" title="Editar">✎</button>`
+                 :`<button class="icon-btn" onclick="mHabito('${hb.id}')" title="Editar">✎</button>
+                   <button class="icon-btn" onclick="delHabito('${hb.id}')" title="Excluir">✕</button>`}
       </div>
     </div>`;}).join('');
 
   document.getElementById('view').innerHTML=`
-    <div class="page-title">hábitos do dia</div>
-    <div class="page-sub">Marque num toque — grava sozinho. A grade dos últimos 7 dias mostra onde você está falhando; clique em qualquer quadrado para corrigir um dia. "Estudo" é automático: conta como feito sempre que há sessão lançada no Diário.</div>
+    <div class="page-title">hábitos</div>
+    <div class="page-sub">Toque no que você fez — grava sozinho. Sem meta diária: marque só nos dias em que fizer. A grade dos últimos 7 dias é clicável para corrigir qualquer dia. "Estudo" é automático (vem do Diário de Bordo).</div>
     <div class="stat-row" style="margin-bottom:22px">
-      <div class="stat"><b>${pct}%</b><span>hoje · ${feitosHoje} de ${total}</span></div>
-      <div class="stat"><b>🔥 ${melhorStreak}</b><span>maior sequência</span></div>
-      <div class="stat"><b>${store.habitos.filter(hb=>habitRate(hb.id,7)>=70).length}/${total}</b><span>consistentes (7d)</span></div>
+      <div class="stat"><b>${marcAno}</b><span>marcações em ${ano}</span></div>
+      <div class="stat"><b>${ativosAno}</b><span>dias ativos em ${ano}</span></div>
+      <div class="stat"><b>🔥 ${melhorStreak}</b><span>maior sequência atual</span></div>
     </div>
-    <div class="progress" style="height:10px;margin:-8px 0 22px"><i style="width:${pct}%;background:${pct>=100?'var(--green)':'linear-gradient(90deg,var(--purple),var(--rose))'}"></i></div>
     <div style="display:flex;align-items:center;margin-bottom:14px">
-      <h3 style="font-size:16px">Marcar hoje</h3>
+      <h3 style="font-size:16px">Marcar</h3>
       <button class="btn sm" style="margin-left:auto" onclick="mHabito()">+ Novo hábito</button>
     </div>
     <div class="card" style="margin-bottom:20px">
       ${total?rowsHoje:'<div class="empty">Nenhum hábito cadastrado.<br><button class="btn sm ghost" style="margin-top:12px" onclick="mHabito()">Criar primeiro hábito</button></div>'}
     </div>
     ${total?`<div class="card">
-      <h3>Últimos 7 dias & consistência</h3><div class="h-sub">Streak atual e taxa dos últimos 30 dias por hábito</div>
+      <h3>Últimos 7 dias & consistência</h3><div class="h-sub">Streak atual, taxa de 30 dias e total acumulado em ${ano} por hábito</div>
       ${stats}
     </div>`:''}`;
 }
@@ -1153,13 +1403,58 @@ function delHabito(id){
   save();vHabitos();toast('Hábito excluído');
 }
 
+/* ---------------- Alertas de prazo ---------------- */
+function daysUntil(iso){return Math.ceil((new Date(iso+'T00:00')-new Date(todayISO()+'T00:00'))/86400000);}
+function upcomingDeadlines(){
+  const out=[];
+  store.entregaveis.forEach(e=>{ if(e.status==='Entregue'||!e.prazo)return; const d=daysUntil(e.prazo);
+    if(d<=3) out.push({tipo:'Entregável',id:'e'+e.id,nome:e.nome,prazo:e.prazo,d,mat:materiaNome(e.materia)}); });
+  store.pendencias.forEach(p=>{ if(p.done||!p.prazo)return; const d=daysUntil(p.prazo);
+    if(d<=3) out.push({tipo:'Pendência',id:'p'+p.id,nome:p.nome,prazo:p.prazo,d}); });
+  return out.sort((a,b)=>a.d-b.d);
+}
+function labelPrazo(d){return d<0?`atrasado ${-d}d`:d===0?'vence hoje':d===1?'vence amanhã':`vence em ${d} dias`;}
+function checkDeadlineAlerts(){
+  const items=upcomingDeadlines();
+  if(!items.length) return;
+  if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
+  const key='planner_notified_'+todayISO();
+  let already={}; try{already=JSON.parse(localStorage.getItem(key)||'{}');}catch(e){}
+  const novos=items.filter(it=>!already[it.id]);
+  novos.slice(0,5).forEach(it=>{
+    try{ new Notification('📌 '+it.nome,{body:`${it.tipo} · ${labelPrazo(it.d)} (${fmtBR(it.prazo)})`}); }catch(e){}
+    already[it.id]=1;
+  });
+  try{localStorage.setItem(key,JSON.stringify(already));}catch(e){}
+}
+function enableNotifs(){
+  if(typeof Notification==='undefined'){toast('Este navegador não suporta notificações');return;}
+  if(Notification.permission==='granted'){toast('Avisos já estão ativos');checkDeadlineAlerts();return;}
+  if(Notification.permission==='denied'){toast('Permissão bloqueada — libere nas configurações do navegador');return;}
+  Notification.requestPermission().then(p=>{
+    if(p==='granted'){toast('Avisos ativados ✓');checkDeadlineAlerts();}
+    else toast('Avisos não ativados');
+  });
+}
+
 /* ---------------- Export / Import ---------------- */
 function exportData(){const blob=new Blob([JSON.stringify(store,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='planner-estudos-backup-'+todayISO()+'.json';a.click();toast('Backup exportado');}
 function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
-  r.onload=e=>{try{const d=JSON.parse(e.target.result);Object.assign(store,d);save();go(current);toast('Dados importados');}
-  catch(err){toast('Arquivo inválido');}};r.readAsText(f);inp.value='';}
+  r.onload=e=>{
+    let d; try{ d=JSON.parse(e.target.result); }catch(err){ toast('Arquivo inválido (JSON malformado)'); inp.value=''; return; }
+    if(!validateStore(d)){ toast('Backup incompatível — estrutura inesperada'); inp.value=''; return; }
+    const resumo=`Isto vai SUBSTITUIR seus dados atuais por:\n`
+      +`• ${(d.logs||[]).length} sessões\n• ${(d.pendencias||[]).length} pendências\n`
+      +`• ${(d.materias||[]).length} matérias · ${(d.entregaveis||[]).length} entregáveis\n`
+      +`• ${(d.habitos||[]).length} hábitos\n\nContinuar?`;
+    if(!confirm(resumo)){ inp.value=''; return; }
+    if(applyData(d)){ save(); go(current); toast('Dados importados'); }
+    else toast('Falha ao aplicar o backup');
+    inp.value='';
+  };
+  r.readAsText(f);}
 
 /* ---------------- Boot ---------------- */
 load();
