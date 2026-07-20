@@ -175,6 +175,26 @@ tr:last-child td{border-bottom:none}
 .st-select{padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:12px;font-weight:600}
 .st-select:focus{outline:none;border-color:var(--purple-2)}
 .alert-late{border:1px solid var(--red);background:var(--red-soft)}
+/* Hábitos */
+.habit-toggle{display:flex;align-items:center;gap:14px;padding:13px 15px;border-radius:12px;border:1px solid var(--line);background:var(--card-2);margin-bottom:10px;cursor:pointer;transition:border-color .15s,background .15s}
+.habit-toggle:hover{border-color:var(--purple-2)}
+.habit-toggle.auto{cursor:default}
+.habit-ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.habit-name{flex:1;font-weight:600;font-size:15px;min-width:0}
+.habit-name small{display:block;font-weight:500;font-size:11px;color:var(--faint);margin-top:1px}
+.habit-mark{width:27px;height:27px;border-radius:50%;border:2px solid #cfc9da;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;flex-shrink:0;transition:.15s}
+.hg{display:flex;gap:5px;flex-wrap:wrap}
+.hg-col{display:flex;flex-direction:column;align-items:center;gap:3px}
+.hg-col .wd{font-size:9px;color:var(--faint);font-weight:600}
+.hg-cell{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:var(--card-2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--faint);cursor:pointer;transition:.12s}
+.hg-cell.today{box-shadow:0 0 0 2px var(--purple-soft)}
+.hg-cell.on{border-color:transparent;color:#fff}
+.hg-cell.ro{cursor:default}
+.habit-stat{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:14px 4px;border-bottom:1px solid var(--line)}
+.habit-stat:last-child{border-bottom:none}
+.habit-stat .hs-name{width:130px;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.habit-stat .hs-metrics{display:flex;gap:8px;margin-left:auto;align-items:center}
+@media(max-width:640px){.habit-stat .hs-metrics{margin-left:0;width:100%}}
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(10,8,14,.45);z-index:55}
 .sidebar-overlay.show{display:block}
 @media(max-width:820px){
@@ -268,6 +288,13 @@ const DEFAULT_GRADE = [
 ].map((r,i)=>({id:'g'+i,dia:r[0],horario:r[1],area:r[2],atividade:r[3]}));
 const DIAS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
 
+const DEFAULT_HABITOS = [
+  {id:'h_aerobico',   nome:'Aeróbico',   cor:'#378add', icon:'🏃'},
+  {id:'h_musculacao', nome:'Musculação', cor:'#db5c88', icon:'🏋️'},
+  {id:'h_leitura',    nome:'Leitura',    cor:'#ba7517', icon:'📖'},
+  {id:'h_estudo',     nome:'Estudo',     cor:'#7c3aed', icon:'📚', auto:true}, // derivado do Diário de Bordo
+];
+
 
 // === CONEXÃO FIREBASE ===
 const firebaseConfig = {
@@ -288,6 +315,8 @@ const db = firebase.database();
 const store = {
   logs:[], pendencias:[], materias:[], aulas:[], entregaveis:[],
   grade: DEFAULT_GRADE.map(g=>({...g})),
+  habitos: DEFAULT_HABITOS.map(x=>({...x})),
+  habitLog: {}, // { 'YYYY-MM-DD': { habitId: true } } — grava só o que foi feito
   metaSemanal: 20,
   metasArea: {}, 
   tema: 'claro',
@@ -303,6 +332,8 @@ function load(){
     if(d){
       Object.assign(store, d);
       if(!store.grade) store.grade=DEFAULT_GRADE.map(g=>({...g}));
+      if(!store.habitos) store.habitos=DEFAULT_HABITOS.map(x=>({...x}));
+      if(!store.habitLog) store.habitLog={};
       if(store.metaSemanal==null) store.metaSemanal=20;
       if(!store.metasArea) store.metasArea={};
       if(!store.tema) store.tema='claro';
@@ -452,7 +483,10 @@ function renderTimerWidget(){
 }
 
 /* ---------------- Date helpers ---------------- */
-const todayISO = ()=> new Date().toISOString().slice(0,10);
+function localISO(d=new Date()){const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+const todayISO = ()=> localISO(); // data LOCAL (corrige rollover de fuso à noite em UTC-3)
+function lastDays(n){const out=[];const d=new Date();for(let i=0;i<n;i++){out.push(localISO(d));d.setDate(d.getDate()-1);}return out.reverse();}
+function weekdayLetter(iso){return ['D','S','T','Q','Q','S','S'][new Date(iso+'T12:00').getDay()];}
 function weekKey(iso){const d=new Date(iso+'T00:00');const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);
   const t=new Date(d.getFullYear(),0,1);const w=Math.ceil(((d-t)/86400000+1)/7);return d.getFullYear()+'-S'+String(w).padStart(2,'0');}
 function monthKey(iso){return iso.slice(0,7);}
@@ -506,6 +540,7 @@ const NAV=[
   {id:'dashboard',ic:'▦',nome:'Dashboard'},
   {id:'calendario',ic:'▤',nome:'Calendário'},
   {id:'pendencias',ic:'◔',nome:'Pendências'},
+  {id:'habitos',ic:'✓',nome:'Hábitos'},
   {g:'Estudos'},
   {id:'diarios',ic:'✎',nome:'Diários de Bordo'},
   {id:'grade',ic:'▥',nome:'Grade Semanal'},
@@ -530,7 +565,7 @@ function toggleSidebar(force){
 }
 function go(id){current=id;renderNav();toggleSidebar(false);
   window.scrollTo(0,0);({dashboard:vDashboard,calendario:vCalendario,pendencias:vPendencias,
-   diarios:vDiarios,grade:vGrade,unitins:vUnitins,analytics:vAnalytics}[id])();}
+   habitos:vHabitos,diarios:vDiarios,grade:vGrade,unitins:vUnitins,analytics:vAnalytics}[id])();}
 
 /* ---------------- Views ---------------- */
 function metaSemanalCard(){
@@ -631,7 +666,14 @@ function vDashboard(){
       </div>
     </div>
     <div class="row" style="margin-top:18px">
-      <div class="card" style="flex:1"><h3>Ações rápidas</h3><div class="h-sub">Adicione sem sair daqui</div>
+      <div class="card" style="flex:1;min-width:280px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><h3>Hábitos de hoje</h3><div class="h-sub" style="margin-bottom:0">${habitDoneToday()} de ${store.habitos.length} · toque para marcar</div></div>
+          <button class="btn sm line" onclick="go('habitos')">Ver tudo</button>
+        </div>
+        <div style="margin-top:12px">${dashHabitChips()}</div>
+      </div>
+      <div class="card" style="flex:1;min-width:280px"><h3>Ações rápidas</h3><div class="h-sub">Adicione sem sair daqui</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn" onclick="mNovaSessao()">+ Nova sessão</button>
           <button class="btn ghost" onclick="mPendencia()">+ Nova pendência</button>
@@ -974,6 +1016,141 @@ function vAnalytics(){
       <div class="card" style="flex:1;min-width:320px"><h3>Horas por mês</h3><div class="h-sub">Evolução mensal</div>
         <div class="bars">${barSet(meses.map(k=>[k,byMes[k]]),maxMes,()=>'var(--rose)',k=>k)}</div></div>
     </div>`;
+}
+
+/* ---------------- Hábitos ---------------- */
+function habitDone(id,iso){
+  const hb=store.habitos.find(x=>x.id===id);
+  if(hb&&hb.auto) return countableLogs().some(l=>l.data===iso); // "Estudo" vem do Diário
+  return !!(store.habitLog[iso]&&store.habitLog[iso][id]);
+}
+function toggleHabito(id,iso){
+  iso=iso||todayISO();
+  const hb=store.habitos.find(x=>x.id===id); if(!hb)return;
+  if(hb.auto){toast(hb.nome+' é automático — vem do Diário de Bordo');return;}
+  if(!store.habitLog[iso])store.habitLog[iso]={};
+  if(store.habitLog[iso][id]){delete store.habitLog[iso][id];
+    if(!Object.keys(store.habitLog[iso]).length)delete store.habitLog[iso];}
+  else store.habitLog[iso][id]=true;
+  save();
+  if(current==='habitos')vHabitos(); else if(current==='dashboard')vDashboard();
+}
+function habitStreak(id){
+  let s=0;const d=new Date();
+  if(!habitDone(id,localISO(d)))d.setDate(d.getDate()-1); // hoje ainda pendente não zera o streak
+  while(habitDone(id,localISO(d))){s++;d.setDate(d.getDate()-1);}
+  return s;
+}
+function habitRate(id,days){let done=0;const d=new Date();
+  for(let i=0;i<days;i++){if(habitDone(id,localISO(d)))done++;d.setDate(d.getDate()-1);}
+  return Math.round(done/days*100);}
+function habitDoneToday(){const t=todayISO();return store.habitos.filter(hb=>habitDone(hb.id,t)).length;}
+
+function dashHabitChips(){
+  if(!store.habitos.length)return '<div class="empty" style="padding:14px">Nenhum hábito ainda. <button class="btn sm ghost" onclick="go(\'habitos\')">Criar</button></div>';
+  const t=todayISO();
+  return `<div class="hist-chips">`+store.habitos.map(hb=>{const on=habitDone(hb.id,t);
+    return `<button class="chip" onclick="toggleHabito('${hb.id}')" title="${hb.auto?'Automático (Diário de Bordo)':'Marcar/desmarcar'}"
+      style="${on?`background:${hb.cor}22;color:${hb.cor}`:'background:var(--card-2);color:var(--muted);border:1px solid var(--line)'}">
+      ${hb.icon||''} ${h(hb.nome)} ${on?'✓':''}</button>`;}).join('')+`</div>`;
+}
+
+function vHabitos(){
+  const total=store.habitos.length;
+  const feitosHoje=habitDoneToday();
+  const pct=total?Math.round(feitosHoje/total*100):0;
+  const dias7=lastDays(7);
+  const hoje=todayISO();
+  const melhorStreak=store.habitos.reduce((mx,hb)=>Math.max(mx,habitStreak(hb.id)),0);
+
+  // rows de marcação de hoje
+  const rowsHoje=store.habitos.map(hb=>{const on=habitDone(hb.id,hoje);
+    return `<div class="habit-toggle ${hb.auto?'auto':''}" ${hb.auto?'':`onclick="toggleHabito('${hb.id}')"`}
+      style="${on?`background:${hb.cor}18;border-color:${hb.cor}55`:''}">
+      <div class="habit-ic" style="background:${hb.cor}22;color:${hb.cor}">${hb.icon||'•'}</div>
+      <div class="habit-name">${h(hb.nome)}${hb.auto?'<small>automático · Diário de Bordo</small>':''}</div>
+      <div class="habit-mark" style="${on?`background:${hb.cor};border-color:${hb.cor}`:''}">${on?'✓':''}</div>
+    </div>`;}).join('');
+
+  // estatísticas: streak + grade 7 dias clicável + taxa 30d
+  const stats=store.habitos.map(hb=>{
+    const grid=dias7.map(iso=>{const on=habitDone(hb.id,iso);const isToday=iso===hoje;
+      return `<div class="hg-col"><span class="wd">${weekdayLetter(iso)}</span>
+        <div class="hg-cell ${on?'on':''} ${isToday?'today':''} ${hb.auto?'ro':''}"
+          ${hb.auto?'':`onclick="toggleHabito('${hb.id}','${iso}')"`}
+          style="${on?`background:${hb.cor}`:''}" title="${fmtBR(iso)}${hb.auto?' (automático)':''}">${on?'✓':''}</div>
+      </div>`;}).join('');
+    const st=habitStreak(hb.id), r30=habitRate(hb.id,30);
+    const rColor=r30>=70?'green':r30>=40?'amber':'red';
+    return `<div class="habit-stat">
+      <div class="hs-name"><span class="tag-dot" style="background:${hb.cor}"></span>${hb.icon||''} ${h(hb.nome)}</div>
+      <div class="hg">${grid}</div>
+      <div class="hs-metrics">
+        <span class="pill ${st>0?'purple':'gray'}">🔥 ${st}d</span>
+        <span class="pill ${rColor}">${r30}% · 30d</span>
+        ${hb.auto?'':`<button class="icon-btn" onclick="mHabito('${hb.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="delHabito('${hb.id}')" title="Excluir">✕</button>`}
+        ${hb.auto?`<button class="icon-btn" onclick="mHabito('${hb.id}')" title="Editar">✎</button>`:''}
+      </div>
+    </div>`;}).join('');
+
+  document.getElementById('view').innerHTML=`
+    <div class="page-title">hábitos do dia</div>
+    <div class="page-sub">Marque num toque — grava sozinho. A grade dos últimos 7 dias mostra onde você está falhando; clique em qualquer quadrado para corrigir um dia. "Estudo" é automático: conta como feito sempre que há sessão lançada no Diário.</div>
+    <div class="stat-row" style="margin-bottom:22px">
+      <div class="stat"><b>${pct}%</b><span>hoje · ${feitosHoje} de ${total}</span></div>
+      <div class="stat"><b>🔥 ${melhorStreak}</b><span>maior sequência</span></div>
+      <div class="stat"><b>${store.habitos.filter(hb=>habitRate(hb.id,7)>=70).length}/${total}</b><span>consistentes (7d)</span></div>
+    </div>
+    <div class="progress" style="height:10px;margin:-8px 0 22px"><i style="width:${pct}%;background:${pct>=100?'var(--green)':'linear-gradient(90deg,var(--purple),var(--rose))'}"></i></div>
+    <div style="display:flex;align-items:center;margin-bottom:14px">
+      <h3 style="font-size:16px">Marcar hoje</h3>
+      <button class="btn sm" style="margin-left:auto" onclick="mHabito()">+ Novo hábito</button>
+    </div>
+    <div class="card" style="margin-bottom:20px">
+      ${total?rowsHoje:'<div class="empty">Nenhum hábito cadastrado.<br><button class="btn sm ghost" style="margin-top:12px" onclick="mHabito()">Criar primeiro hábito</button></div>'}
+    </div>
+    ${total?`<div class="card">
+      <h3>Últimos 7 dias & consistência</h3><div class="h-sub">Streak atual e taxa dos últimos 30 dias por hábito</div>
+      ${stats}
+    </div>`:''}`;
+}
+
+function mHabito(id=null){
+  const hb=id?store.habitos.find(x=>x.id===id):null;
+  const paletteEmojis=['🏃','🏋️','📖','📚','💧','🧘','🍎','😴','✍️','🎧','☀️','🙏'];
+  modal(`<h3>${hb?'Editar hábito':'Novo hábito'}</h3>
+    <div class="field"><label>Nome</label><input id="hbn" placeholder="Ex: Meditar" value="${hb?h(hb.nome):''}"></div>
+    <div class="grid2">
+      <div class="field"><label>Ícone (emoji)</label><input id="hbi" maxlength="2" value="${hb?h(hb.icon||''):''}" placeholder="🏃"></div>
+      <div class="field"><label>Cor</label><input type="color" id="hbc" value="${hb?(hb.cor||'#7c3aed'):'#7c3aed'}" style="height:40px;padding:4px"></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 14px">
+      ${paletteEmojis.map(e=>`<button type="button" class="chip" style="font-size:16px;padding:4px 9px" onclick="document.getElementById('hbi').value='${e}'">${e}</button>`).join('')}
+    </div>
+    <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);cursor:pointer;margin-bottom:4px">
+      <input type="checkbox" id="hba" ${hb&&hb.auto?'checked':''} style="width:auto">
+      Automático — marca sozinho quando há sessão no Diário de Bordo (recomendado só para "Estudo")
+    </label>
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+    <button class="btn" onclick="saveHabito(${hb?`'${id}'`:'null'})">${hb?'Salvar':'Adicionar'}</button></div>`);
+  setTimeout(()=>document.getElementById('hbn').focus(),50);
+}
+function saveHabito(id){
+  const nome=document.getElementById('hbn').value.trim(); if(!nome){toast('Dê um nome ao hábito');return;}
+  const dados={nome,icon:document.getElementById('hbi').value.trim(),
+    cor:document.getElementById('hbc').value,auto:document.getElementById('hba').checked};
+  if(id){Object.assign(store.habitos.find(x=>x.id===id),dados);}
+  else{store.habitos.push({id:uid(),...dados});}
+  save();closeModal();vHabitos();toast(id?'Hábito atualizado':'Hábito adicionado');
+}
+function delHabito(id){
+  const hb=store.habitos.find(x=>x.id===id); if(!hb)return;
+  if(!confirm('Excluir "'+hb.nome+'"? O histórico de marcações também será removido.'))return;
+  store.habitos=store.habitos.filter(x=>x.id!==id);
+  Object.keys(store.habitLog).forEach(iso=>{if(store.habitLog[iso]){delete store.habitLog[iso][id];
+    if(!Object.keys(store.habitLog[iso]).length)delete store.habitLog[iso];}});
+  save();vHabitos();toast('Hábito excluído');
 }
 
 /* ---------------- Export / Import ---------------- */
