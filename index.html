@@ -307,7 +307,8 @@ const DEFAULT_HABITOS = [
   {id:'h_aerobico',   nome:'Aeróbico',   cor:'#378add', icon:'🏃'},
   {id:'h_musculacao', nome:'Musculação', cor:'#db5c88', icon:'🏋️'},
   {id:'h_leitura',    nome:'Leitura',    cor:'#ba7517', icon:'📖'},
-  {id:'h_estudo',     nome:'Estudo',     cor:'#7c3aed', icon:'📚', auto:true}, // derivado do Diário de Bordo
+  {id:'h_estudo',     nome:'Estudo',     cor:'#7c3aed', icon:'📚', auto:true,
+    excluir:['Inglês Busuu','Espanhol Busuu','Espanhol Drops']}, // microdrills não marcam o hábito
 ];
 
 
@@ -365,6 +366,9 @@ function normalizeStore(){
   if(store.metaSemanal==null) store.metaSemanal=20;
   if(!isPlainObj(store.metasArea)) store.metasArea={};
   if(!store.tema) store.tema='claro';
+  // seed único: se o "Estudo" já existe sem exclusões definidas, aplica os microdrills padrão
+  const est=Array.isArray(store.habitos)?store.habitos.find(x=>x.id==='h_estudo'):null;
+  if(est&&est.auto&&est.excluir===undefined) est.excluir=['Inglês Busuu','Espanhol Busuu','Espanhol Drops'];
   store.version=SCHEMA_VERSION;
 }
 /* aplica um objeto de dados vindo do Firebase ou do localStorage */
@@ -961,29 +965,41 @@ function addLog(editId=null){const area=document.getElementById('sa').value,ini=
 function vGrade(){
   const adh=gradeAdherence();
   const hoje=todayISO();
-  const aColor=adh.pct>=70?'var(--green)':adh.pct>=40?'var(--amber)':'var(--rose)';
+  const rColor=adh.pctAte>=70?'var(--green)':adh.pctAte>=40?'var(--amber)':'var(--rose)';
   document.getElementById('view').innerHTML=`
     <div class="page-title">grade semanal</div>
     <div class="page-sub">Sua rotina de estudos, dia a dia — edite à vontade. Cada bloco de estudo vira um botão "Registrar hoje" que lança a sessão no Diário com o horário já preenchido, num toque.</div>
     <div class="card" style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div><h3>Aderência da semana</h3><div class="h-sub" style="margin-bottom:0">Blocos de estudo já cumpridos nesta semana (só conta até hoje)</div></div>
-        <span style="font-family:var(--serif);font-size:30px;font-weight:600;color:${aColor}">${adh.pct}%</span>
+        <div><h3>Aderência da semana</h3><div class="h-sub" style="margin-bottom:0">Progresso sobre todos os blocos de estudo da semana (Seg–Dom)</div></div>
+        <span style="font-family:var(--serif);font-size:30px;font-weight:600;color:var(--purple)">${adh.pct}%</span>
       </div>
-      <div class="progress" style="height:10px"><i style="width:${adh.pct}%;background:${aColor}"></i></div>
-      <div class="h-sub" style="margin-top:8px;margin-bottom:0">${adh.done} de ${adh.total} blocos cumpridos · TRE não entra</div>
+      <div class="progress" style="height:10px"><i style="width:${adh.pct}%;background:linear-gradient(90deg,var(--purple),var(--rose))"></i></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px">
+        <div class="h-sub" style="margin:0">${adh.done} de ${adh.total} blocos da semana · TRE não entra</div>
+        <span class="pill" style="background:${rColor}22;color:${rColor}">No ritmo até hoje: ${adh.doneAte}/${adh.totalAte} · ${adh.pctAte}%</span>
+      </div>
     </div>
     <div style="display:flex;margin-bottom:16px"><button class="btn sm" style="margin-left:auto" onclick="mBloco()">+ Novo bloco</button></div>
     ${DIAS.map(d=>{const blocos=store.grade.filter(g=>g.dia===d).sort((a,b)=>gradeStartMin(a.horario)-gradeStartMin(b.horario));
+      const di=DIAS.indexOf(d); const mon=anMonday(0); const dd=new Date(mon); dd.setDate(dd.getDate()+di); const dISO=localISO(dd);
+      const isHoje=dISO===hoje, isPast=dISO<hoje, isFut=dISO>hoje;
       return `<div class="card" style="margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h3>${d}</h3><button class="btn sm line" onclick="mBloco(null,'${d}')">+ Adicionar em ${d}</button></div>
-        ${blocos.length?blocos.map(g=>{const conta=areaById(g.area).conta;const ft=conta&&gradeFulfilledOn(g,hoje);
+          <h3>${d} ${isHoje?'<span class="pill purple" style="font-size:10px">hoje</span>':''}</h3>
+          <button class="btn sm line" onclick="mBloco(null,'${d}')">+ Adicionar em ${d}</button></div>
+        ${blocos.length?blocos.map(g=>{const conta=areaById(g.area).conta;const ft=conta&&gradeFulfilledOn(g,dISO);
+          let acao='<span class="pill gray">não conta</span>';
+          if(conta){
+            if(ft) acao='<span class="pill green">✓ feito</span>';
+            else if(isHoje) acao=`<button class="btn sm line" onclick="cumprirBloco('${g.id}','${dISO}')">Registrar hoje</button>`;
+            else if(isPast) acao=`<button class="btn sm line" onclick="cumprirBloco('${g.id}','${dISO}')" title="Registrar em ${fmtBR(dISO)}">Registrar (${fmtBR(dISO).slice(0,5)})</button>`;
+            else acao='<span class="pill gray">a fazer</span>';
+          }
           return `<div class="list-item">
           <span class="tag-dot" style="background:${areaById(g.area).cor}"></span>
           <div class="li-body"><div class="t">${h(g.atividade)}</div><div class="m">${h(g.horario)} · ${areaById(g.area).nome}</div></div>
-          ${conta?(ft?`<span class="pill green">✓ hoje</span>`:`<button class="btn sm line" onclick="cumprirBloco('${g.id}')">Registrar hoje</button>`)
-                 :'<span class="pill gray">não conta</span>'}
+          ${acao}
           <button class="icon-btn" onclick="mBloco('${g.id}')" title="Editar">✎</button>
           <button class="icon-btn" onclick="delBloco('${g.id}')" title="Excluir">✕</button>
         </div>`;}).join(''):'<div class="empty" style="padding:16px">Sem blocos neste dia.</div>'}
@@ -1011,24 +1027,30 @@ function gradeFulfilledOn(g,iso){
   });
 }
 function gradeAdherence(){
-  const mon=anMonday(0), hoje=todayISO(); let done=0,total=0;
+  const mon=anMonday(0), hoje=todayISO();
+  let done=0,total=0,doneAte=0,totalAte=0;
   store.grade.forEach(g=>{
     if(!areaById(g.area).conta)return;
     const di=DIAS.indexOf(g.dia); if(di<0)return;
     const dt=new Date(mon); dt.setDate(dt.getDate()+di); const iso=localISO(dt);
-    if(iso>hoje)return;
-    total++; if(gradeFulfilledOn(g,iso))done++;
+    total++;
+    const ok=gradeFulfilledOn(g,iso);
+    if(ok)done++;
+    if(iso<=hoje){ totalAte++; if(ok)doneAte++; }
   });
-  return {done,total,pct: total?Math.round(done/total*100):0};
+  return {done,total,pct: total?Math.round(done/total*100):0,
+          doneAte,totalAte,pctAte: totalAte?Math.round(doneAte/totalAte*100):0};
 }
-function cumprirBloco(id){
+function cumprirBloco(id,iso){
   const g=store.grade.find(x=>x.id===id); if(!g)return;
-  const iso=todayISO();
-  if(gradeFulfilledOn(g,iso)){toast('Este bloco já está no Diário de hoje');return;}
+  iso=iso||todayISO();
+  if(iso>todayISO()){toast('Esse dia ainda não chegou');return;}
+  if(gradeFulfilledOn(g,iso)){toast('Este bloco já está no Diário desse dia');return;}
   const t=parseGradeTime(g.horario);
   if(!t){ regFromGrade(id); return; }
   store.logs.push({id:uid(),area:g.area,atividade:g.atividade,data:iso,ini:t.ini,fim:t.fim,obs:''});
-  save(); vGrade(); toast('✓ Registrado no Diário ('+fmtDur(durH(t.ini,t.fim))+')');
+  save(); vGrade();
+  toast('✓ Registrado em '+fmtBR(iso)+' ('+fmtDur(durH(t.ini,t.fim))+')');
 }
 function regFromGrade(id){
   const g=store.grade.find(x=>x.id===id); if(!g)return;
@@ -1248,9 +1270,16 @@ function vAnalytics(){
 }
 
 /* ---------------- Hábitos ---------------- */
+// para hábitos automáticos: um log só conta se a atividade não estiver na lista de exclusões
+function logCountsForAuto(hb,l){
+  const excl=(hb&&hb.excluir)||[];
+  if(!excl.length)return true;
+  const a=(l.atividade||'').trim().toLowerCase();
+  return !excl.some(x=>String(x).trim().toLowerCase()===a);
+}
 function habitDone(id,iso){
   const hb=store.habitos.find(x=>x.id===id);
-  if(hb&&hb.auto) return countableLogs().some(l=>l.data===iso); // "Estudo" vem do Diário
+  if(hb&&hb.auto) return countableLogs().some(l=>l.data===iso && logCountsForAuto(hb,l)); // "Estudo" vem do Diário
   return !!(store.habitLog[iso]&&store.habitLog[iso][id]);
 }
 function toggleHabito(id,iso){
@@ -1276,13 +1305,13 @@ function habitRate(id,days){let done=0;const d=new Date();
 function habitDoneToday(){const t=todayISO();return store.habitos.filter(hb=>habitDone(hb.id,t)).length;}
 function habitYearCount(id,ano){ano=ano||new Date().getFullYear();const y=String(ano);
   const hb=store.habitos.find(x=>x.id===id);
-  if(hb&&hb.auto){const set=new Set(countableLogs().filter(l=>l.data.startsWith(y)).map(l=>l.data));return set.size;}
+  if(hb&&hb.auto){const set=new Set(countableLogs().filter(l=>l.data.startsWith(y)&&logCountsForAuto(hb,l)).map(l=>l.data));return set.size;}
   return Object.keys(store.habitLog).filter(iso=>iso.startsWith(y)&&store.habitLog[iso]&&store.habitLog[iso][id]).length;}
 function habitYearBestStreak(id,ano){ano=ano||new Date().getFullYear();const y=String(ano);
   // maior sequência de dias consecutivos com o hábito feito dentro do ano
   const dias=new Set();
   const hb=store.habitos.find(x=>x.id===id);
-  if(hb&&hb.auto){countableLogs().filter(l=>l.data.startsWith(y)).forEach(l=>dias.add(l.data));}
+  if(hb&&hb.auto){countableLogs().filter(l=>l.data.startsWith(y)&&logCountsForAuto(hb,l)).forEach(l=>dias.add(l.data));}
   else{Object.keys(store.habitLog).forEach(iso=>{if(iso.startsWith(y)&&store.habitLog[iso]&&store.habitLog[iso][id])dias.add(iso);});}
   if(!dias.size)return 0;
   const sorted=[...dias].sort();let best=1,cur=1;
@@ -1366,8 +1395,27 @@ function vHabitos(){
     </div>`:''}`;
 }
 
+function distinctCountableAtividades(){
+  const set=new Set();
+  store.grade.forEach(g=>{if(areaById(g.area).conta&&g.atividade)set.add(g.atividade.trim());});
+  store.logs.forEach(l=>{if(areaById(l.area).conta&&l.atividade)set.add(l.atividade.trim());});
+  return [...set].sort((a,b)=>a.localeCompare(b));
+}
+let _mhExcl=[]; // seleção temporária de exclusões no modal
+function renderExclChips(){
+  const list=distinctCountableAtividades();
+  if(!list.length)return '<div style="font-size:12px;color:var(--faint)">Sem atividades registradas ainda.</div>';
+  return list.map((a,i)=>{const on=_mhExcl.some(x=>x.toLowerCase()===a.toLowerCase());
+    return `<button type="button" class="chip" onclick="toggleMhExcl(${i})"
+      style="${on?'background:var(--red-soft);color:var(--red)':'background:var(--card-2);color:var(--muted);border:1px solid var(--line)'}">${on?'✕ ':''}${h(a)}</button>`;}).join('');
+}
+function toggleMhExcl(i){const list=distinctCountableAtividades();const a=list[i];if(a==null)return;
+  const idx=_mhExcl.findIndex(x=>x.toLowerCase()===a.toLowerCase());
+  if(idx>=0)_mhExcl.splice(idx,1); else _mhExcl.push(a);
+  const box=document.getElementById('mhExclBox');if(box)box.innerHTML=renderExclChips();}
 function mHabito(id=null){
   const hb=id?store.habitos.find(x=>x.id===id):null;
+  _mhExcl = hb&&Array.isArray(hb.excluir)?[...hb.excluir]:[];
   const paletteEmojis=['🏃','🏋️','📖','📚','💧','🧘','🍎','😴','✍️','🎧','☀️','🙏'];
   modal(`<h3>${hb?'Editar hábito':'Novo hábito'}</h3>
     <div class="field"><label>Nome</label><input id="hbn" placeholder="Ex: Meditar" value="${hb?h(hb.nome):''}"></div>
@@ -1379,17 +1427,23 @@ function mHabito(id=null){
       ${paletteEmojis.map(e=>`<button type="button" class="chip" style="font-size:16px;padding:4px 9px" onclick="document.getElementById('hbi').value='${e}'">${e}</button>`).join('')}
     </div>
     <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);cursor:pointer;margin-bottom:4px">
-      <input type="checkbox" id="hba" ${hb&&hb.auto?'checked':''} style="width:auto">
+      <input type="checkbox" id="hba" ${hb&&hb.auto?'checked':''} style="width:auto"
+        onchange="document.getElementById('mhExclWrap').style.display=this.checked?'block':'none'">
       Automático — marca sozinho quando há sessão no Diário de Bordo (recomendado só para "Estudo")
     </label>
+    <div id="mhExclWrap" style="display:${hb&&hb.auto?'block':'none'};border-top:1px solid var(--line);margin-top:12px;padding-top:12px">
+      <div class="h-sub" style="margin-bottom:8px">Atividades que <b>NÃO</b> marcam o hábito (toque para excluir os microdrills):</div>
+      <div id="mhExclBox" style="display:flex;flex-wrap:wrap;gap:6px">${renderExclChips()}</div>
+    </div>
     <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
     <button class="btn" onclick="saveHabito(${hb?`'${id}'`:'null'})">${hb?'Salvar':'Adicionar'}</button></div>`);
   setTimeout(()=>document.getElementById('hbn').focus(),50);
 }
 function saveHabito(id){
   const nome=document.getElementById('hbn').value.trim(); if(!nome){toast('Dê um nome ao hábito');return;}
+  const auto=document.getElementById('hba').checked;
   const dados={nome,icon:document.getElementById('hbi').value.trim(),
-    cor:document.getElementById('hbc').value,auto:document.getElementById('hba').checked};
+    cor:document.getElementById('hbc').value,auto,excluir:auto?_mhExcl.slice():[]};
   if(id){Object.assign(store.habitos.find(x=>x.id===id),dados);}
   else{store.habitos.push({id:uid(),...dados});}
   save();closeModal();vHabitos();toast(id?'Hábito atualizado':'Hábito adicionado');
