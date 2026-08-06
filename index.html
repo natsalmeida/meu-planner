@@ -329,8 +329,8 @@ const db = firebase.database();
 // === FIM DA CONEXÃO ===
 
 const store = {
-  version: 3,
-  logs:[], pendencias:[], materias:[], aulas:[], entregaveis:[],
+  version: 4,
+  logs:[], pendencias:[], materias:[], aulas:[], entregaveis:[], sincronas:[],
   grade: DEFAULT_GRADE.map(g=>({...g})),
   habitos: DEFAULT_HABITOS.map(x=>({...x})),
   habitLog: {}, // { 'YYYY-MM-DD': { habitId: true } } — grava só o que foi feito
@@ -338,7 +338,7 @@ const store = {
   metasArea: {}, 
   tema: 'claro',
 };
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 const ROOT = 'meu_planner';       // caminho preservado (mantém seu histórico)
 const LS_KEY = 'planner_store_v1';
 
@@ -351,7 +351,7 @@ let pendingRerender = false;      // re-render adiado enquanto um modal está ab
 function isPlainObj(o){return o&&typeof o==='object'&&!Array.isArray(o);}
 function validateStore(d){
   if(!isPlainObj(d)) return false;
-  const arrays=['logs','pendencias','materias','aulas','entregaveis','grade','habitos'];
+  const arrays=['logs','pendencias','materias','aulas','entregaveis','sincronas','grade','habitos'];
   for(const k of arrays){ if(k in d && !Array.isArray(d[k])) return false; }
   const objs=['habitLog','metasArea'];
   for(const k of objs){ if(k in d && !isPlainObj(d[k])) return false; }
@@ -360,6 +360,7 @@ function validateStore(d){
 }
 /* ---- normaliza defaults/migrações num só lugar ---- */
 function normalizeStore(){
+  ['logs','pendencias','materias','aulas','entregaveis','sincronas'].forEach(k=>{ if(!Array.isArray(store[k])) store[k]=[]; });
   if(!Array.isArray(store.grade)||!store.grade.length) store.grade=DEFAULT_GRADE.map(g=>({...g}));
   if(!Array.isArray(store.habitos)) store.habitos=DEFAULT_HABITOS.map(x=>({...x}));
   if(!isPlainObj(store.habitLog)) store.habitLog={};
@@ -369,6 +370,11 @@ function normalizeStore(){
   // seed único: se o "Estudo" já existe sem exclusões definidas, aplica os microdrills padrão
   const est=Array.isArray(store.habitos)?store.habitos.find(x=>x.id==='h_estudo'):null;
   if(est&&est.auto&&est.excluir===undefined) est.excluir=['Inglês Busuu','Espanhol Busuu','Espanhol Drops'];
+  // matérias: status automático derivado das aulas, salvo quando travado manualmente
+  store.materias.forEach(m=>{
+    if(m.statusManual===undefined) m.statusManual=false;
+    if(!m.statusManual){ const auto=materiaStatusAuto(m.id); if(auto) m.status=auto; }
+  });
   store.version=SCHEMA_VERSION;
 }
 /* aplica um objeto de dados vindo do Firebase ou do localStorage */
@@ -739,6 +745,7 @@ function vDashboard(){
   document.getElementById('view').innerHTML=`
     <div class="page-title">${saud}!</div>
     <div class="page-sub">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    ${dashSincronasCard()}
     ${atrasados.length?`<div class="card alert-late" style="margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <span style="font-size:18px">⚠️</span><h3 style="color:var(--red)">Atrasados (${atrasados.length})</h3></div>
@@ -746,12 +753,12 @@ function vDashboard(){
         <div class="li-body"><div class="t">${h(a.nome)}</div>
         <div class="m"><span class="pill red">${a.tipo}</span> venceu em ${fmtBR(a.prazo)}</div></div></div>`).join('')}
     </div>`:''}
-    ${(()=>{const vb=upcomingDeadlines().filter(it=>it.d>=0);return vb.length?`<div class="card" style="margin-bottom:20px;border:1px solid var(--amber);background:var(--amber-soft)">
+    ${(()=>{const vb=upcomingDeadlines().filter(it=>it.d>=0&&!(it.tipo==='Aula síncrona'&&it.d===0));return vb.length?`<div class="card" style="margin-bottom:20px;border:1px solid var(--amber);background:var(--amber-soft)">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <span style="font-size:18px">⏳</span><h3 style="color:var(--amber)">Vence em breve — próximos 3 dias (${vb.length})</h3></div>
       ${vb.map(it=>`<div class="list-item">
         <div class="li-body"><div class="t">${h(it.nome)}</div>
-        <div class="m"><span class="pill ${it.d<=1?'red':'amber'}">${it.tipo}</span> ${labelPrazo(it.d)} · ${fmtBR(it.prazo)}</div></div></div>`).join('')}
+        <div class="m"><span class="pill ${it.tipo==='Aula síncrona'?'blue':(it.d<=1?'red':'amber')}">${it.tipo}</span> ${it.label||labelPrazo(it.d)} · ${fmtBR(it.prazo)}</div></div></div>`).join('')}
     </div>`:'';})()}
     <div class="stat-row" style="margin-bottom:20px">
       <div class="stat"><b>${fmtDur(hEstHoje)}</b><span>estudadas hoje</span></div>
@@ -814,6 +821,9 @@ function vCalendario(){
     const mat=materiaNome(e.materia);
     push(e.prazo,`<div class="cal-ev" style="background:${late?'var(--red)':'var(--blue)'}" title="Entregável UNITINS — ${h(mat)}: ${h(e.nome)}${late?' (atrasado)':''}">📌 ${h(e.nome)}${mat&&mat!=='—'?` <span style="opacity:.8">· ${h(mat)}</span>`:''}</div>`);});
 
+  store.sincronas.forEach(s=>{const mat=materiaNome(s.materia);
+    push(s.data,`<div class="cal-ev" style="background:var(--purple)" title="Aula síncrona — ${h(mat)}: ${h(s.nome)} ${h(s.ini||'')}">🎥 ${h(s.ini||'')} ${h(s.nome)}</div>`);});
+
   let cells=abbr.map(a=>`<div class="mc-head">${a}</div>`).join('');
   for(let i=0;i<startOffset;i++)cells+=`<div class="mc-cell mc-empty"></div>`;
   const todayStr=todayISO();
@@ -826,13 +836,14 @@ function vCalendario(){
   }
   document.getElementById('view').innerHTML=`
     <div class="page-title">calendário</div>
-    <div class="page-sub">Só aparece aqui o que tem data marcada: suas pendências com prazo e os entregáveis da UNITINS. Clique em qualquer dia para criar uma pendência já com aquela data.</div>
+    <div class="page-sub">Só aparece aqui o que tem data marcada: pendências com prazo, entregáveis da UNITINS e aulas síncronas. Clique em qualquer dia para criar uma pendência já com aquela data.</div>
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap">
       <button class="btn line sm" onclick="calNav(-1)">‹</button>
       <b style="font-size:17px;text-transform:capitalize;min-width:190px;text-align:center">${nomeMes}</b>
       <button class="btn line sm" onclick="calNav(1)">›</button>
       <div style="margin-left:auto;display:flex;gap:12px;font-size:12px;color:var(--muted)">
         <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--blue);vertical-align:middle"></i> Entregável UNITINS</span>
+        <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple);vertical-align:middle"></i> Aula síncrona</span>
         <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--muted);vertical-align:middle"></i> Pendência</span>
         <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--red);vertical-align:middle"></i> Atrasado</span>
       </div>
@@ -1080,38 +1091,458 @@ function saveBloco(id){
 }
 function delBloco(id){store.grade=store.grade.filter(g=>g.id!==id);save();vGrade();}
 
+/* ---------------- Hub UNITINS ---------------- */
+/* Status da matéria: derivado das aulas por padrão (statusManual=false).
+   Se você editar o select, ele passa a manual (trava) até você devolver ao automático. */
+function materiaStatusAuto(id){
+  const aulas=store.aulas.filter(a=>a.materia===id);
+  if(!aulas.length) return null;                       // sem aulas não há o que inferir
+  const feitas=aulas.filter(a=>a.done).length;
+  if(feitas===0) return 'Não iniciada';
+  if(feitas===aulas.length) return 'Concluída';
+  return 'Em andamento';
+}
+function materiaStatus(m){
+  if(!m) return 'Não iniciada';
+  if(m.statusManual) return m.status||'Não iniciada';
+  return materiaStatusAuto(m.id) || m.status || 'Não iniciada';
+}
+/* recalcula e persiste o status quando a matéria está em modo automático */
+function syncMateriaStatus(materiaId){
+  const m=store.materias.find(x=>x.id===materiaId);
+  if(!m||m.statusManual) return null;
+  const auto=materiaStatusAuto(materiaId);
+  if(auto&&auto!==m.status){const antes=m.status;m.status=auto;return {antes,depois:auto};}
+  return null;
+}
+function statusPill(st){
+  const cls=st==='Concluída'?'green':st==='Em andamento'?'amber':'gray';
+  return `<span class="pill ${cls}">${h(st)}</span>`;
+}
+function aulasDaMateria(id){
+  return store.aulas.filter(a=>a.materia===id)
+    .sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR',{numeric:true,sensitivity:'base'}));
+}
+function nowHM(){const d=new Date(),p=n=>String(n).padStart(2,'0');return p(d.getHours())+':'+p(d.getMinutes());}
+function hmToMin(s){if(!s)return null;const[a,b]=s.split(':').map(Number);return a*60+b;}
+function safeUrl(u){u=String(u||'').trim();return /^https?:\/\//i.test(u)?u:'';}
+
 function vUnitins(){
   window._uniTab=window._uniTab||'materias';
   const t=window._uniTab;
   const tab=(id,nm)=>`<button class="area-tab ${t===id?'active':''}" onclick="setUni('${id}')">${nm}</button>`;
+  const nSinc=store.sincronas.filter(s=>s.data>=todayISO()).length;
   let body='';
-  if(t==='materias'){
-    body=`<button class="btn sm" style="margin-bottom:14px" onclick="mNovaMateria()">+ Nova matéria</button>
-    <div class="card" style="padding:6px 20px">${store.materias.length?
-      `<div class="table-wrap"><table><thead><tr><th>Matéria</th><th>Status</th><th>Progresso aulas</th><th>Próximo prazo</th><th></th></tr></thead><tbody>
-      ${store.materias.map(m=>{const aulas=store.aulas.filter(a=>a.materia===m.id);
-        const feitas=aulas.filter(a=>a.done).length;const prog=aulas.length?Math.round(feitas/aulas.length*100):null;
-        const prox=store.entregaveis.filter(e=>e.materia===m.id&&e.prazo&&e.status!=='Entregue').sort((a,b)=>a.prazo.localeCompare(b.prazo))[0];
-        return `<tr><td><b>${h(m.nome)}</b></td>
-          <td><span class="pill ${m.status==='Concluída'?'green':m.status==='Em andamento'?'amber':'gray'}">${m.status||'Não iniciada'}</span></td>
-          <td>${prog===null?'<span style="color:var(--faint)">sem aulas</span>':`${feitas}/${aulas.length} · ${prog}%`}</td>
-          <td>${prox?fmtBR(prox.prazo):'—'}</td>
-          <td><button class="icon-btn" onclick="delMateria('${m.id}')">✕</button></td></tr>`;}).join('')}
-      </tbody></table></div>`:'<div class="empty">Cadastre suas matérias da UNITINS.</div>'}</div>`;
-  }else if(t==='aulas'){
-    body=`<button class="btn sm" style="margin-bottom:14px" onclick="mNovaAula()">+ Nova aula</button>
-    <div class="card" style="padding:6px 20px">${store.aulas.length?
-      `<div class="table-wrap"><table><thead><tr><th></th><th>Aula</th><th>Matéria</th><th></th></tr></thead><tbody>
-      ${store.aulas.map(a=>`<tr><td><div class="check ${a.done?'on':''}" onclick="toggleAula('${a.id}')">${a.done?'✓':''}</div></td>
-        <td class="${a.done?'':''}" style="${a.done?'text-decoration:line-through;color:var(--faint)':''}">${h(a.nome)}</td>
-        <td>${h(materiaNome(a.materia))}</td>
-        <td><button class="icon-btn" onclick="delAula('${a.id}')">✕</button></td></tr>`).join('')}
-      </tbody></table></div>`:'<div class="empty">Nenhuma aula cadastrada.</div>'}</div>`;
-  }else{
-    body=`<button class="btn sm" style="margin-bottom:14px" onclick="mNovoEntreg()">+ Novo entregável</button>
+  if(t==='materias')       body=uniMaterias();
+  else if(t==='aulas')     body=uniAulas();
+  else if(t==='sincronas') body=uniSincronas();
+  else                     body=uniEntregaveis();
+  document.getElementById('view').innerHTML=`
+    <div class="page-title">hub unitins</div>
+    <div class="page-sub">Aulas gravadas agrupadas por matéria, aulas síncronas com data e hora (avisam no Dashboard no dia) e entregáveis com prazo. O status da matéria se atualiza sozinho conforme você marca as aulas.</div>
+    <div class="area-tabs">${tab('materias','Matérias')}${tab('aulas','Aulas gravadas')}${tab('sincronas','Aulas síncronas'+(nSinc?` · ${nSinc}`:''))}${tab('entregaveis','Entregáveis')}</div>
+    ${body}`;
+}
+function setUni(t){window._uniTab=t;vUnitins();}
+function materiaNome(id){const m=store.materias.find(x=>x.id===id);return m?m.nome:'—';}
+function materiaOptions(sel){return store.materias.map(m=>`<option value="${m.id}" ${m.id===sel?'selected':''}>${h(m.nome)}</option>`).join('');}
+
+/* ---- Aba: Matérias ---- */
+function uniMaterias(){
+  if(!store.materias.length)
+    return `<button class="btn sm" style="margin-bottom:14px" onclick="mMateria()">+ Nova matéria</button>
+      <div class="card"><div class="empty">Cadastre suas matérias da UNITINS.</div></div>`;
+  const linhas=store.materias.map(m=>{
+    const aulas=aulasDaMateria(m.id);
+    const feitas=aulas.filter(a=>a.done).length;
+    const pct=aulas.length?Math.round(feitas/aulas.length*100):null;
+    const st=materiaStatus(m);
+    const prox=store.entregaveis.filter(e=>e.materia===m.id&&e.prazo&&e.status!=='Entregue')
+      .sort((a,b)=>a.prazo.localeCompare(b.prazo))[0];
+    const sinc=store.sincronas.filter(s=>s.materia===m.id&&s.data>=todayISO())
+      .sort((a,b)=>(a.data+a.ini).localeCompare(b.data+b.ini))[0];
+    return `<tr>
+      <td><b>${h(m.nome)}</b></td>
+      <td style="white-space:nowrap">
+        <select class="st-select" onchange="setMateriaStatus('${m.id}',this.value)">
+          ${['Não iniciada','Em andamento','Concluída'].map(s=>`<option ${st===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+        ${m.statusManual
+          ? `<button class="icon-btn" onclick="resetMateriaStatus('${m.id}')" title="Travado manualmente — clique para voltar ao automático">🔒</button>`
+          : `<span class="icon-btn" title="Automático: segue as aulas marcadas" style="cursor:default">⚙</span>`}
+      </td>
+      <td style="min-width:150px">${pct===null?'<span style="color:var(--faint)">sem aulas</span>':
+        `<div style="display:flex;align-items:center;gap:8px">
+          <div class="bar-track" style="height:8px;flex:1"><i style="width:${pct}%;background:${pct===100?'var(--green)':'var(--purple)'}"></i></div>
+          <span style="font-size:12px;color:var(--muted);white-space:nowrap">${feitas}/${aulas.length}</span></div>`}</td>
+      <td style="white-space:nowrap">${sinc?`${fmtBR(sinc.data).slice(0,5)} ${sinc.ini||''}`:'—'}</td>
+      <td>${prox?fmtBR(prox.prazo):'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="icon-btn" onclick="mMateria('${m.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="delMateria('${m.id}')" title="Excluir">✕</button></td></tr>`;}).join('');
+  return `<button class="btn sm" style="margin-bottom:14px" onclick="mMateria()">+ Nova matéria</button>
+    <div class="card" style="padding:6px 20px">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Matéria</th><th>Status</th><th>Progresso aulas</th><th>Próx. síncrona</th><th>Próximo prazo</th><th></th></tr></thead>
+        <tbody>${linhas}</tbody></table></div>
+    </div>
+    <div class="h-sub" style="margin-top:10px">⚙ = status automático (segue as aulas marcadas) · 🔒 = você fixou manualmente; clique no cadeado para devolver ao automático.</div>`;
+}
+function setMateriaStatus(id,v){
+  const m=store.materias.find(x=>x.id===id); if(!m)return;
+  const auto=materiaStatusAuto(id);
+  m.status=v;
+  m.statusManual = !(auto&&auto===v);   // se coincide com o automático, não precisa travar
+  save();vUnitins();
+  toast(m.statusManual?'Status fixado manualmente 🔒':'Status igual ao automático — segue automático');
+}
+function resetMateriaStatus(id){
+  const m=store.materias.find(x=>x.id===id); if(!m)return;
+  m.statusManual=false; syncMateriaStatus(id);
+  save();vUnitins();toast('Voltou ao automático ⚙');
+}
+function mMateria(id=null){
+  const m=id?store.materias.find(x=>x.id===id):null;
+  modal(`<h3>${m?'Editar matéria':'Nova matéria'}</h3>
+  <div class="field"><label>Nome</label><input id="mmn" placeholder="Ex: Cálculo I" value="${m?h(m.nome):''}"></div>
+  <div class="field"><label>Status inicial</label><select id="mms">
+    ${['Não iniciada','Em andamento','Concluída'].map(s=>`<option ${(m?materiaStatus(m):'Não iniciada')===s?'selected':''}>${s}</option>`).join('')}
+  </select></div>
+  <div class="h-sub" style="margin-top:-4px">O status passa a se atualizar sozinho conforme você marca as aulas gravadas.</div>
+  <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+  <button class="btn" onclick="saveMateria(${m?`'${id}'`:'null'})">${m?'Salvar':'Adicionar'}</button></div>`);
+  setTimeout(()=>document.getElementById('mmn').focus(),50);
+}
+function saveMateria(id){
+  const n=document.getElementById('mmn').value.trim(); if(!n){toast('Dê um nome à matéria');return;}
+  const st=document.getElementById('mms').value;
+  if(id){const m=store.materias.find(x=>x.id===id);Object.assign(m,{nome:n,status:st});
+    const auto=materiaStatusAuto(id); m.statusManual=!(auto&&auto===st);}
+  else{const novo={id:uid(),nome:n,status:st,statusManual:false};store.materias.push(novo);}
+  save();closeModal();vUnitins();toast(id?'Matéria atualizada':'Matéria adicionada');
+}
+function delMateria(id){
+  const m=store.materias.find(x=>x.id===id); if(!m)return;
+  const nA=store.aulas.filter(a=>a.materia===id).length,
+        nE=store.entregaveis.filter(e=>e.materia===id).length,
+        nS=store.sincronas.filter(s=>s.materia===id).length;
+  if(!confirm(`Excluir "${m.nome}"?\nTambém serão removidos: ${nA} aulas, ${nS} síncronas e ${nE} entregáveis.`))return;
+  store.materias=store.materias.filter(x=>x.id!==id);
+  store.aulas=store.aulas.filter(a=>a.materia!==id);
+  store.entregaveis=store.entregaveis.filter(e=>e.materia!==id);
+  store.sincronas=store.sincronas.filter(s=>s.materia!==id);
+  save();vUnitins();toast('Matéria excluída');
+}
+
+/* ---- Aba: Aulas gravadas (agrupadas por matéria) ---- */
+function uniAulas(){
+  if(!store.materias.length)
+    return `<div class="card"><div class="empty">Cadastre uma matéria primeiro.<br>
+      <button class="btn sm ghost" style="margin-top:12px" onclick="setUni('materias')">Ir para Matérias</button></div></div>`;
+  const blocos=store.materias.map(m=>{
+    const aulas=aulasDaMateria(m.id);
+    const feitas=aulas.filter(a=>a.done).length;
+    const pct=aulas.length?Math.round(feitas/aulas.length*100):0;
+    const lista=aulas.length?aulas.map(a=>`<div class="list-item ${a.done?'done':''}">
+        <div class="check ${a.done?'on':''}" onclick="toggleAula('${a.id}')">${a.done?'✓':''}</div>
+        <div class="li-body"><div class="t">${h(a.nome)}</div></div>
+        <button class="icon-btn" onclick="mAula('${a.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="delAula('${a.id}')" title="Excluir">✕</button>
+      </div>`).join('')
+      :'<div class="empty" style="padding:18px">Nenhuma aula cadastrada nesta matéria.</div>';
+    return `<div class="card" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <h3 style="margin:0">${h(m.nome)}</h3>
+        ${statusPill(materiaStatus(m))}
+        ${m.statusManual?'<span class="pill gray" title="Status travado manualmente">🔒 manual</span>':''}
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn sm line" onclick="mAula(null,'${m.id}')">+ Aula</button>
+          <button class="btn sm line" onclick="mGerarAulas('${m.id}')" title="Criar várias aulas numeradas de uma vez">⚡ Série</button>
+        </div>
+      </div>
+      ${aulas.length?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <div class="bar-track" style="height:8px;flex:1"><i style="width:${pct}%;background:${pct===100?'var(--green)':'var(--purple)'}"></i></div>
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap">${feitas}/${aulas.length} · ${pct}%</span></div>`:''}
+      ${lista}
+    </div>`;}).join('');
+  return blocos;
+}
+function mAula(id=null,materiaSel=''){
+  const a=id?store.aulas.find(x=>x.id===id):null;
+  if(!store.materias.length){toast('Cadastre uma matéria primeiro');return;}
+  modal(`<h3>${a?'Editar aula':'Nova aula'}</h3>
+  <div class="field"><label>Nome da aula</label><input id="aan" placeholder="Ex: Aula 05 - Derivadas" value="${a?h(a.nome):''}"></div>
+  <div class="field"><label>Matéria</label><select id="aam">${materiaOptions(a?a.materia:materiaSel)}</select></div>
+  <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+  <button class="btn" onclick="saveAula(${a?`'${id}'`:'null'})">${a?'Salvar':'Adicionar'}</button></div>`);
+  setTimeout(()=>document.getElementById('aan').focus(),50);
+}
+function saveAula(id){
+  const n=document.getElementById('aan').value.trim(); if(!n){toast('Dê um nome à aula');return;}
+  const mat=document.getElementById('aam').value;
+  if(id){const a=store.aulas.find(x=>x.id===id);const antiga=a.materia;Object.assign(a,{nome:n,materia:mat});
+    if(antiga!==mat)syncMateriaStatus(antiga);}
+  else{store.aulas.push({id:uid(),nome:n,materia:mat,done:false});}
+  syncMateriaStatus(mat);
+  save();closeModal();vUnitins();toast(id?'Aula atualizada':'Aula adicionada');
+}
+function mGerarAulas(materiaId){
+  modal(`<h3>Gerar série de aulas</h3>
+  <div class="field"><label>Matéria</label><select id="gam">${materiaOptions(materiaId)}</select></div>
+  <div class="grid2">
+    <div class="field"><label>Prefixo</label><input id="gap" value="Aula"></div>
+    <div class="field"><label>Quantidade</label><input type="number" id="gaq" min="1" max="200" value="10"></div>
+  </div>
+  <div class="grid2">
+    <div class="field"><label>Começar no número</label><input type="number" id="gai" min="0" value="1"></div>
+    <div class="field"><label>Sufixo (opcional)</label><input id="gas" placeholder="Ex: - Módulo I"></div>
+  </div>
+  <div class="h-sub">Gera "Aula 01", "Aula 02"… numeradas com 2 dígitos, para ordenar corretamente.</div>
+  <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+  <button class="btn" onclick="gerarAulas()">Gerar</button></div>`);
+}
+function gerarAulas(){
+  const mat=document.getElementById('gam').value;
+  const pre=document.getElementById('gap').value.trim()||'Aula';
+  const suf=document.getElementById('gas').value.trim();
+  const q=parseInt(document.getElementById('gaq').value)||0;
+  const ini=parseInt(document.getElementById('gai').value)||1;
+  if(q<1){toast('Informe a quantidade');return;}
+  if(q>200){toast('Máximo de 200 por vez');return;}
+  const existentes=new Set(store.aulas.filter(a=>a.materia===mat).map(a=>a.nome.toLowerCase()));
+  let criadas=0;
+  for(let i=0;i<q;i++){
+    const nome=`${pre} ${String(ini+i).padStart(2,'0')}${suf?' '+suf:''}`;
+    if(existentes.has(nome.toLowerCase()))continue;
+    store.aulas.push({id:uid(),nome,materia:mat,done:false});criadas++;
+  }
+  syncMateriaStatus(mat);
+  save();closeModal();vUnitins();
+  toast(criadas?`${criadas} aulas criadas`:'Nada criado (nomes já existiam)');
+}
+function toggleAula(id){
+  const a=store.aulas.find(x=>x.id===id); if(!a)return;
+  a.done=!a.done;
+  const ch=syncMateriaStatus(a.materia);
+  save();vUnitins();
+  if(ch)toast(`${materiaNome(a.materia)}: status → ${ch.depois}`);
+}
+function delAula(id){
+  const a=store.aulas.find(x=>x.id===id); const mat=a?a.materia:null;
+  store.aulas=store.aulas.filter(x=>x.id!==id);
+  if(mat)syncMateriaStatus(mat);
+  save();vUnitins();
+}
+
+/* ---- Aba: Aulas síncronas ---- */
+function sincStatus(s){
+  const hoje=todayISO();
+  if(s.data>hoje) return {txt:'agendada',cls:'gray'};
+  if(s.data<hoje) return {txt:'realizada',cls:'gray'};
+  const agora=hmToMin(nowHM()), ini=hmToMin(s.ini), fim=hmToMin(s.fim)||(ini!=null?ini+60:null);
+  if(ini==null) return {txt:'hoje',cls:'blue'};
+  if(agora<ini){const d=ini-agora;return {txt:d<=60?`em ${d}min`:`hoje às ${s.ini}`,cls:d<=60?'red':'blue'};}
+  if(fim!=null&&agora<=fim) return {txt:'🔴 acontecendo agora',cls:'red'};
+  return {txt:'encerrada',cls:'gray'};
+}
+function uniSincronas(){
+  const hoje=todayISO();
+  const prox=store.sincronas.filter(s=>s.data>=hoje).sort((a,b)=>(a.data+(a.ini||'')).localeCompare(b.data+(b.ini||'')));
+  const pass=store.sincronas.filter(s=>s.data<hoje).sort((a,b)=>(b.data+(b.ini||'')).localeCompare(a.data+(a.ini||''))).slice(0,15);
+  const linha=s=>{const st=sincStatus(s);const url=safeUrl(s.link);
+    return `<tr>
+      <td style="white-space:nowrap"><b>${fmtBR(s.data)}</b><div style="font-size:11px;color:var(--faint)">${['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][new Date(s.data+'T12:00').getDay()]}</div></td>
+      <td style="white-space:nowrap">${h(s.ini||'—')}${s.fim?'–'+h(s.fim):''}</td>
+      <td><b>${h(s.nome)}</b>${s.serie?' <span class="pill gray" title="Faz parte de uma série recorrente">🔁</span>':''}${s.obs?`<div style="font-size:11px;color:var(--faint)">${h(s.obs)}</div>`:''}</td>
+      <td>${h(materiaNome(s.materia))}</td>
+      <td><span class="pill ${st.cls}">${st.txt}</span></td>
+      <td style="white-space:nowrap">
+        ${url?`<a class="icon-btn" href="${h(url)}" target="_blank" rel="noopener" title="Abrir link">🔗</a>`:''}
+        <button class="icon-btn" onclick="registrarSincrona('${s.id}')" title="Lançar no Diário de Bordo">⏱</button>
+        <button class="icon-btn" onclick="mSincrona('${s.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="delSincrona('${s.id}')" title="Excluir">✕</button></td></tr>`;};
+  const tabela=(rows)=>`<div class="table-wrap"><table>
+      <thead><tr><th>Data</th><th>Horário</th><th>Aula</th><th>Matéria</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  return `<div style="display:flex;margin-bottom:14px">
+      <button class="btn sm" style="margin-left:auto" onclick="mSincrona()">+ Nova aula síncrona</button></div>
+    <div class="card" style="padding:6px 20px">
+      ${prox.length?tabela(prox.map(linha).join('')):'<div class="empty">Nenhuma aula síncrona agendada.<br>Cadastre a 1ª e deixe a repetição mensal criar o resto até 06/12.</div>'}
+    </div>
+    ${pass.length?`<div class="card" style="margin-top:16px;padding:6px 20px">
+      <div style="padding:14px 0 4px"><h3>Já realizadas</h3><div class="h-sub" style="margin-bottom:0">Últimas 15</div></div>
+      ${tabela(pass.map(linha).join(''))}</div>`:''}`;
+}
+/* --- recorrência: mensal por padrão, mas configurável --- */
+function monthLastDay(y,m){return new Date(y,m+1,0).getDate();}
+function nthWeekdayDate(y,m,weekday,nth){
+  const last=monthLastDay(y,m);
+  const offset=(weekday-new Date(y,m,1).getDay()+7)%7;
+  let day=1+offset+(nth-1)*7;
+  if(day>last) day=1+offset+Math.floor((last-1-offset)/7)*7; // não existe a 5ª: usa a última do mês
+  return new Date(y,m,day);
+}
+function gerarDatasSincrona(baseISO,freq,ateISO){
+  if(!baseISO)return [];
+  if(freq==='nenhuma'||!ateISO||ateISO<baseISO)return [baseISO];
+  const base=new Date(baseISO+'T12:00'), ate=new Date(ateISO+'T12:00'), out=[];
+  if(freq==='semanal'||freq==='quinzenal'){
+    const step=freq==='semanal'?7:14; const d=new Date(base);
+    while(d<=ate&&out.length<80){out.push(localISO(d));d.setDate(d.getDate()+step);}
+    return out;
+  }
+  const wd=base.getDay(), ord=Math.min(5,Math.floor((base.getDate()-1)/7)+1);
+  let y=base.getFullYear(), m=base.getMonth();
+  while(out.length<80){
+    const d = freq==='mensal_semana' ? nthWeekdayDate(y,m,wd,ord)
+            : new Date(y,m,Math.min(base.getDate(),monthLastDay(y,m)));
+    const iso=localISO(d);
+    if(iso>ateISO)break;
+    if(iso>=baseISO)out.push(iso);
+    m++; if(m>11){m=0;y++;}
+  }
+  return out;
+}
+function freqLabel(freq,baseISO){
+  const wdNome=['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+  const ordNome=['','1ª','2ª','3ª','4ª','5ª'];
+  if(freq==='nenhuma')return 'data única';
+  if(freq==='semanal')return 'toda semana';
+  if(freq==='quinzenal')return 'a cada 15 dias';
+  const b=new Date(baseISO+'T12:00');
+  if(freq==='mensal_semana')return `toda ${ordNome[Math.min(5,Math.floor((b.getDate()-1)/7)+1)]} ${wdNome[b.getDay()]} do mês`;
+  return `todo dia ${b.getDate()} de cada mês`;
+}
+function previewSincronas(){
+  const box=document.getElementById('syPrev'); if(!box)return;
+  const data=document.getElementById('syd').value;
+  const freq=document.getElementById('syrep').value;
+  const ate=document.getElementById('syr');
+  const wrap=document.getElementById('syAteWrap');
+  if(wrap)wrap.style.display=freq==='nenhuma'?'none':'block';
+  if(!data){box.innerHTML='Informe a data da 1ª aula.';return;}
+  const datas=gerarDatasSincrona(data,freq,ate?ate.value:'');
+  if(datas.length<=1){box.innerHTML=`Será criada <b>1 aula</b> em ${fmtBR(data)}.`;return;}
+  const amostra=datas.slice(0,8).map(d=>fmtBR(d).slice(0,5)).join(' · ');
+  box.innerHTML=`Serão criadas <b>${datas.length} aulas</b> (${freqLabel(freq,data)}): ${amostra}${datas.length>8?` … até ${fmtBR(datas[datas.length-1]).slice(0,5)}`:''}`;
+}
+function serieFuturas(s){
+  if(!s||!s.serie)return [];
+  return store.sincronas.filter(x=>x.serie===s.serie&&x.id!==s.id&&x.data>=s.data);
+}
+function mSincrona(id=null){
+  if(!store.materias.length){toast('Cadastre uma matéria primeiro');return;}
+  const s=id?store.sincronas.find(x=>x.id===id):null;
+  const fut=s?serieFuturas(s).length:0;
+  modal(`<h3>${s?'Editar aula síncrona':'Nova aula síncrona'}</h3>
+  <div class="field"><label>Nome / tema da aula</label><input id="syn" placeholder="Ex: Cálculo I — encontro ao vivo" value="${s?h(s.nome):''}"></div>
+  <div class="field"><label>Matéria</label><select id="sym">${materiaOptions(s?s.materia:'')}</select></div>
+  <div class="field"><label>${s?'Data':'Data da 1ª aula'}</label><input type="date" id="syd" value="${s?s.data:todayISO()}" onchange="previewSincronas()"></div>
+  <div class="grid2">
+    <div class="field"><label>Início</label><input type="time" id="syi" value="${s?h(s.ini||''):'19:00'}"></div>
+    <div class="field"><label>Fim</label><input type="time" id="syf" value="${s?h(s.fim||''):'21:00'}"></div>
+  </div>
+  <div class="field"><label>Link da sala (opcional)</label><input id="syl" placeholder="https://meet..." value="${s?h(s.link||''):''}"></div>
+  <div class="field"><label>Observação (opcional)</label><input id="syo" placeholder="Ex: chamada vale nota" value="${s?h(s.obs||''):''}"></div>
+  ${s?(fut?`<div style="border-top:1px solid var(--line);margin-top:6px;padding-top:12px">
+      <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);cursor:pointer">
+        <input type="checkbox" id="syAll" style="width:auto"> Aplicar nome, horário, link e observação às <b>${fut}</b> próximas aulas desta série
+      </label>
+      <div class="h-sub" style="margin-top:6px">A data nunca é propagada — cada encontro mantém a sua.</div></div>`:'')
+    :`<div style="border-top:1px solid var(--line);margin-top:6px;padding-top:12px">
+      <div class="grid2">
+        <div class="field"><label>Repetição</label><select id="syrep" onchange="previewSincronas()">
+          <option value="mensal_semana" selected>Mensal — mesma posição na semana (ex: 2ª terça)</option>
+          <option value="mensal_dia">Mensal — mesmo dia do mês</option>
+          <option value="quinzenal">Quinzenal</option>
+          <option value="semanal">Semanal</option>
+          <option value="nenhuma">Não repetir (data única)</option>
+        </select></div>
+        <div class="field" id="syAteWrap"><label>Repetir até</label><input type="date" id="syr" value="2026-12-06" onchange="previewSincronas()"></div>
+      </div>
+      <div class="h-sub" id="syPrev" style="margin-top:-4px"></div>
+    </div>`}
+  <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+  <button class="btn" onclick="saveSincrona(${s?`'${id}'`:'null'})">${s?'Salvar':'Adicionar'}</button></div>`);
+  setTimeout(()=>{const el=document.getElementById('syn');if(el)el.focus();previewSincronas();},50);
+}
+function saveSincrona(id){
+  const nome=document.getElementById('syn').value.trim();
+  const data=document.getElementById('syd').value;
+  if(!nome||!data){toast('Preencha nome e data');return;}
+  const base={nome,materia:document.getElementById('sym').value,data,
+    ini:document.getElementById('syi').value,fim:document.getElementById('syf').value,
+    link:safeUrl(document.getElementById('syl').value),obs:document.getElementById('syo').value.trim()};
+  if(id){
+    const s=store.sincronas.find(x=>x.id===id);
+    const all=document.getElementById('syAll')&&document.getElementById('syAll').checked;
+    const fut=all?serieFuturas(s):[];
+    Object.assign(s,base);
+    fut.forEach(f=>Object.assign(f,{nome:base.nome,materia:base.materia,ini:base.ini,fim:base.fim,link:base.link,obs:base.obs}));
+    save();closeModal();vUnitins();
+    toast(fut.length?`Atualizada + ${fut.length} da série`:'Aula síncrona atualizada');
+    return;
+  }
+  const freq=document.getElementById('syrep').value;
+  const ate=document.getElementById('syr')?document.getElementById('syr').value:'';
+  const datas=gerarDatasSincrona(data,freq,ate);
+  const serie=datas.length>1?uid():null;
+  datas.forEach(d=>store.sincronas.push({id:uid(),...base,data:d,serie}));
+  save();closeModal();vUnitins();
+  toast(datas.length>1?`${datas.length} aulas síncronas criadas`:'Aula síncrona adicionada');
+}
+function delSincrona(id){
+  const s=store.sincronas.find(x=>x.id===id); if(!s)return;
+  const fut=serieFuturas(s);
+  if(!fut.length){
+    store.sincronas=store.sincronas.filter(x=>x.id!==id);save();vUnitins();toast('Aula removida');return;
+  }
+  modal(`<h3>Excluir aula da série</h3>
+    <div class="h-sub">${h(s.nome)} · ${fmtBR(s.data)}<br>Esta aula faz parte de uma série com mais <b>${fut.length}</b> encontro(s) a partir desta data.</div>
+    <div class="modal-actions" style="flex-direction:column">
+      <button class="btn" style="width:100%;justify-content:center" onclick="delSincronaConfirm('${id}',false)">Excluir só esta</button>
+      <button class="btn" style="width:100%;justify-content:center;background:var(--red)" onclick="delSincronaConfirm('${id}',true)">Excluir esta e as ${fut.length} seguintes</button>
+      <button class="btn line" style="width:100%;justify-content:center" onclick="closeModal()">Cancelar</button>
+    </div>`);
+}
+function delSincronaConfirm(id,todas){
+  const s=store.sincronas.find(x=>x.id===id); if(!s)return;
+  const ids=new Set([id,...(todas?serieFuturas(s).map(x=>x.id):[])]);
+  store.sincronas=store.sincronas.filter(x=>!ids.has(x.id));
+  save();closeModal();vUnitins();toast(ids.size>1?`${ids.size} aulas removidas`:'Aula removida');
+}
+function registrarSincrona(id){
+  const s=store.sincronas.find(x=>x.id===id); if(!s)return;
+  mNovaSessao('unitins',null,{area:'unitins',atividade:s.nome,data:s.data,ini:s.ini||'',fim:s.fim||''});
+}
+function sincronasHoje(){
+  const t=todayISO();
+  return store.sincronas.filter(s=>s.data===t).sort((a,b)=>(a.ini||'').localeCompare(b.ini||''));
+}
+function dashSincronasCard(){
+  const list=sincronasHoje();
+  if(!list.length)return '';
+  return `<div class="card" style="margin-bottom:20px;border:1px solid var(--blue);background:var(--blue-soft)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span style="font-size:18px">🎥</span><h3 style="color:var(--blue)">Aula síncrona hoje (${list.length})</h3></div>
+    ${list.map(s=>{const st=sincStatus(s);const url=safeUrl(s.link);
+      return `<div class="list-item">
+        <div class="li-body"><div class="t">${h(s.nome)}</div>
+        <div class="m"><span class="pill ${st.cls}">${st.txt}</span>
+          <b style="color:var(--ink)">${h(s.ini||'—')}${s.fim?'–'+h(s.fim):''}</b> · ${h(materiaNome(s.materia))}
+          ${s.obs?' · '+h(s.obs):''}</div></div>
+        ${url?`<a class="btn sm ghost" href="${h(url)}" target="_blank" rel="noopener">Entrar</a>`:''}
+        <button class="btn sm line" onclick="registrarSincrona('${s.id}')">Registrar</button>
+      </div>`;}).join('')}
+  </div>`;
+}
+
+/* ---- Aba: Entregáveis ---- */
+function uniEntregaveis(){
+  return `<button class="btn sm" style="margin-bottom:14px" onclick="mNovoEntreg()">+ Novo entregável</button>
     <div class="card" style="padding:6px 20px">${store.entregaveis.length?
       `<div class="table-wrap"><table><thead><tr><th>Entregável</th><th>Matéria</th><th>Prazo</th><th>Status</th><th>Urgência</th><th></th></tr></thead><tbody>
-      ${store.entregaveis.sort((a,b)=>(a.prazo||'9').localeCompare(b.prazo||'9')).map(e=>`<tr>
+      ${[...store.entregaveis].sort((a,b)=>(a.prazo||'9').localeCompare(b.prazo||'9')).map(e=>`<tr>
         <td><b>${h(e.nome)}</b></td><td>${h(materiaNome(e.materia))}</td><td>${fmtBR(e.prazo)}</td>
         <td><select class="st-select" onchange="setEntregStatus('${e.id}',this.value)">
           ${['A fazer','Em andamento','Entregue','Atrasado'].map(s=>`<option ${e.status===s?'selected':''}>${s}</option>`).join('')}
@@ -1119,16 +1550,7 @@ function vUnitins(){
         <td>${urgPill(e)}</td>
         <td><button class="icon-btn" onclick="delEntreg('${e.id}')">✕</button></td></tr>`).join('')}
       </tbody></table></div>`:'<div class="empty">Nenhum entregável com prazo cadastrado.</div>'}</div>`;
-  }
-  document.getElementById('view').innerHTML=`
-    <div class="page-title">hub unitins</div>
-    <div class="page-sub">Controle as aulas que você vai assistindo por matéria e as atividades com prazo, tudo num lugar só.</div>
-    <div class="area-tabs">${tab('materias','Matérias')}${tab('aulas','Aulas')}${tab('entregaveis','Entregáveis')}</div>
-    ${body}`;
 }
-function setUni(t){window._uniTab=t;vUnitins();}
-function materiaNome(id){const m=store.materias.find(x=>x.id===id);return m?m.nome:'—';}
-function materiaOptions(sel){return store.materias.map(m=>`<option value="${m.id}" ${m.id===sel?'selected':''}>${h(m.nome)}</option>`).join('');}
 function urgPill(e){if(e.status==='Entregue')return '<span class="pill green">✓ Concluído</span>';
   if(!e.prazo)return '<span class="pill gray">sem prazo</span>';
   const d=Math.ceil((new Date(e.prazo+'T00:00')-new Date(todayISO()+'T00:00'))/86400000);
@@ -1136,25 +1558,6 @@ function urgPill(e){if(e.status==='Entregue')return '<span class="pill green">�
   if(d<=1)return '<span class="pill red">🔴 Urgente</span>';
   if(d<=4)return '<span class="pill amber">🟡 Atenção</span>';
   return '<span class="pill green">🟢 Tranquilo</span>';}
-function mNovaMateria(){modal(`<h3>Nova matéria</h3>
-  <div class="field"><label>Nome</label><input id="mmn" placeholder="Ex: Cálculo I"></div>
-  <div class="field"><label>Status</label><select id="mms"><option>Não iniciada</option><option>Em andamento</option><option>Concluída</option></select></div>
-  <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
-  <button class="btn" onclick="addMateria()">Adicionar</button></div>`);setTimeout(()=>document.getElementById('mmn').focus(),50);}
-function addMateria(){const n=document.getElementById('mmn').value.trim();if(!n)return;
-  store.materias.push({id:uid(),nome:n,status:document.getElementById('mms').value});save();closeModal();vUnitins();toast('Matéria adicionada');}
-function delMateria(id){store.materias=store.materias.filter(m=>m.id!==id);
-  store.aulas=store.aulas.filter(a=>a.materia!==id);store.entregaveis=store.entregaveis.filter(e=>e.materia!==id);save();vUnitins();}
-function mNovaAula(){if(!store.materias.length){toast('Cadastre uma matéria primeiro');return;}
-  modal(`<h3>Nova aula</h3>
-  <div class="field"><label>Nome da aula</label><input id="aan" placeholder="Ex: Aula 05 - Derivadas"></div>
-  <div class="field"><label>Matéria</label><select id="aam">${materiaOptions()}</select></div>
-  <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
-  <button class="btn" onclick="addAula()">Adicionar</button></div>`);setTimeout(()=>document.getElementById('aan').focus(),50);}
-function addAula(){const n=document.getElementById('aan').value.trim();if(!n)return;
-  store.aulas.push({id:uid(),nome:n,materia:document.getElementById('aam').value,done:false});save();closeModal();vUnitins();toast('Aula adicionada');}
-function toggleAula(id){const a=store.aulas.find(x=>x.id===id);a.done=!a.done;save();vUnitins();}
-function delAula(id){store.aulas=store.aulas.filter(a=>a.id!==id);save();vUnitins();}
 function mNovoEntreg(){if(!store.materias.length){toast('Cadastre uma matéria primeiro');return;}
   modal(`<h3>Novo entregável</h3>
   <div class="field"><label>Nome</label><input id="een" placeholder="Ex: Trabalho final"></div>
@@ -1465,6 +1868,9 @@ function upcomingDeadlines(){
     if(d<=3) out.push({tipo:'Entregável',id:'e'+e.id,nome:e.nome,prazo:e.prazo,d,mat:materiaNome(e.materia)}); });
   store.pendencias.forEach(p=>{ if(p.done||!p.prazo)return; const d=daysUntil(p.prazo);
     if(d<=3) out.push({tipo:'Pendência',id:'p'+p.id,nome:p.nome,prazo:p.prazo,d}); });
+  store.sincronas.forEach(s=>{ if(!s.data)return; const d=daysUntil(s.data);
+    if(d>=0&&d<=3) out.push({tipo:'Aula síncrona',id:'s'+s.id,nome:s.nome+(s.ini?' · '+s.ini:''),prazo:s.data,d,
+      label:d===0?('hoje às '+(s.ini||'—')):d===1?('amanhã às '+(s.ini||'—')):('em '+d+' dias às '+(s.ini||'—'))}); });
   return out.sort((a,b)=>a.d-b.d);
 }
 function labelPrazo(d){return d<0?`atrasado ${-d}d`:d===0?'vence hoje':d===1?'vence amanhã':`vence em ${d} dias`;}
@@ -1476,7 +1882,7 @@ function checkDeadlineAlerts(){
   let already={}; try{already=JSON.parse(localStorage.getItem(key)||'{}');}catch(e){}
   const novos=items.filter(it=>!already[it.id]);
   novos.slice(0,5).forEach(it=>{
-    try{ new Notification('📌 '+it.nome,{body:`${it.tipo} · ${labelPrazo(it.d)} (${fmtBR(it.prazo)})`}); }catch(e){}
+    try{ new Notification('📌 '+it.nome,{body:`${it.tipo} · ${it.label||labelPrazo(it.d)} (${fmtBR(it.prazo)})`}); }catch(e){}
     already[it.id]=1;
   });
   try{localStorage.setItem(key,JSON.stringify(already));}catch(e){}
@@ -1502,7 +1908,7 @@ function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReade
     const resumo=`Isto vai SUBSTITUIR seus dados atuais por:\n`
       +`• ${(d.logs||[]).length} sessões\n• ${(d.pendencias||[]).length} pendências\n`
       +`• ${(d.materias||[]).length} matérias · ${(d.entregaveis||[]).length} entregáveis\n`
-      +`• ${(d.habitos||[]).length} hábitos\n\nContinuar?`;
+      +`• ${(d.habitos||[]).length} hábitos · ${(d.sincronas||[]).length} aulas síncronas\n\nContinuar?`;
     if(!confirm(resumo)){ inp.value=''; return; }
     if(applyData(d)){ save(); go(current); toast('Dados importados'); }
     else toast('Falha ao aplicar o backup');
