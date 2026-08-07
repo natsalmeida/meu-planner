@@ -102,6 +102,8 @@ tr:last-child td{border-bottom:none}
 .list-item:last-child{border-bottom:none}
 .check{width:20px;height:20px;border-radius:50%;border:2px solid #cfc9da;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.12s}
 .check.on{background:var(--purple);border-color:var(--purple);color:#fff;font-size:12px}
+.check-sq{width:22px;height:22px;border-radius:7px;border:2px solid #cfc9da;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:.12s;color:transparent}
+.check-sq.on{background:var(--green-soft);border-color:var(--green);color:var(--green)}
 .li-body{flex:1;min-width:0}
 .li-body .t{font-size:14px;font-weight:500}
 .li-body .m{font-size:12px;color:var(--faint);margin-top:2px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
@@ -900,18 +902,55 @@ function savePend(id){const n=document.getElementById('pn').value.trim();if(!n)r
 
 function vDiarios(){
   window._diarioArea=window._diarioArea||'all';
-  const sel=window._diarioArea;
-  const logs=store.logs.filter(l=>sel==='all'||l.area===sel).sort((a,b)=>(b.data+b.ini).localeCompare(a.data+a.ini));
+  if(window._diarioAtiv===undefined)window._diarioAtiv='';
+  if(window._diarioBusca===undefined)window._diarioBusca='';
+  const sel=window._diarioArea, ativSel=window._diarioAtiv, busca=window._diarioBusca.trim().toLowerCase();
+
+  const porArea=store.logs.filter(l=>sel==='all'||l.area===sel);
+  // atividades distintas da área selecionada, com contagem e tempo
+  const mapa={};
+  porArea.forEach(l=>{const a=(l.atividade||'').trim()||'(sem atividade)';
+    if(!mapa[a])mapa[a]={n:0,min:0}; mapa[a].n++; mapa[a].min+=durMin(l.ini,l.fim);});
+  const ativs=Object.keys(mapa).sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true,sensitivity:'base'}));
+  if(ativSel&&!mapa[ativSel]){window._diarioAtiv='';}
+
+  const logs=porArea.filter(l=>{
+    const at=(l.atividade||'').trim()||'(sem atividade)';
+    if(window._diarioAtiv&&at!==window._diarioAtiv)return false;
+    if(busca){const alvo=(at+' '+(l.obs||'')).toLowerCase();if(!alvo.includes(busca))return false;}
+    return true;
+  }).sort((a,b)=>(b.data+b.ini).localeCompare(a.data+a.ini));
+
   const tabs=`<button class="area-tab ${sel==='all'?'active':''}" onclick="setDiario('all')">Todas</button>`+
     AREAS.map(a=>`<button class="area-tab ${sel===a.id?'active':''}" onclick="setDiario('${a.id}')">${a.nome}</button>`).join('');
-  const totalArea = sel!=='all' && areaById(sel).conta
-    ? countableLogs().filter(l=>l.area===sel).reduce((s,l)=>s+durH(l.ini,l.fim),0) : null;
+  const contaFiltro=logs.filter(l=>areaById(l.area).conta);
+  const totalFiltro=contaFiltro.reduce((s,l)=>s+durH(l.ini,l.fim),0);
+  const filtrando=!!(window._diarioAtiv||busca);
+
   document.getElementById('view').innerHTML=`
     <div class="page-title">diários de bordo</div>
-    <div class="page-sub">Registre cada sessão manualmente: hora de início e fim, e a duração é calculada sozinha. Lançamentos de TRE nunca contam como horas estudadas.</div>
+    <div class="page-sub">Toda sessão registrada aqui — manualmente, pelo cronômetro ou pelo botão da Grade — alimenta as horas, a aderência semanal e o hábito "Estudo". Lançamentos de TRE nunca contam.</div>
     <div class="area-tabs">${tabs}</div>
-    <div style="display:flex;align-items:center;margin-bottom:16px">
-      ${totalArea!==null?`<span class="pill purple">Total nesta área: ${fmtDur(totalArea)}</span>`:''}
+    <div class="card" style="margin-bottom:16px;padding:14px 16px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div class="field" style="margin:0;flex:1;min-width:200px">
+          <label>Atividade</label>
+          <select id="dAtiv" onchange="setDiarioAtiv(this.value)">
+            <option value="">Todas as atividades (${porArea.length})</option>
+            ${ativs.map(a=>`<option value="${h(a)}" ${a===window._diarioAtiv?'selected':''}>${h(a)} — ${mapa[a].n}× · ${fmtDur(mapa[a].min/60)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field" style="margin:0;flex:1;min-width:180px">
+          <label>Buscar em atividade/observações</label>
+          <input id="dBusca" placeholder="Ex: derivadas, aula 04" value="${h(window._diarioBusca)}" oninput="setDiarioBusca(this.value)">
+        </div>
+        ${filtrando?`<button class="btn sm line" onclick="limparFiltroDiario()">Limpar filtros</button>`:''}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      <span class="pill purple">${logs.length} ${logs.length===1?'sessão':'sessões'}</span>
+      ${contaFiltro.length?`<span class="pill green">${fmtDur(totalFiltro)} no filtro atual</span>`:''}
+      ${window._diarioAtiv?`<span class="pill blue">atividade: ${h(window._diarioAtiv)}</span>`:''}
       <button class="btn sm" style="margin-left:auto" onclick="mNovaSessao('${sel==='all'?'':sel}')">+ Nova sessão</button>
     </div>
     <div class="card" style="padding:6px 20px">
@@ -921,10 +960,15 @@ function vDiarios(){
         <td style="color:var(--muted);max-width:220px">${l.obs?h(l.obs):'—'}</td>
         <td>${l.ini}–${l.fim}</td><td><b>${fmtDur(durH(l.ini,l.fim))}</b></td>
         <td style="white-space:nowrap"><button class="icon-btn" onclick="mNovaSessao(null,'${l.id}')" title="Editar">✎</button><button class="icon-btn" onclick="delLog('${l.id}')" title="Excluir">✕</button></td></tr>`).join('')}</tbody></table></div>`
-      :'<div class="empty">Nenhuma sessão registrada ainda.</div>'}
+      :`<div class="empty">${filtrando?'Nenhuma sessão com esse filtro.':'Nenhuma sessão registrada ainda.'}</div>`}
     </div>`;
 }
-function setDiario(a){window._diarioArea=a;vDiarios();}
+function setDiario(a){window._diarioArea=a;window._diarioAtiv='';window._diarioBusca='';vDiarios();}
+function setDiarioAtiv(v){window._diarioAtiv=v;vDiarios();}
+function setDiarioBusca(v){window._diarioBusca=v;vDiarios();
+  const el=document.getElementById('dBusca');
+  if(el){el.focus();try{el.setSelectionRange(el.value.length,el.value.length);}catch(e){}}}
+function limparFiltroDiario(){window._diarioAtiv='';window._diarioBusca='';vDiarios();}
 function delLog(id){store.logs=store.logs.filter(l=>l.id!==id);save();vDiarios();}
 function recentActivities(area){
   // atividades únicas mais recentes SOMENTE da área selecionada
@@ -974,93 +1018,150 @@ function addLog(editId=null){const area=document.getElementById('sa').value,ini=
   if(current==='diarios')vDiarios();else if(current==='dashboard')vDashboard();}
 
 function vGrade(){
-  const adh=gradeAdherence();
+  _gaCache=null;
+  const st=gradeWeekStats();
   const hoje=todayISO();
-  const rColor=adh.pctAte>=70?'var(--green)':adh.pctAte>=40?'var(--amber)':'var(--rose)';
+  const rColor=st.pctAte>=70?'var(--green)':st.pctAte>=40?'var(--amber)':'var(--rose)';
+  const barrasArea=st.areas.length? st.areas.map(a=>{
+    const pct=a.plan?Math.min(100,Math.round(a.feito/a.plan*100)):0;
+    const ok=a.feito>=a.plan;
+    return `<div class="bar-row"><div class="lbl">${areaById(a.id).nome}</div>
+      <div class="bar-track"><i style="width:${pct}%;background:${ok?'var(--green)':areaById(a.id).cor}"></i></div>
+      <div class="val" style="width:110px">${fmtDur(a.feito/60)}/${fmtDur(a.plan/60)}</div></div>`;}).join('')
+    : '<div class="empty" style="padding:14px">Sem blocos de estudo na grade.</div>';
   document.getElementById('view').innerHTML=`
     <div class="page-title">grade semanal</div>
-    <div class="page-sub">Sua rotina de estudos, dia a dia — edite à vontade. Cada bloco de estudo vira um botão "Registrar hoje" que lança a sessão no Diário com o horário já preenchido, num toque.</div>
+    <div class="page-sub">Sua rotina planejada. A aderência compara <b>quanto tempo você planejou por área</b> com <b>quanto registrou no Diário de Bordo</b> na semana toda — o saldo compensa entre os dias: estudar Espanhol no sábado cobre o bloco de Espanhol da segunda. Origem (cronômetro, botão ou lançamento manual) e horário não importam.</div>
     <div class="card" style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div><h3>Aderência da semana</h3><div class="h-sub" style="margin-bottom:0">Progresso sobre todos os blocos de estudo da semana (Seg–Dom)</div></div>
-        <span style="font-family:var(--serif);font-size:30px;font-weight:600;color:var(--purple)">${adh.pct}%</span>
+        <div><h3>Aderência da semana</h3><div class="h-sub" style="margin-bottom:0">Tempo estudado ÷ planejado, por área, na semana inteira (Seg–Dom) · TRE fora</div></div>
+        <span style="font-family:var(--serif);font-size:30px;font-weight:600;color:var(--purple)">${st.pct}%</span>
       </div>
-      <div class="progress" style="height:10px"><i style="width:${adh.pct}%;background:linear-gradient(90deg,var(--purple),var(--rose))"></i></div>
+      <div class="progress" style="height:10px"><i style="width:${st.pct}%;background:linear-gradient(90deg,var(--purple),var(--rose))"></i></div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px">
-        <div class="h-sub" style="margin:0">${adh.done} de ${adh.total} blocos da semana · TRE não entra</div>
-        <span class="pill" style="background:${rColor}22;color:${rColor}">No ritmo até hoje: ${adh.doneAte}/${adh.totalAte} · ${adh.pctAte}%</span>
+        <div class="h-sub" style="margin:0">${fmtDur(st.feitoCap/60)} de ${fmtDur(st.plan/60)} planejadas · ${st.blocosDone}/${st.blocosTotal} blocos cobertos${st.blocosAdiant?` (${st.blocosAdiant} adiantados)`:''}${st.excedente>0?` · <span style="color:var(--green)">+${fmtDur(st.excedente/60)} além do plano</span>`:''}</div>
+        <span class="pill" style="background:${rColor}22;color:${rColor}">No ritmo até hoje: ${st.pctAte}%</span>
+      </div>
+      <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+        <div class="h-sub" style="margin-bottom:10px">Por área — estudado vs. planejado nesta semana</div>
+        <div class="bars">${barrasArea}</div>
       </div>
     </div>
     <div style="display:flex;margin-bottom:16px"><button class="btn sm" style="margin-left:auto" onclick="mBloco()">+ Novo bloco</button></div>
     ${DIAS.map(d=>{const blocos=store.grade.filter(g=>g.dia===d).sort((a,b)=>gradeStartMin(a.horario)-gradeStartMin(b.horario));
       const di=DIAS.indexOf(d); const mon=anMonday(0); const dd=new Date(mon); dd.setDate(dd.getDate()+di); const dISO=localISO(dd);
-      const isHoje=dISO===hoje, isPast=dISO<hoje, isFut=dISO>hoje;
+      const isHoje=dISO===hoje, isPast=dISO<hoje;
+      const alloc=dayAlloc(dISO);
       return `<div class="card" style="margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <h3>${d} ${isHoje?'<span class="pill purple" style="font-size:10px">hoje</span>':''}</h3>
           <button class="btn sm line" onclick="mBloco(null,'${d}')">+ Adicionar em ${d}</button></div>
-        ${blocos.length?blocos.map(g=>{const conta=areaById(g.area).conta;const ft=conta&&gradeFulfilledOn(g,dISO);
+        ${blocos.length?blocos.map(g=>{const conta=areaById(g.area).conta;const a=alloc[g.id];
           let acao='<span class="pill gray">não conta</span>';
           if(conta){
-            if(ft) acao='<span class="pill green">✓ feito</span>';
+            if(a&&a.done) acao=a.adiantado
+              ?`<span class="pill blue" title="Coberto pelo saldo da semana antes do dia chegar">✓ adiantado</span>`
+              :`<span class="pill green" title="${fmtDur(a.alloc/60)} do saldo da área alocados neste bloco">✓ feito</span>`;
+            else if(a&&a.alloc>0) acao=`<span class="pill amber" title="Cobertura parcial desta área neste dia">${Math.round(a.alloc/a.need*100)}% · ${fmtDur(a.alloc/60)}</span>`
+              +((isHoje||isPast)?` <button class="btn sm line" onclick="cumprirBloco('${g.id}','${dISO}')" title="Completar lançando o bloco cheio">Registrar</button>`:'');
             else if(isHoje) acao=`<button class="btn sm line" onclick="cumprirBloco('${g.id}','${dISO}')">Registrar hoje</button>`;
             else if(isPast) acao=`<button class="btn sm line" onclick="cumprirBloco('${g.id}','${dISO}')" title="Registrar em ${fmtBR(dISO)}">Registrar (${fmtBR(dISO).slice(0,5)})</button>`;
             else acao='<span class="pill gray">a fazer</span>';
           }
           return `<div class="list-item">
           <span class="tag-dot" style="background:${areaById(g.area).cor}"></span>
-          <div class="li-body"><div class="t">${h(g.atividade)}</div><div class="m">${h(g.horario)} · ${areaById(g.area).nome}</div></div>
+          <div class="li-body"><div class="t">${h(g.atividade)}</div><div class="m">${h(g.horario)} · ${areaById(g.area).nome}${a?` · ${fmtDur(a.need/60)} planejados`:''}</div></div>
           ${acao}
           <button class="icon-btn" onclick="mBloco('${g.id}')" title="Editar">✎</button>
           <button class="icon-btn" onclick="delBloco('${g.id}')" title="Excluir">✕</button>
         </div>`;}).join(''):'<div class="empty" style="padding:16px">Sem blocos neste dia.</div>'}
-      </div>`;}).join('')}`;
+      </div>`;}).join('')}
+    <div class="h-sub">O saldo de cada área na semana paga os blocos em ordem cronológica: primeiro os de dias passados e de hoje, depois os futuros (marcados <span class="pill blue" style="font-size:10px">✓ adiantado</span>). Um bloco fecha com <b>80%</b> da duração planejada coberta.</div>`;
 }
-function gradeStartMin(hor){const m=hor.match(/(\d{1,2})h(\d{0,2})/);if(!m)return 9999;return parseInt(m[1])*60+(m[2]?parseInt(m[2]):0);}
+function gradeStartMin(hor){const m=String(hor).match(/(\d{1,2})h(\d{0,2})/);if(!m)return 9999;return parseInt(m[1])*60+(m[2]?parseInt(m[2]):0);}
 function parseGradeTime(hor){
   const m=String(hor).match(/(\d{1,2})h(\d{0,2})\s*[-–]\s*(\d{1,2})h(\d{0,2})/);
   if(!m)return null;
   const p=(hh,mm)=>String(hh).padStart(2,'0')+':'+String(mm||'00').padStart(2,'0');
   return {ini:p(m[1],m[2]), fim:p(m[3],m[4])};
 }
-function overlapMin(aIni,aFim,bIni,bFim){
-  const t=s=>{const[hh,mm]=s.split(':').map(Number);return hh*60+mm;};
-  let a1=t(aIni),a2=t(aFim),b1=t(bIni),b2=t(bFim);
-  if(a2<a1)a2+=1440; if(b2<b1)b2+=1440;
-  return Math.max(0, Math.min(a2,b2)-Math.max(a1,b1));
-}
-function gradeFulfilledOn(g,iso){
-  const t=parseGradeTime(g.horario);
-  return store.logs.some(l=>{
-    if(l.area!==g.area||l.data!==iso)return false;
-    if(!t)return true;
-    return overlapMin(t.ini,t.fim,l.ini,l.fim)>0;
-  });
-}
-function gradeAdherence(){
+function gradeBlockMin(g){const t=parseGradeTime(g.horario);return t?durMin(t.ini,t.fim):60;}
+
+/* Alocação semanal: os minutos registrados na semana viram um "saldo" por área e
+   pagam os blocos daquela área na ordem cronológica da semana — dia nenhum fica preso
+   ao seu próprio registro. Blocos passados/hoje são pagos primeiro; a sobra adianta os futuros. */
+let _gaCache=null;
+function weekAlloc(){
+  if(_gaCache)return _gaCache;
   const mon=anMonday(0), hoje=todayISO();
-  let done=0,total=0,doneAte=0,totalAte=0;
+  const dias=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(d.getDate()+i);dias.push(localISO(d));}
+  const pool={};
+  countableLogs().forEach(l=>{if(l.data<dias[0]||l.data>dias[6])return;
+    pool[l.area]=(pool[l.area]||0)+durMin(l.ini,l.fim);});
+  const blocos=store.grade.filter(g=>areaById(g.area).conta&&DIAS.indexOf(g.dia)>=0)
+    .map(g=>({g,di:DIAS.indexOf(g.dia),iso:dias[DIAS.indexOf(g.dia)],ini:gradeStartMin(g.horario)}));
+  const cmp=(a,b)=>(a.di-b.di)||(a.ini-b.ini);
+  const ordem=[...blocos.filter(b=>b.iso<=hoje).sort(cmp),...blocos.filter(b=>b.iso>hoje).sort(cmp)];
+  const res={};
+  ordem.forEach(b=>{
+    const need=gradeBlockMin(b.g)||1, have=pool[b.g.area]||0, al=Math.min(need,have);
+    pool[b.g.area]=have-al;
+    res[b.g.id]={need,alloc:al,done:al>=need*0.8,adiantado:b.iso>hoje&&al>=need*0.8,iso:b.iso};
+  });
+  _gaCache={res,sobra:pool};
+  return _gaCache;
+}
+function dayAlloc(iso){
+  const all=weekAlloc().res, out={};
+  Object.keys(all).forEach(k=>{if(all[k].iso===iso)out[k]=all[k];});
+  return out;
+}
+function gradeFulfilledOn(g,iso){const a=dayAlloc(iso)[g.id];return !!(a&&a.done);}
+function gradeWeekStats(){
+  _gaCache=null;
+  const mon=anMonday(0), hoje=todayISO();
+  const dias=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(d.getDate()+i);dias.push(localISO(d));}
+  const plan={},planAte={},feito={},feitoAte={};
   store.grade.forEach(g=>{
     if(!areaById(g.area).conta)return;
     const di=DIAS.indexOf(g.dia); if(di<0)return;
-    const dt=new Date(mon); dt.setDate(dt.getDate()+di); const iso=localISO(dt);
-    total++;
-    const ok=gradeFulfilledOn(g,iso);
-    if(ok)done++;
-    if(iso<=hoje){ totalAte++; if(ok)doneAte++; }
+    const m=gradeBlockMin(g);
+    plan[g.area]=(plan[g.area]||0)+m;
+    if(dias[di]<=hoje) planAte[g.area]=(planAte[g.area]||0)+m;
   });
-  return {done,total,pct: total?Math.round(done/total*100):0,
-          doneAte,totalAte,pctAte: totalAte?Math.round(doneAte/totalAte*100):0};
+  countableLogs().forEach(l=>{
+    if(l.data<dias[0]||l.data>dias[6])return;
+    const m=durMin(l.ini,l.fim);
+    feito[l.area]=(feito[l.area]||0)+m;
+    if(l.data<=hoje) feitoAte[l.area]=(feitoAte[l.area]||0)+m;
+  });
+  const areas=Object.keys(plan).map(id=>({id,plan:plan[id],feito:feito[id]||0}))
+    .sort((a,b)=>b.plan-a.plan);
+  const somaPlan=areas.reduce((s,a)=>s+a.plan,0);
+  const cap=areas.reduce((s,a)=>s+Math.min(a.plan,a.feito),0);
+  const feitoTotal=areas.reduce((s,a)=>s+a.feito,0);
+  const somaPlanAte=Object.values(planAte).reduce((s,v)=>s+v,0);
+  const capAte=Object.keys(planAte).reduce((s,id)=>s+Math.min(planAte[id],feitoAte[id]||0),0);
+  const wa=weekAlloc().res;
+  const chaves=Object.keys(wa);
+  const blocosTotal=chaves.length;
+  const blocosDone=chaves.filter(k=>wa[k].done).length;
+  const blocosAdiant=chaves.filter(k=>wa[k].adiantado).length;
+  return {areas,plan:somaPlan,feitoCap:cap,excedente:Math.max(0,feitoTotal-cap),
+    pct: somaPlan?Math.round(cap/somaPlan*100):0,
+    pctAte: somaPlanAte?Math.round(capAte/somaPlanAte*100):0,
+    blocosDone,blocosTotal,blocosAdiant};
 }
 function cumprirBloco(id,iso){
   const g=store.grade.find(x=>x.id===id); if(!g)return;
   iso=iso||todayISO();
   if(iso>todayISO()){toast('Esse dia ainda não chegou');return;}
-  if(gradeFulfilledOn(g,iso)){toast('Este bloco já está no Diário desse dia');return;}
+  _gaCache=null;
+  if(gradeFulfilledOn(g,iso)){toast('Este bloco já está coberto pelo Diário desse dia');return;}
   const t=parseGradeTime(g.horario);
   if(!t){ regFromGrade(id); return; }
   store.logs.push({id:uid(),area:g.area,atividade:g.atividade,data:iso,ini:t.ini,fim:t.fim,obs:''});
-  save(); vGrade();
+  save(); _gaCache=null; vGrade();
   toast('✓ Registrado em '+fmtBR(iso)+' ('+fmtDur(durH(t.ini,t.fim))+')');
 }
 function regFromGrade(id){
@@ -1097,9 +1198,12 @@ function delBloco(id){store.grade=store.grade.filter(g=>g.id!==id);save();vGrade
 function materiaStatusAuto(id){
   const aulas=store.aulas.filter(a=>a.materia===id);
   if(!aulas.length) return null;                       // sem aulas não há o que inferir
-  const feitas=aulas.filter(a=>a.done).length;
-  if(feitas===0) return 'Não iniciada';
-  if(feitas===aulas.length) return 'Concluída';
+  const vistas=aulas.filter(a=>a.done).length;
+  const estud=aulas.filter(a=>a.estudada).length;
+  if(vistas===0&&estud===0) return 'Não iniciada';
+  // "Concluída" só exige estudo se você usa o marcador 📖 nesta matéria
+  const usaEstudo=estud>0;
+  if(vistas===aulas.length && (!usaEstudo || estud===aulas.length)) return 'Concluída';
   return 'Em andamento';
 }
 function materiaStatus(m){
@@ -1155,7 +1259,9 @@ function uniMaterias(){
   const linhas=store.materias.map(m=>{
     const aulas=aulasDaMateria(m.id);
     const feitas=aulas.filter(a=>a.done).length;
+    const estudadas=aulas.filter(a=>a.estudada).length;
     const pct=aulas.length?Math.round(feitas/aulas.length*100):null;
+    const pctE=aulas.length?Math.round(estudadas/aulas.length*100):0;
     const st=materiaStatus(m);
     const prox=store.entregaveis.filter(e=>e.materia===m.id&&e.prazo&&e.status!=='Entregue')
       .sort((a,b)=>a.prazo.localeCompare(b.prazo))[0];
@@ -1171,10 +1277,13 @@ function uniMaterias(){
           ? `<button class="icon-btn" onclick="resetMateriaStatus('${m.id}')" title="Travado manualmente — clique para voltar ao automático">🔒</button>`
           : `<span class="icon-btn" title="Automático: segue as aulas marcadas" style="cursor:default">⚙</span>`}
       </td>
-      <td style="min-width:150px">${pct===null?'<span style="color:var(--faint)">sem aulas</span>':
+      <td style="min-width:170px">${pct===null?'<span style="color:var(--faint)">sem aulas</span>':
         `<div style="display:flex;align-items:center;gap:8px">
-          <div class="bar-track" style="height:8px;flex:1"><i style="width:${pct}%;background:${pct===100?'var(--green)':'var(--purple)'}"></i></div>
-          <span style="font-size:12px;color:var(--muted);white-space:nowrap">${feitas}/${aulas.length}</span></div>`}</td>
+          <div class="bar-track" style="height:7px;flex:1"><i style="width:${pct}%;background:var(--purple)"></i></div>
+          <span style="font-size:11px;color:var(--muted);white-space:nowrap">✓ ${feitas}/${aulas.length}</span></div>
+         <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <div class="bar-track" style="height:7px;flex:1"><i style="width:${pctE}%;background:var(--green)"></i></div>
+          <span style="font-size:11px;color:var(--muted);white-space:nowrap">📖 ${estudadas}/${aulas.length}</span></div>`}</td>
       <td style="white-space:nowrap">${sinc?`${fmtBR(sinc.data).slice(0,5)} ${sinc.ini||''}`:'—'}</td>
       <td>${prox?fmtBR(prox.prazo):'—'}</td>
       <td style="white-space:nowrap">
@@ -1239,13 +1348,20 @@ function uniAulas(){
   if(!store.materias.length)
     return `<div class="card"><div class="empty">Cadastre uma matéria primeiro.<br>
       <button class="btn sm ghost" style="margin-top:12px" onclick="setUni('materias')">Ir para Matérias</button></div></div>`;
+  const legenda=`<div class="h-sub" style="margin-bottom:14px">
+    <span class="check on" style="width:16px;height:16px;font-size:9px;display:inline-flex;vertical-align:middle">✓</span> assisti ·
+    <span class="check-sq on" style="width:16px;height:16px;font-size:9px;display:inline-flex;vertical-align:middle">📖</span> estudei (revisão, exercícios, resumo) — as duas são independentes.</div>`;
   const blocos=store.materias.map(m=>{
     const aulas=aulasDaMateria(m.id);
-    const feitas=aulas.filter(a=>a.done).length;
-    const pct=aulas.length?Math.round(feitas/aulas.length*100):0;
-    const lista=aulas.length?aulas.map(a=>`<div class="list-item ${a.done?'done':''}">
-        <div class="check ${a.done?'on':''}" onclick="toggleAula('${a.id}')">${a.done?'✓':''}</div>
-        <div class="li-body"><div class="t">${h(a.nome)}</div></div>
+    const vistas=aulas.filter(a=>a.done).length;
+    const estud=aulas.filter(a=>a.estudada).length;
+    const pV=aulas.length?Math.round(vistas/aulas.length*100):0;
+    const pE=aulas.length?Math.round(estud/aulas.length*100):0;
+    const lista=aulas.length?aulas.map(a=>`<div class="list-item ${a.estudada?'done':''}">
+        <div class="check ${a.done?'on':''}" onclick="toggleAula('${a.id}')" title="${a.done?'Assistida':'Marcar como assistida'}">${a.done?'✓':''}</div>
+        <div class="check-sq ${a.estudada?'on':''}" onclick="toggleAulaEstudo('${a.id}')" title="${a.estudada?'Estudada':'Marcar como estudada'}">${a.estudada?'📖':''}</div>
+        <div class="li-body"><div class="t">${h(a.nome)}</div>
+          ${a.done&&!a.estudada?'<div class="m"><span class="pill amber">assistida · falta estudar</span></div>':''}</div>
         <button class="icon-btn" onclick="mAula('${a.id}')" title="Editar">✎</button>
         <button class="icon-btn" onclick="delAula('${a.id}')" title="Excluir">✕</button>
       </div>`).join('')
@@ -1260,12 +1376,19 @@ function uniAulas(){
           <button class="btn sm line" onclick="mGerarAulas('${m.id}')" title="Criar várias aulas numeradas de uma vez">⚡ Série</button>
         </div>
       </div>
-      ${aulas.length?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-        <div class="bar-track" style="height:8px;flex:1"><i style="width:${pct}%;background:${pct===100?'var(--green)':'var(--purple)'}"></i></div>
-        <span style="font-size:12px;color:var(--muted);white-space:nowrap">${feitas}/${aulas.length} · ${pct}%</span></div>`:''}
+      ${aulas.length?`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:11px;color:var(--faint);width:74px">assistidas</span>
+          <div class="bar-track" style="height:7px;flex:1"><i style="width:${pV}%;background:var(--purple)"></i></div>
+          <span style="font-size:12px;color:var(--muted);white-space:nowrap;width:60px;text-align:right">${vistas}/${aulas.length}</span></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:11px;color:var(--faint);width:74px">estudadas</span>
+          <div class="bar-track" style="height:7px;flex:1"><i style="width:${pE}%;background:var(--green)"></i></div>
+          <span style="font-size:12px;color:var(--muted);white-space:nowrap;width:60px;text-align:right">${estud}/${aulas.length}</span></div>
+      </div>`:''}
       ${lista}
     </div>`;}).join('');
-  return blocos;
+  return legenda+blocos;
 }
 function mAula(id=null,materiaSel=''){
   const a=id?store.aulas.find(x=>x.id===id):null;
@@ -1282,7 +1405,7 @@ function saveAula(id){
   const mat=document.getElementById('aam').value;
   if(id){const a=store.aulas.find(x=>x.id===id);const antiga=a.materia;Object.assign(a,{nome:n,materia:mat});
     if(antiga!==mat)syncMateriaStatus(antiga);}
-  else{store.aulas.push({id:uid(),nome:n,materia:mat,done:false});}
+  else{store.aulas.push({id:uid(),nome:n,materia:mat,done:false,estudada:false});}
   syncMateriaStatus(mat);
   save();closeModal();vUnitins();toast(id?'Aula atualizada':'Aula adicionada');
 }
@@ -1314,11 +1437,18 @@ function gerarAulas(){
   for(let i=0;i<q;i++){
     const nome=`${pre} ${String(ini+i).padStart(2,'0')}${suf?' '+suf:''}`;
     if(existentes.has(nome.toLowerCase()))continue;
-    store.aulas.push({id:uid(),nome,materia:mat,done:false});criadas++;
+    store.aulas.push({id:uid(),nome,materia:mat,done:false,estudada:false});criadas++;
   }
   syncMateriaStatus(mat);
   save();closeModal();vUnitins();
   toast(criadas?`${criadas} aulas criadas`:'Nada criado (nomes já existiam)');
+}
+function toggleAulaEstudo(id){
+  const a=store.aulas.find(x=>x.id===id); if(!a)return;
+  a.estudada=!a.estudada;
+  const ch=syncMateriaStatus(a.materia);
+  save();vUnitins();
+  if(ch)toast(`${materiaNome(a.materia)}: status → ${ch.depois}`);
 }
 function toggleAula(id){
   const a=store.aulas.find(x=>x.id===id); if(!a)return;
