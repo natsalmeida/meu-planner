@@ -192,11 +192,27 @@ tr:last-child td{border-bottom:none}
 .hg-cell.today{box-shadow:0 0 0 2px var(--purple-soft)}
 .hg-cell.on{border-color:transparent;color:#fff}
 .hg-cell.ro{cursor:default}
-.habit-stat{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:14px 4px;border-bottom:1px solid var(--line)}
+.habit-stat{padding:16px 4px;border-bottom:1px solid var(--line)}
 .habit-stat:last-child{border-bottom:none}
-.habit-stat .hs-name{width:130px;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
-.habit-stat .hs-metrics{display:flex;gap:8px;margin-left:auto;align-items:center}
-@media(max-width:640px){.habit-stat .hs-metrics{margin-left:0;width:100%}}
+.habit-stat .hs-name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+.habit-stat .hs-metrics{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+/* Hábitos — grade de 8 semanas */
+.hh{margin:10px 0 4px}
+.hh-head,.hh-grid{display:grid;grid-template-columns:repeat(7,22px);gap:3px}
+.hh-head span{font-size:9px;color:var(--faint);font-weight:700;text-align:center}
+.hh-head{margin-bottom:3px}
+.hh-cell{width:22px;height:15px;border-radius:4px;border:1px solid var(--line);background:var(--card-2);cursor:pointer;transition:.12s}
+.hh-cell:hover{filter:brightness(.92)}
+.hh-cell.on{border-color:transparent}
+.hh-cell.miss{border:1px dashed var(--red);background:transparent;opacity:.55}
+.hh-cell.off{background:var(--card-2);border-color:transparent;opacity:.35}
+.hh-cell.fut{background:transparent;border-color:transparent;cursor:default}
+.hh-cell.ro{cursor:default}
+.hh-cell.today{box-shadow:0 0 0 2px var(--purple-soft)}
+.hh-legend{font-size:10px;color:var(--faint);margin-top:6px}
+.hs-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.hs-freq{font-size:11px;color:var(--faint);font-weight:600;text-transform:lowercase}
+.hs-imp{font-size:12px;color:var(--muted);margin-top:10px;padding:9px 11px;border-radius:9px;background:var(--card-2)}
 /* Heatmap */
 .hm-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
 .hm-row{display:flex;gap:3px}
@@ -263,6 +279,7 @@ tr:last-child td{border-bottom:none}
     <div class="side-foot">
       <button class="nav-item" onclick="toggleTema()"><span class="ic" id="temaIc">◐</span> <span id="temaLbl">Modo escuro</span></button>
       <button class="nav-item" onclick="enableNotifs()"><span class="ic">🔔</span> Ativar avisos de prazo</button>
+      <button class="nav-item" onclick="mDiagnostico()"><span class="ic">◱</span> Saúde dos dados</button>
       <button class="nav-item" onclick="exportData()"><span class="ic">⭳</span> Exportar dados</button>
       <button class="nav-item" onclick="document.getElementById('importFile').click()"><span class="ic">⭱</span> Importar dados</button>
       <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(this)">
@@ -286,6 +303,18 @@ const AREAS = [
 ];
 const areaById = id => AREAS.find(a=>a.id===id) || {nome:'—',cor:'#999',conta:true};
 
+/* ---- Períodos letivos: recorte do Hub UNITINS e da Grade (Analytics/Hábitos usam ano civil) ---- */
+const DEFAULT_PERIODOS = [{id:'p_2026_2', nome:'2026.2', ini:'2026-07-11', fim:'2026-12-06'}];
+function periodoById(id){return store.periodos.find(p=>p.id===id)||null;}
+function periodoDe(iso){return store.periodos.find(p=>iso>=p.ini&&iso<=p.fim)||null;}
+function periodoAtivo(){
+  return periodoDe(todayISO())
+      || [...store.periodos].sort((a,b)=>b.fim.localeCompare(a.fim))[0]
+      || null;
+}
+function periodoLabel(p){return p?`${p.nome} · ${fmtBR(p.ini).slice(0,5)}–${fmtBR(p.fim).slice(0,5)}`:'—';}
+function periodoEncerrado(p){return !!(p&&p.fim<todayISO());}
+
 const DEFAULT_GRADE = [
   ['Segunda','07h-08h','unitins','UNITINS'],['Segunda','08h-08h10','ingles','Inglês Busuu'],
   ['Segunda','08h10-08h20','espanhol','Espanhol Busuu'],['Segunda','08h20-08h25','espanhol','Espanhol Drops'],
@@ -307,15 +336,15 @@ const DEFAULT_GRADE = [
   ['Sexta','09h-19h','tre','TRE (trabalho)'],['Sexta','20h-21h','pibiex','PIBIEX'],['Sexta','21h-22h','ingles','Inglês Encontro'],
   ['Sábado','08h-10h','ia','IA'],['Sábado','10h30-12h','ingles','Encontro Poliglota'],
   ['Domingo','10h-12h','ia','IA'],
-].map((r,i)=>({id:'g'+i,dia:r[0],horario:r[1],area:r[2],atividade:r[3]}));
+].map((r,i)=>({id:'g'+i,dia:r[0],horario:r[1],area:r[2],atividade:r[3],periodo:DEFAULT_PERIODOS[0].id}));
 const DIAS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
 
 const DEFAULT_HABITOS = [
-  {id:'h_aerobico',   nome:'Aeróbico',   cor:'#378add', icon:'🏃'},
-  {id:'h_musculacao', nome:'Musculação', cor:'#db5c88', icon:'🏋️'},
-  {id:'h_leitura',    nome:'Leitura',    cor:'#ba7517', icon:'📖'},
-  {id:'h_estudo',     nome:'Estudo',     cor:'#7c3aed', icon:'📚', auto:true,
-    excluir:['Inglês Busuu','Espanhol Busuu','Espanhol Drops']}, // microdrills não marcam o hábito
+  {id:'h_aerobico',   nome:'Aeróbico',   cor:'#378add', icon:'🏃', freq:'semanal', alvo:3},
+  {id:'h_musculacao', nome:'Musculação', cor:'#db5c88', icon:'🏋️', freq:'semanal', alvo:3},
+  {id:'h_leitura',    nome:'Leitura',    cor:'#ba7517', icon:'📖', freq:'diario'},
+  {id:'h_estudo',     nome:'Estudo',     cor:'#7c3aed', icon:'📚', auto:true, freq:'diario', minMin:60,
+    excluir:['Inglês Busuu','Espanhol Busuu','Espanhol Drops']}, // microdrills não contam para o limiar
 ];
 
 
@@ -338,6 +367,7 @@ const db = firebase.database();
 const store = {
   version: 4,
   logs:[], pendencias:[], materias:[], aulas:[], entregaveis:[], sincronas:[],
+  periodos: DEFAULT_PERIODOS.map(p=>({...p})),
   grade: DEFAULT_GRADE.map(g=>({...g})),
   habitos: DEFAULT_HABITOS.map(x=>({...x})),
   habitLog: {}, // { 'YYYY-MM-DD': { habitId: true } } — grava só o que foi feito
@@ -358,7 +388,7 @@ let pendingRerender = false;      // re-render adiado enquanto um modal está ab
 function isPlainObj(o){return o&&typeof o==='object'&&!Array.isArray(o);}
 function validateStore(d){
   if(!isPlainObj(d)) return false;
-  const arrays=['logs','pendencias','materias','aulas','entregaveis','sincronas','grade','habitos'];
+  const arrays=['logs','pendencias','materias','aulas','entregaveis','sincronas','grade','habitos','periodos'];
   for(const k of arrays){ if(k in d && !Array.isArray(d[k])) return false; }
   const objs=['habitLog','metasArea'];
   for(const k of objs){ if(k in d && !isPlainObj(d[k])) return false; }
@@ -368,15 +398,32 @@ function validateStore(d){
 /* ---- normaliza defaults/migrações num só lugar ---- */
 function normalizeStore(){
   ['logs','pendencias','materias','aulas','entregaveis','sincronas'].forEach(k=>{ if(!Array.isArray(store[k])) store[k]=[]; });
+  if(!Array.isArray(store.periodos)||!store.periodos.length) store.periodos=DEFAULT_PERIODOS.map(p=>({...p}));
+  store.periodos.forEach(p=>{ if(!p.id)p.id=uid(); if(!p.nome)p.nome='Período'; });
+  store.periodos.sort((a,b)=>String(a.ini).localeCompare(String(b.ini)));
   if(!Array.isArray(store.grade)||!store.grade.length) store.grade=DEFAULT_GRADE.map(g=>({...g}));
   if(!Array.isArray(store.habitos)) store.habitos=DEFAULT_HABITOS.map(x=>({...x}));
   if(!isPlainObj(store.habitLog)) store.habitLog={};
+  // vínculo com período letivo (migração: tudo que é órfão vai para o período vigente)
+  {const pa=periodoAtivo(), pid=pa?pa.id:'';
+   store.grade.forEach(g=>{ if(!g.periodo) g.periodo=pid; });
+   store.materias.forEach(m=>{ if(!m.periodo) m.periodo=pid; });}
   if(store.metaSemanal==null) store.metaSemanal=20;
   if(!isPlainObj(store.metasArea)) store.metasArea={};
   if(!store.tema) store.tema='claro';
   // seed único: se o "Estudo" já existe sem exclusões definidas, aplica os microdrills padrão
   const est=Array.isArray(store.habitos)?store.habitos.find(x=>x.id==='h_estudo'):null;
   if(est&&est.auto&&est.excluir===undefined) est.excluir=['Inglês Busuu','Espanhol Busuu','Espanhol Drops'];
+  // migração de hábitos: frequência-alvo e limiar do automático
+  store.habitos.forEach(hb=>{
+    if(!hb.freq) hb.freq='diario';                       // preserva o comportamento anterior
+    if(hb.freq==='semanal'&&!hb.alvo) hb.alvo=3;
+    if(hb.freq==='dias'&&!Array.isArray(hb.dias)) hb.dias=[1,3,5];
+    if(!Array.isArray(hb.dias)) hb.dias=[];
+    if(hb.auto&&hb.minMin===undefined) hb.minMin=60;     // sem limiar o auto marca todo dia e não informa nada
+    if(!hb.auto) hb.minMin=0;
+  });
+  invalidateHabitCache();
   // matérias: status automático derivado das aulas, salvo quando travado manualmente
   store.materias.forEach(m=>{
     if(m.statusManual===undefined) m.statusManual=false;
@@ -796,7 +843,7 @@ function vDashboard(){
           <div><h3>Hábitos de hoje</h3><div class="h-sub" style="margin-bottom:0">Toque no que você fez · sem meta diária</div></div>
           <button class="btn sm line" onclick="go('habitos')">Ver tudo</button>
         </div>
-        <div style="margin-top:12px">${dashHabitChips()}</div>
+        <div style="margin-top:12px">${dashHabitChips()}${dashHabitRiscos()}</div>
       </div>
       <div class="card" style="flex:1;min-width:280px"><h3>Ações rápidas</h3><div class="h-sub">Adicione sem sair daqui</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -909,14 +956,15 @@ function savePend(id){const n=document.getElementById('pn').value.trim();if(!n)r
    ctx='geral'   → todas as áreas, com abas de área
    ctx='unitins' → travado na área UNITINS, sem abas (usado dentro do Hub)
    Cada contexto tem seu próprio estado de filtro, então um não interfere no outro. */
-const DIARIO_ST={geral:{area:'all',ativ:'',busca:''},unitins:{area:'unitins',ativ:'',busca:''}};
+const DIARIO_ST={geral:{area:'all',ativ:'',busca:'',ini:'',fim:''},unitins:{area:'unitins',ativ:'',busca:'',ini:'',fim:''}};
 function diarioRerender(ctx){ if(ctx==='unitins')vUnitins(); else vDiarios(); }
 
 function diarioPanel(ctx){
   const st=DIARIO_ST[ctx];
   const sel=st.area, busca=st.busca.trim().toLowerCase();
 
-  const porArea=store.logs.filter(l=>sel==='all'||l.area===sel);
+  const porArea=store.logs.filter(l=>(sel==='all'||l.area===sel)
+    &&(!st.ini||l.data>=st.ini)&&(!st.fim||l.data<=st.fim));
   // atividades distintas da área selecionada, com contagem e tempo
   const mapa={};
   porArea.forEach(l=>{const a=(l.atividade||'').trim()||'(sem atividade)';
@@ -1034,8 +1082,15 @@ function addLog(editId=null){const area=document.getElementById('sa').value,ini=
   if(!areaById(area).conta)toast('Sessão salva (TRE não conta como estudo)');else toast(editId?'Sessão atualizada':'Sessão salva');
   renderCurrent();}
 
+let _vgPeriodo=null;
+function setVgPeriodo(id){_vgPeriodo=id;vGrade();}
 function vGrade(){
   _gaCache=null;
+  const pAtv=periodoAtivo();
+  if(!_vgPeriodo||!periodoById(_vgPeriodo)) _vgPeriodo=pAtv?pAtv.id:'';
+  const pSel=periodoById(_vgPeriodo);
+  const ehAtivo=!!(pAtv&&pSel&&pSel.id===pAtv.id);
+  const blocosSel=gradeDoPeriodo(_vgPeriodo);
   const st=gradeWeekStats();
   const hoje=todayISO();
   const rColor=st.pctAte>=70?'var(--green)':st.pctAte>=40?'var(--amber)':'var(--rose)';
@@ -1048,8 +1103,24 @@ function vGrade(){
     : '<div class="empty" style="padding:14px">Sem blocos de estudo na grade.</div>';
   document.getElementById('view').innerHTML=`
     <div class="page-title">grade semanal</div>
-    <div class="page-sub">Sua rotina planejada. A aderência compara <b>quanto tempo você planejou por área</b> com <b>quanto registrou no Diário de Bordo</b> na semana toda — o saldo compensa entre os dias: estudar Espanhol no sábado cobre o bloco de Espanhol da segunda. Origem (cronômetro, botão ou lançamento manual) e horário não importam.</div>
-    <div class="card" style="margin-bottom:16px">
+    <div class="page-sub">Sua rotina planejada, <b>versionada por período letivo</b>: a aderência de uma semana passada é sempre comparada com a grade que valia naquela semana. Trocar de semestre não reescreve o histórico. O saldo compensa entre os dias — estudar Espanhol no sábado cobre o bloco de segunda.</div>
+    <div class="card" style="margin-bottom:16px;padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="field" style="margin:0;flex:1;min-width:200px">
+          <label>Período letivo</label>
+          <select onchange="setVgPeriodo(this.value)">
+            ${store.periodos.map(p=>`<option value="${p.id}" ${p.id===_vgPeriodo?'selected':''}>${h(periodoLabel(p))}${p.id===(pAtv&&pAtv.id)?' · vigente':''}</option>`).join('')}
+          </select>
+        </div>
+        <span class="pill ${ehAtivo?'green':'gray'}">${blocosSel.length} blocos</span>
+        ${!blocosSel.length&&store.periodos.length>1?`<button class="btn sm line" onclick="mCopiarGrade()">Copiar de outro período</button>`:''}
+        <button class="btn sm line" onclick="mPeriodos()">Gerenciar períodos</button>
+      </div>
+    </div>
+    ${!ehAtivo?`<div class="card" style="margin-bottom:16px;border:1px solid var(--line);background:var(--card-2)">
+      <div style="font-size:13px;color:var(--muted)">Você está vendo a grade de <b>${h(pSel?pSel.nome:'—')}</b>${periodoEncerrado(pSel)?' (encerrado)':' (ainda não começou)'}. A aderência só é calculada para a semana corrente, então ela não aparece aqui — mas os blocos continuam editáveis, útil para montar o próximo semestre com antecedência.</div>
+    </div>`:''}
+    ${!ehAtivo?'':`<div class="card" style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div><h3>Aderência da semana</h3><div class="h-sub" style="margin-bottom:0">Tempo estudado ÷ planejado, por área, na semana inteira (Seg–Dom) · TRE fora</div></div>
         <span style="font-family:var(--serif);font-size:30px;font-weight:600;color:var(--purple)">${st.pct}%</span>
@@ -1063,9 +1134,9 @@ function vGrade(){
         <div class="h-sub" style="margin-bottom:10px">Por área — estudado vs. planejado nesta semana</div>
         <div class="bars">${barrasArea}</div>
       </div>
-    </div>
+    </div>`}
     <div style="display:flex;margin-bottom:16px"><button class="btn sm" style="margin-left:auto" onclick="mBloco()">+ Novo bloco</button></div>
-    ${DIAS.map(d=>{const blocos=store.grade.filter(g=>g.dia===d).sort((a,b)=>gradeStartMin(a.horario)-gradeStartMin(b.horario));
+    ${DIAS.map(d=>{const blocos=blocosSel.filter(g=>g.dia===d).sort((a,b)=>gradeStartMin(a.horario)-gradeStartMin(b.horario));
       const di=DIAS.indexOf(d); const mon=anMonday(0); const dd=new Date(mon); dd.setDate(dd.getDate()+di); const dISO=localISO(dd);
       const isHoje=dISO===hoje, isPast=dISO<hoje;
       const alloc=dayAlloc(dISO);
@@ -1108,6 +1179,13 @@ function gradeBlockMin(g){const t=parseGradeTime(g.horario);return t?durMin(t.in
    pagam os blocos daquela área na ordem cronológica da semana — dia nenhum fica preso
    ao seu próprio registro. Blocos passados/hoje são pagos primeiro; a sobra adianta os futuros. */
 let _gaCache=null;
+/* A grade é versionada por período: a aderência de uma semana antiga precisa ser
+   comparada com a grade que valia NAQUELA semana, não com a grade de hoje. */
+function gradeDoPeriodo(pid){return store.grade.filter(g=>g.periodo===pid);}
+function gradeDaSemana(monISO){
+  const p=periodoDe(monISO)||periodoDe(addDaysISO(monISO,6))||periodoAtivo();
+  return p?gradeDoPeriodo(p.id):[];
+}
 function weekAlloc(){
   if(_gaCache)return _gaCache;
   const mon=anMonday(0), hoje=todayISO();
@@ -1115,7 +1193,7 @@ function weekAlloc(){
   const pool={};
   countableLogs().forEach(l=>{if(l.data<dias[0]||l.data>dias[6])return;
     pool[l.area]=(pool[l.area]||0)+durMin(l.ini,l.fim);});
-  const blocos=store.grade.filter(g=>areaById(g.area).conta&&DIAS.indexOf(g.dia)>=0)
+  const blocos=gradeDaSemana(localISO(mon)).filter(g=>areaById(g.area).conta&&DIAS.indexOf(g.dia)>=0)
     .map(g=>({g,di:DIAS.indexOf(g.dia),iso:dias[DIAS.indexOf(g.dia)],ini:gradeStartMin(g.horario)}));
   const cmp=(a,b)=>(a.di-b.di)||(a.ini-b.ini);
   const ordem=[...blocos.filter(b=>b.iso<=hoje).sort(cmp),...blocos.filter(b=>b.iso>hoje).sort(cmp)];
@@ -1139,7 +1217,7 @@ function gradeWeekStats(){
   const mon=anMonday(0), hoje=todayISO();
   const dias=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(d.getDate()+i);dias.push(localISO(d));}
   const plan={},planAte={},feito={},feitoAte={};
-  store.grade.forEach(g=>{
+  gradeDaSemana(dias[0]).forEach(g=>{
     if(!areaById(g.area).conta)return;
     const di=DIAS.indexOf(g.dia); if(di<0)return;
     const m=gradeBlockMin(g);
@@ -1204,10 +1282,80 @@ function saveBloco(id){
         area=document.getElementById('ba').value, atividade=document.getElementById('bat').value.trim();
   if(!horario||!atividade){toast('Preencha horário e atividade');return;}
   if(id){const b=store.grade.find(g=>g.id===id);Object.assign(b,{dia,horario,area,atividade});}
-  else{store.grade.push({id:uid(),dia,horario,area,atividade});}
+  else{store.grade.push({id:uid(),dia,horario,area,atividade,periodo:_vgPeriodo||(periodoAtivo()||{}).id||''});}
   save();closeModal();vGrade();toast(id?'Bloco atualizado':'Bloco adicionado');
 }
 function delBloco(id){store.grade=store.grade.filter(g=>g.id!==id);save();vGrade();}
+
+/* ---- CRUD de períodos letivos ---- */
+function mPeriodos(){
+  const linhas=store.periodos.map(p=>{
+    const nM=store.materias.filter(m=>m.periodo===p.id).length, nG=gradeDoPeriodo(p.id).length;
+    const atv=(periodoAtivo()||{}).id===p.id;
+    return `<tr><td><b>${h(p.nome)}</b>${atv?' <span class="pill green" style="font-size:10px">vigente</span>':periodoEncerrado(p)?' <span class="pill gray" style="font-size:10px">encerrado</span>':''}</td>
+      <td style="white-space:nowrap">${fmtBR(p.ini)} – ${fmtBR(p.fim)}</td>
+      <td style="color:var(--muted);font-size:12px">${nM} matérias · ${nG} blocos</td>
+      <td style="white-space:nowrap"><button class="icon-btn" onclick="mPeriodo('${p.id}')" title="Editar">✎</button>
+      <button class="icon-btn" onclick="delPeriodo('${p.id}')" title="Excluir">✕</button></td></tr>`;}).join('');
+  modal(`<h3>Períodos letivos</h3>
+    <div class="h-sub">O Hub UNITINS e a Grade são recortados por período. Analytics e Hábitos continuam por ano civil — são métricas de tempo, não de semestre.</div>
+    <div class="table-wrap" style="margin:12px 0"><table><thead><tr><th>Período</th><th>Intervalo</th><th>Conteúdo</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Fechar</button>
+    <button class="btn" onclick="mPeriodo()">+ Novo período</button></div>`);
+}
+function mPeriodo(id=null){
+  const p=id?periodoById(id):null;
+  const ult=[...store.periodos].sort((a,b)=>b.fim.localeCompare(a.fim))[0];
+  const sugIni=p?p.ini:(ult?addDaysISO(ult.fim,1):todayISO());
+  modal(`<h3>${p?'Editar período':'Novo período letivo'}</h3>
+    <div class="field"><label>Nome</label><input id="pen" placeholder="Ex: 2027.1" value="${p?h(p.nome):''}"></div>
+    <div class="grid2">
+      <div class="field"><label>Início</label><input type="date" id="pei" value="${p?p.ini:sugIni}"></div>
+      <div class="field"><label>Fim</label><input type="date" id="pef" value="${p?p.fim:''}"></div>
+    </div>
+    <div style="font-size:11px;color:var(--faint)">Períodos não podem se sobrepor — o sistema decide a qual semestre uma semana pertence pela data, e sobreposição tornaria essa resposta ambígua.</div>
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+    <button class="btn" onclick="savePeriodo(${p?`'${id}'`:'null'})">${p?'Salvar':'Adicionar'}</button></div>`);
+  setTimeout(()=>document.getElementById('pen').focus(),50);
+}
+function savePeriodo(id){
+  const nome=document.getElementById('pen').value.trim();
+  const ini=document.getElementById('pei').value, fim=document.getElementById('pef').value;
+  if(!nome||!ini||!fim){toast('Preencha nome, início e fim');return;}
+  if(fim<ini){toast('O fim não pode ser antes do início');return;}
+  const conflito=store.periodos.find(p=>p.id!==id&&!(fim<p.ini||ini>p.fim));
+  if(conflito){toast('Sobrepõe o período "'+conflito.nome+'"');return;}
+  if(id){Object.assign(periodoById(id),{nome,ini,fim});}
+  else{store.periodos.push({id:uid(),nome,ini,fim});}
+  save();closeModal();renderCurrent();toast(id?'Período atualizado':'Período criado');
+}
+function delPeriodo(id){
+  if(store.periodos.length<=1){toast('Precisa existir ao menos um período');return;}
+  const p=periodoById(id); if(!p)return;
+  const nM=store.materias.filter(m=>m.periodo===id).length, nG=gradeDoPeriodo(id).length;
+  if(!confirm(`Excluir "${p.nome}"?\nAs ${nM} matérias e ${nG} blocos ficarão sem período e serão realocados no período vigente.`))return;
+  store.periodos=store.periodos.filter(x=>x.id!==id);
+  const novo=(periodoAtivo()||{}).id||'';
+  store.materias.forEach(m=>{if(m.periodo===id)m.periodo=novo;});
+  store.grade.forEach(g=>{if(g.periodo===id)g.periodo=novo;});
+  save();closeModal();renderCurrent();toast('Período excluído');
+}
+function mCopiarGrade(){
+  const outros=store.periodos.filter(p=>p.id!==_vgPeriodo&&gradeDoPeriodo(p.id).length);
+  if(!outros.length){toast('Nenhum outro período tem blocos');return;}
+  modal(`<h3>Copiar grade</h3>
+    <div class="h-sub">Duplica todos os blocos do período escolhido para <b>${h((periodoById(_vgPeriodo)||{}).nome||'')}</b>. Os originais não são alterados.</div>
+    <div class="field" style="margin-top:12px"><label>Copiar de</label>
+      <select id="cgp">${outros.map(p=>`<option value="${p.id}">${h(periodoLabel(p))} — ${gradeDoPeriodo(p.id).length} blocos</option>`).join('')}</select></div>
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+    <button class="btn" onclick="copiarGrade()">Copiar</button></div>`);
+}
+function copiarGrade(){
+  const de=document.getElementById('cgp').value;
+  const blocos=gradeDoPeriodo(de);
+  blocos.forEach(g=>store.grade.push({...g,id:uid(),periodo:_vgPeriodo}));
+  save();closeModal();vGrade();toast(blocos.length+' blocos copiados');
+}
 
 /* ---------------- Hub UNITINS ---------------- */
 /* Status da matéria: derivado das aulas por padrão (statusManual=false).
@@ -1248,11 +1396,27 @@ function nowHM(){const d=new Date(),p=n=>String(n).padStart(2,'0');return p(d.ge
 function hmToMin(s){if(!s)return null;const[a,b]=s.split(':').map(Number);return a*60+b;}
 function safeUrl(u){u=String(u||'').trim();return /^https?:\/\//i.test(u)?u:'';}
 
+let _uniPeriodo=null;
+function setUniPeriodo(v){_uniPeriodo=v;vUnitins();}
+/* Recorte do Hub: matérias pertencem a um período; aulas, síncronas e entregáveis
+   herdam o período pela matéria — não precisam de campo próprio. */
+function uniPidSel(){
+  if(_uniPeriodo==='all')return 'all';
+  if(!_uniPeriodo||!periodoById(_uniPeriodo)) _uniPeriodo=(periodoAtivo()||{}).id||'all';
+  return _uniPeriodo;
+}
+function materiasDoPeriodo(){
+  const pid=uniPidSel();
+  return pid==='all'?store.materias:store.materias.filter(m=>m.periodo===pid);
+}
+function matIdsPeriodo(){return new Set(materiasDoPeriodo().map(m=>m.id));}
+function noPeriodo(x){return uniPidSel()==='all'||matIdsPeriodo().has(x.materia);}
 function vUnitins(){
   window._uniTab=window._uniTab||'materias';
   const t=window._uniTab;
+  const pid=uniPidSel(), pSel=pid==='all'?null:periodoById(pid);
   const tab=(id,nm)=>`<button class="area-tab ${t===id?'active':''}" onclick="setUni('${id}')">${nm}</button>`;
-  const nSinc=store.sincronas.filter(s=>s.data>=todayISO()).length;
+  const nSinc=store.sincronas.filter(s=>s.data>=todayISO()&&noPeriodo(s)).length;
   let body='';
   if(t==='materias')       body=uniMaterias();
   else if(t==='aulas')     body=uniAulas();
@@ -1262,19 +1426,37 @@ function vUnitins(){
   document.getElementById('view').innerHTML=`
     <div class="page-title">hub unitins</div>
     <div class="page-sub">Aulas gravadas agrupadas por matéria, aulas síncronas com data e hora (avisam no Dashboard no dia), entregáveis com prazo e o diário de bordo da área. O status da matéria se atualiza sozinho conforme você marca as aulas.</div>
+    <div class="card" style="margin-bottom:16px;padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="field" style="margin:0;flex:1;min-width:200px">
+          <label>Período letivo</label>
+          <select onchange="setUniPeriodo(this.value)">
+            ${store.periodos.map(p=>`<option value="${p.id}" ${p.id===pid?'selected':''}>${h(periodoLabel(p))}${p.id===((periodoAtivo()||{}).id)?' · vigente':''}</option>`).join('')}
+            <option value="all" ${pid==='all'?'selected':''}>Todos os períodos</option>
+          </select>
+        </div>
+        ${pSel&&periodoEncerrado(pSel)?'<span class="pill gray">encerrado</span>':''}
+        <span class="pill purple">${materiasDoPeriodo().length} matérias</span>
+        <button class="btn sm line" onclick="mPeriodos()">Gerenciar</button>
+      </div>
+    </div>
     <div class="area-tabs">${tab('materias','Matérias')}${tab('aulas','Aulas gravadas')}${tab('sincronas','Aulas síncronas'+(nSinc?` · ${nSinc}`:''))}${tab('entregaveis','Entregáveis')}${tab('diario','Diário de bordo')}</div>
     ${body}`;
 }
 function setUni(t){window._uniTab=t;vUnitins();}
 function materiaNome(id){const m=store.materias.find(x=>x.id===id);return m?m.nome:'—';}
-function materiaOptions(sel){return store.materias.map(m=>`<option value="${m.id}" ${m.id===sel?'selected':''}>${h(m.nome)}</option>`).join('');}
+function materiaOptions(sel){
+  const mats=materiasDoPeriodo();
+  const lista=(sel&&!mats.some(m=>m.id===sel))?[...mats,...store.materias.filter(m=>m.id===sel)]:mats;
+  return lista.map(m=>`<option value="${m.id}" ${m.id===sel?'selected':''}>${h(m.nome)}</option>`).join('');}
 
 /* ---- Aba: Matérias ---- */
 function uniMaterias(){
-  if(!store.materias.length)
+  const mats=materiasDoPeriodo();
+  if(!mats.length)
     return `<button class="btn sm" style="margin-bottom:14px" onclick="mMateria()">+ Nova matéria</button>
-      <div class="card"><div class="empty">Cadastre suas matérias da UNITINS.</div></div>`;
-  const linhas=store.materias.map(m=>{
+      <div class="card"><div class="empty">Nenhuma matéria neste período.</div></div>`;
+  const linhas=mats.map(m=>{
     const aulas=aulasDaMateria(m.id);
     const feitas=aulas.filter(a=>a.done).length;
     const estudadas=aulas.filter(a=>a.estudada).length;
@@ -1336,6 +1518,9 @@ function mMateria(id=null){
     ${['Não iniciada','Em andamento','Concluída'].map(s=>`<option ${(m?materiaStatus(m):'Não iniciada')===s?'selected':''}>${s}</option>`).join('')}
   </select></div>
   <div class="h-sub" style="margin-top:-4px">O status passa a se atualizar sozinho conforme você marca as aulas gravadas.</div>
+  ${m?`<div class="field"><label>Período letivo</label><select id="mmp">
+    ${store.periodos.map(p=>`<option value="${p.id}" ${p.id===m.periodo?'selected':''}>${h(periodoLabel(p))}</option>`).join('')}
+  </select></div>`:''}
   <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
   <button class="btn" onclick="saveMateria(${m?`'${id}'`:'null'})">${m?'Salvar':'Adicionar'}</button></div>`);
   setTimeout(()=>document.getElementById('mmn').focus(),50);
@@ -1344,8 +1529,10 @@ function saveMateria(id){
   const n=document.getElementById('mmn').value.trim(); if(!n){toast('Dê um nome à matéria');return;}
   const st=document.getElementById('mms').value;
   if(id){const m=store.materias.find(x=>x.id===id);Object.assign(m,{nome:n,status:st});
+    const selP=document.getElementById('mmp'); if(selP) m.periodo=selP.value;
     const auto=materiaStatusAuto(id); m.statusManual=!(auto&&auto===st);}
-  else{const novo={id:uid(),nome:n,status:st,statusManual:false};store.materias.push(novo);}
+  else{const pid=uniPidSel(); const novo={id:uid(),nome:n,status:st,statusManual:false,
+    periodo:pid==='all'?((periodoAtivo()||{}).id||''):pid};store.materias.push(novo);}
   save();closeModal();vUnitins();toast(id?'Matéria atualizada':'Matéria adicionada');
 }
 function delMateria(id){
@@ -1363,13 +1550,14 @@ function delMateria(id){
 
 /* ---- Aba: Aulas gravadas (agrupadas por matéria) ---- */
 function uniAulas(){
-  if(!store.materias.length)
-    return `<div class="card"><div class="empty">Cadastre uma matéria primeiro.<br>
+  const mats=materiasDoPeriodo();
+  if(!mats.length)
+    return `<div class="card"><div class="empty">Cadastre uma matéria neste período primeiro.<br>
       <button class="btn sm ghost" style="margin-top:12px" onclick="setUni('materias')">Ir para Matérias</button></div></div>`;
   const legenda=`<div class="h-sub" style="margin-bottom:14px">
     <span class="check on" style="width:16px;height:16px;font-size:9px;display:inline-flex;vertical-align:middle">✓</span> assisti ·
     <span class="check-sq on" style="width:16px;height:16px;font-size:9px;display:inline-flex;vertical-align:middle">📖</span> estudei (revisão, exercícios, resumo) — as duas são independentes.</div>`;
-  const blocos=store.materias.map(m=>{
+  const blocos=mats.map(m=>{
     const aulas=aulasDaMateria(m.id);
     const vistas=aulas.filter(a=>a.done).length;
     const estud=aulas.filter(a=>a.estudada).length;
@@ -1495,8 +1683,8 @@ function sincStatus(s){
 }
 function uniSincronas(){
   const hoje=todayISO();
-  const prox=store.sincronas.filter(s=>s.data>=hoje).sort((a,b)=>(a.data+(a.ini||'')).localeCompare(b.data+(b.ini||'')));
-  const pass=store.sincronas.filter(s=>s.data<hoje).sort((a,b)=>(b.data+(b.ini||'')).localeCompare(a.data+(a.ini||''))).slice(0,15);
+  const prox=store.sincronas.filter(s=>s.data>=hoje&&noPeriodo(s)).sort((a,b)=>(a.data+(a.ini||'')).localeCompare(b.data+(b.ini||'')));
+  const pass=store.sincronas.filter(s=>s.data<hoje&&noPeriodo(s)).sort((a,b)=>(b.data+(b.ini||'')).localeCompare(a.data+(a.ini||''))).slice(0,15);
   const linha=s=>{const st=sincStatus(s);const url=safeUrl(s.link);
     return `<tr>
       <td style="white-space:nowrap"><b>${fmtBR(s.data)}</b><div style="font-size:11px;color:var(--faint)">${['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][new Date(s.data+'T12:00').getDay()]}</div></td>
@@ -1606,7 +1794,7 @@ function mSincrona(id=null){
           <option value="semanal">Semanal</option>
           <option value="nenhuma">Não repetir (data única)</option>
         </select></div>
-        <div class="field" id="syAteWrap"><label>Repetir até</label><input type="date" id="syr" value="2026-12-06" onchange="previewSincronas()"></div>
+        <div class="field" id="syAteWrap"><label>Repetir até</label><input type="date" id="syr" value="${s?(s.repAte||((periodoDe(s.data)||periodoAtivo()||{}).fim||'')):((periodoAtivo()||{}).fim||'')}" onchange="previewSincronas()"></div>
       </div>
       <div class="h-sub" id="syPrev" style="margin-top:-4px"></div>
     </div>`}
@@ -1687,12 +1875,16 @@ function dashSincronasCard(){
 
 /* ---- Aba: Diário de bordo (mesma engine da página "Diários de Bordo") ---- */
 function uniDiario(){
-  const totalUni=countableLogs().filter(l=>l.area==='unitins').reduce((s,l)=>s+durH(l.ini,l.fim),0);
-  const nSess=store.logs.filter(l=>l.area==='unitins').length;
+  // o diário é por área, não por matéria — o recorte de período vira intervalo de datas
+  const pid=uniPidSel(), pS=pid==='all'?null:periodoById(pid);
+  DIARIO_ST.unitins.ini=pS?pS.ini:''; DIARIO_ST.unitins.fim=pS?pS.fim:'';
+  const noR=l=>!pS||(l.data>=pS.ini&&l.data<=pS.fim);
+  const totalUni=countableLogs().filter(l=>l.area==='unitins'&&noR(l)).reduce((s,l)=>s+durH(l.ini,l.fim),0);
+  const nSess=store.logs.filter(l=>l.area==='unitins'&&noR(l)).length;
   return `<div class="card" style="margin-bottom:16px;padding:14px 16px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div><h3>Diário de bordo · UNITINS</h3>
-          <div class="h-sub" style="margin-bottom:0">As mesmas sessões da página Diários de Bordo, filtradas nesta área. Editar aqui edita lá.</div></div>
+          <div class="h-sub" style="margin-bottom:0">As mesmas sessões da página Diários de Bordo, filtradas nesta área${pS?` e no intervalo de <b>${h(pS.nome)}</b>`:''}. Editar aqui edita lá.</div></div>
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
           <span class="pill purple">${nSess} ${nSess===1?'sessão':'sessões'}</span>
           <span class="pill green">${fmtDur(totalUni)} acumuladas</span>
@@ -1705,9 +1897,9 @@ function uniDiario(){
 /* ---- Aba: Entregáveis ---- */
 function uniEntregaveis(){
   const ordPrazo=e=>e.prazo||'9999-99-99';                       // sem prazo vai para o fim
-  const abertos=store.entregaveis.filter(e=>e.status!=='Entregue')
+  const abertos=store.entregaveis.filter(e=>e.status!=='Entregue'&&noPeriodo(e))
     .sort((a,b)=>ordPrazo(a).localeCompare(ordPrazo(b)));        // crescente: o que vence antes primeiro
-  const entregues=store.entregaveis.filter(e=>e.status==='Entregue')
+  const entregues=store.entregaveis.filter(e=>e.status==='Entregue'&&noPeriodo(e))
     .sort((a,b)=>ordPrazo(b).localeCompare(ordPrazo(a)));        // mais recentes primeiro
   const atrasados=abertos.filter(e=>e.prazo&&e.prazo<todayISO()).length;
 
@@ -1758,8 +1950,9 @@ function addEntreg(){const n=document.getElementById('een').value.trim();if(!n)r
 function delEntreg(id){store.entregaveis=store.entregaveis.filter(e=>e.id!==id);save();vUnitins();}
 function setEntregStatus(id,status){const e=store.entregaveis.find(x=>x.id===id);if(!e)return;e.status=status;save();vUnitins();toast('Status atualizado');}
 
-function studyHeatmap(){
-  const START=PERIODO_INI, END=PERIODO_FIM;
+function studyHeatmap(y){
+  y=y||anoSel();
+  const START=y+'-01-01', END=y+'-12-31';
   const s=new Date(START+'T12:00'); s.setDate(s.getDate()-((s.getDay()+6)%7)); // segunda <= START
   const end=new Date(END+'T12:00');
   const cols=[]; let cur=new Date(s);
@@ -1785,33 +1978,47 @@ function studyHeatmap(){
     </div>${legenda}</div>`;
 }
 /* ---------------- Analytics ---------------- */
-const PERIODO_INI='2026-07-11', PERIODO_FIM='2026-12-06';
 let anDias=30;                 // janela do gráfico diário
+let anAno=null;                // ano civil em foco
 function setAnDias(n){anDias=n;vAnalytics();}
+function setAnAno(y){anAno=+y;vAnalytics();}
+function anoAtual(){return new Date().getFullYear();}
+function anosComDado(){
+  const set=new Set([anoAtual()]);
+  Object.keys(dayLogIndex()).forEach(iso=>set.add(+iso.slice(0,4)));
+  Object.keys(store.habitLog).forEach(iso=>set.add(+iso.slice(0,4)));
+  store.periodos.forEach(p=>{set.add(+p.ini.slice(0,4));set.add(+p.fim.slice(0,4));});
+  return [...set].sort((a,b)=>b-a);
+}
+function anoSel(){ if(!anAno||!anosComDado().includes(anAno)) anAno=anoAtual(); return anAno; }
+/* Âncora: no ano corrente é hoje; num ano passado é 31/12 daquele ano.
+   Sem isso, "últimos 30 dias" de 2026 devolveria dias de 2027. */
+function anoAncora(y){return y===anoAtual()?todayISO():y+'-12-31';}
 function anMonday(offset){const d=new Date();const day=(d.getDay()+6)%7;d.setHours(0,0,0,0);d.setDate(d.getDate()-day+offset*7);return d;}
-function hoursOnDay(iso){return countableLogs().filter(l=>l.data===iso).reduce((s,l)=>s+durH(l.ini,l.fim),0);}
+function hoursOnDay(iso){const arr=dayLogIndex()[iso];return arr?arr.reduce((s,l)=>s+durH(l.ini,l.fim),0):0;}
 function addDaysISO(iso,n){const d=new Date(iso+'T12:00');d.setDate(d.getDate()+n);return localISO(d);}
 
 /* ---- séries ---- */
-function lastNDays(n){const out=[];const d=new Date();d.setDate(d.getDate()-(n-1));
+function lastNDays(n,ancoraISO){const out=[];const d=new Date((ancoraISO||todayISO())+'T12:00');
+  d.setDate(d.getDate()-(n-1));
   for(let i=0;i<n;i++){out.push(localISO(d));d.setDate(d.getDate()+1);}return out;}
 function movAvg(vals,w){return vals.map((_,i)=> i<w-1 ? null : vals.slice(i-w+1,i+1).reduce((a,b)=>a+b,0)/w);}
-function primeiroDiaComDado(){
-  const datas=countableLogs().map(l=>l.data).filter(Boolean).sort();
-  return datas.length&&datas[0]<PERIODO_INI ? datas[0] : PERIODO_INI;
-}
-function weekStarts(){
-  const d=new Date(primeiroDiaComDado()+'T12:00'); d.setDate(d.getDate()-((d.getDay()+6)%7));
-  const fim=localISO(anMonday(0)); const out=[];
-  while(localISO(d)<=fim&&out.length<80){out.push(localISO(d));d.setDate(d.getDate()+7);}
+/* Séries recortadas pelo ano: o número de colunas fica limitado por construção
+   (≤53 semanas, ≤12 meses), em vez de crescer até estourar um teto que descartava
+   justamente as semanas mais recentes. */
+function weekStarts(y){
+  y=y||anoSel();
+  const d=new Date(y+'-01-01T12:00'); d.setDate(d.getDate()-((d.getDay()+6)%7)); // segunda da 1ª semana
+  const limite=y===anoAtual()?localISO(anMonday(0)):y+'-12-31';
+  const out=[];
+  while(localISO(d)<=limite&&out.length<54){out.push(localISO(d));d.setDate(d.getDate()+7);}
   return out;
 }
-function monthStarts(){
-  const ini=primeiroDiaComDado(); let y=+ini.slice(0,4), m=+ini.slice(5,7)-1;
-  const hoje=new Date(); const out=[];
-  while((y<hoje.getFullYear()||(y===hoje.getFullYear()&&m<=hoje.getMonth()))&&out.length<48){
-    out.push(y+'-'+String(m+1).padStart(2,'0')); m++; if(m>11){m=0;y++;}
-  }
+function monthStarts(y){
+  y=y||anoSel();
+  const ultimo=y===anoAtual()?new Date().getMonth():11;
+  const out=[];
+  for(let m=0;m<=ultimo;m++)out.push(y+'-'+String(m+1).padStart(2,'0'));
   return out;
 }
 function hoursRangeByArea(iniISO,fimISO){
@@ -1913,14 +2120,16 @@ function trendPill(cur,prev,sufixo){
 function somaDias(iso0,n){let s=0;for(let i=0;i<n;i++)s+=hoursOnDay(addDaysISO(iso0,i));return s;}
 
 function vAnalytics(){
-  const hoje=todayISO();
-  const total=countableLogs().reduce((s,l)=>s+durH(l.ini,l.fim),0);
-  const byArea=hoursBy(l=>l.area);
+  const y=anoSel(), hoje=todayISO(), anc=anoAncora(y), ehAtual=y===anoAtual();
+  const doAno=l=>String(l.data||'').startsWith(String(y));
+  const logsAno=countableLogs().filter(doAno);
+  const total=logsAno.reduce((s,l)=>s+durH(l.ini,l.fim),0);
+  const byArea={}; logsAno.forEach(l=>{byArea[l.area]=(byArea[l.area]||0)+durH(l.ini,l.fim);});
   const areasComH=AREAS.filter(a=>a.conta);
   const maxArea=Math.max(1,...areasComH.map(a=>byArea[a.id]||0));
 
   /* ---------- diário ---------- */
-  const dias=lastNDays(anDias);
+  const dias=lastNDays(anDias,anc);
   const vDia=dias.map(hoursOnDay);
   const mm=movAvg(vDia,7);
   const wdL=['D','S','T','Q','Q','S','S'];
@@ -1930,14 +2139,14 @@ function vAnalytics(){
     tip:fmtBR(iso)+' · '+(vDia[i]>0?fmtDur(vDia[i]):'sem estudo')+(iso===hoje?' (dia em curso)':'')
   }));
   // tendência: 7 dias completos vs os 7 anteriores (hoje fica de fora — está incompleto)
-  const fim7=addDaysISO(hoje,-1);
+  const fim7=addDaysISO(anc,ehAtual?-1:0);
   const m7=somaDias(addDaysISO(fim7,-6),7)/7, m7ant=somaDias(addDaysISO(fim7,-13),7)/7;
   const diasComEstudo=vDia.filter(v=>v>0).length;
   const mediaJanela=vDia.reduce((a,b)=>a+b,0)/anDias;
   const melhorIdx=vDia.indexOf(Math.max(...vDia));
 
   /* ---------- semanal ---------- */
-  const wks=weekStarts();
+  const wks=weekStarts(y);
   const ptsSem=wks.map(mon=>{const fim=addDaysISO(mon,6);
     const mapa=hoursRangeByArea(mon,fim); const tot=Object.values(mapa).reduce((a,b)=>a+b,0);
     const parcial=fim>=hoje;
@@ -1950,9 +2159,9 @@ function vAnalytics(){
   const metasBatidas=semCompletas.filter(p=>store.metaSemanal>0&&p.v>=store.metaSemanal).length;
 
   /* ---------- mensal ---------- */
-  const mss=monthStarts();
+  const mss=monthStarts(y);
   const mAbbr=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  const mesAtual=hoje.slice(0,7);
+  const mesAtual=ehAtual?hoje.slice(0,7):'';
   const ptsMes=mss.map(mk=>{const ini=mk+'-01', fim=mk+'-'+String(new Date(+mk.slice(0,4),+mk.slice(5,7),0).getDate()).padStart(2,'0');
     const tot=Object.values(hoursRangeByArea(ini,fim)).reduce((a,b)=>a+b,0);
     const parcial=mk===mesAtual;
@@ -1970,17 +2179,20 @@ function vAnalytics(){
 
   document.getElementById('view').innerHTML=`
     <div class="page-title">analytics</div>
+    ${anosComDado().length>1?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 14px">
+      ${anosComDado().map(a=>`<button class="area-tab ${a===y?'active':''}" style="padding:5px 14px;font-size:12px" onclick="setAnAno(${a})">${a}</button>`).join('')}
+    </div>`:''}
     <div class="page-sub">Colunas em ordem cronológica, com média móvel de 7 dias no diário e a linha da meta no semanal. Colunas hachuradas são períodos <b>em curso</b> — elas ficam de fora do cálculo de tendência, senão todo dia 17 pareceria uma queda. O TRE nunca entra.</div>
 
     <div class="stat-row" style="margin-bottom:20px">
-      <div class="stat"><b>${fmtDur(total)}</b><span>total estudadas</span></div>
-      <div class="stat"><b>${fmtDur(hoursThisWeek())}</b><span>esta semana</span></div>
-      <div class="stat"><b>${countableLogs().length}</b><span>sessões registradas</span></div>
+      <div class="stat"><b>${fmtDur(total)}</b><span>estudadas em ${y}</span></div>
+      <div class="stat"><b>${ehAtual?fmtDur(hoursThisWeek()):fmtDur(total/Math.max(1,wks.length))}</b><span>${ehAtual?'esta semana':'média por semana'}</span></div>
+      <div class="stat"><b>${logsAno.length}</b><span>sessões em ${y}</span></div>
     </div>
 
     <div class="card" style="margin-bottom:18px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
-        <div><h3>Ritmo diário</h3><div class="h-sub" style="margin-bottom:0">Coluna = horas do dia · linha = média móvel de 7 dias (neutraliza o efeito fim de semana)</div></div>
+        <div><h3>Ritmo diário</h3><div class="h-sub" style="margin-bottom:0">Coluna = horas do dia · linha = média móvel de 7 dias${ehAtual?' (neutraliza o efeito fim de semana)':` · encerrando em 31/12/${y}`}</div></div>
         <div style="margin-left:auto;display:flex;gap:6px">
           ${[14,30,60].map(n=>`<button class="area-tab ${anDias===n?'active':''}" style="padding:5px 12px;font-size:12px" onclick="setAnDias(${n})">${n}d</button>`).join('')}
         </div>
@@ -2003,7 +2215,8 @@ function vAnalytics(){
       <div class="h-sub">Cada coluna é uma semana (Seg–Dom) empilhada por área. É aqui que se vê canibalização: o total pode continuar alto enquanto uma área some.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         ${trendPill(sUlt,sPen,'vs. semana anterior')}
-        <span class="pill purple">semana em curso: ${fmtDur(semAtual)}</span>
+        ${ehAtual?`<span class="pill purple">semana em curso: ${fmtDur(semAtual)}</span>`
+                 :`<span class="pill purple">melhor semana: ${fmtDur(Math.max(0,...ptsSem.map(p=>p.v)))}</span>`}
         ${store.metaSemanal>0?`<span class="pill ${metasBatidas?'green':'gray'}">${metasBatidas}/${semCompletas.length} semanas na meta</span>`:''}
       </div>
       ${svgColChart({pts:ptsSem,meta:store.metaSemanal||0,metaLbl:'meta '+hLbl(store.metaSemanal||0),maxLabels:12,minColW:24,maxColW:72,maxBarW:54,minW:470,h:180})}
@@ -2011,18 +2224,20 @@ function vAnalytics(){
     </div>
 
     <div class="card" style="margin-bottom:18px">
-      <h3>Meses</h3><div class="h-sub">Volume mensal — o mês corrente aparece hachurado com a projeção ao lado</div>
+      <h3>Meses</h3><div class="h-sub">Volume mensal${ehAtual?' — o mês corrente aparece hachurado com a projeção ao lado':' de '+y}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         ${trendPill(mUlt,mPen,'vs. mês anterior')}
-        <span class="pill purple">${mAbbr[+mesAtual.slice(5,7)-1]} até agora: ${fmtDur(totMesAtual)}</span>
-        <span class="pill blue" title="Extrapolação linear do ritmo atual até o fim do mês">projeção: ${fmtDur(projMes)}</span>
+        ${ehAtual?`<span class="pill purple">${mAbbr[+mesAtual.slice(5,7)-1]} até agora: ${fmtDur(totMesAtual)}</span>
+        <span class="pill blue" title="Extrapolação linear do ritmo atual até o fim do mês">projeção: ${fmtDur(projMes)}</span>`
+        :`<span class="pill purple">melhor mês: ${(()=>{const b=ptsMes.reduce((x,p)=>p.v>x.v?p:x,{v:-1,lbl:'—'});return b.v>0?h(b.lbl)+' · '+fmtDur(b.v):'—';})()}</span>
+        <span class="pill blue">média: ${fmtDur(ptsMes.length?ptsMes.reduce((a,p)=>a+p.v,0)/ptsMes.length:0)}/mês</span>`}
       </div>
       ${svgColChart({pts:ptsMes,cor:'var(--rose)',maxLabels:12,minColW:40,maxColW:90,maxBarW:60,minW:470,h:150})}
     </div>
 
     <div class="card" style="margin-bottom:18px">
-      <h3>Mapa do período · 11/07 → 06/12/2026</h3><div class="h-sub">Intensidade de estudo por dia — encontre as quedas de consistência num relance</div>
-      ${studyHeatmap()}
+      <h3>Mapa de ${y}</h3><div class="h-sub">Intensidade de estudo por dia — encontre as quedas de consistência num relance${store.periodos.filter(p=>p.ini.slice(0,4)==String(y)||p.fim.slice(0,4)==String(y)).length?' · períodos letivos em '+y+': '+h(store.periodos.filter(p=>p.ini.slice(0,4)==String(y)||p.fim.slice(0,4)==String(y)).map(p=>p.nome).join(', ')):''}</div>
+      ${studyHeatmap(y)}
     </div>
 
     <div class="card"><h3>Horas por área</h3>
@@ -2035,7 +2250,19 @@ function vAnalytics(){
 }
 
 /* ---------------- Hábitos ---------------- */
-// para hábitos automáticos: um log só conta se a atividade não estiver na lista de exclusões
+/* Modelo: {id,nome,icon,cor,auto,excluir[],freq:'diario'|'semanal'|'dias',alvo:N,dias:[0..6],minMin}
+   freq define o que é "esperado" — sem isso, taxa e streak medem a coisa errada
+   para qualquer hábito que não seja diário. */
+
+/* ---- índice por data: evita varrer store.logs a cada célula renderizada ---- */
+let _hbDayIdx=null;
+function invalidateHabitCache(){_hbDayIdx=null;}
+function dayLogIndex(){
+  if(_hbDayIdx) return _hbDayIdx;
+  const m=Object.create(null);
+  countableLogs().forEach(l=>{ (m[l.data]||(m[l.data]=[])).push(l); });
+  _hbDayIdx=m; return m;
+}
 function logCountsForAuto(hb,l){
   const excl=(hb&&hb.excluir)||[];
   if(!excl.length)return true;
@@ -2044,13 +2271,18 @@ function logCountsForAuto(hb,l){
 }
 function habitDone(id,iso){
   const hb=store.habitos.find(x=>x.id===id);
-  if(hb&&hb.auto) return countableLogs().some(l=>l.data===iso && logCountsForAuto(hb,l)); // "Estudo" vem do Diário
+  if(hb&&hb.auto){
+    const arr=dayLogIndex()[iso]; if(!arr)return false;
+    const min=arr.reduce((s,l)=>s+(logCountsForAuto(hb,l)?durMin(l.ini,l.fim):0),0);
+    return min>=Math.max(1,hb.minMin||1);   // limiar: "houve estudo" ≠ "houve dia de estudo"
+  }
   return !!(store.habitLog[iso]&&store.habitLog[iso][id]);
 }
 function toggleHabito(id,iso){
   iso=iso||todayISO();
   const hb=store.habitos.find(x=>x.id===id); if(!hb)return;
   if(hb.auto){toast(hb.nome+' é automático — vem do Diário de Bordo');return;}
+  if(iso>todayISO()){toast('Não dá para marcar um dia futuro');return;}
   if(!store.habitLog[iso])store.habitLog[iso]={};
   if(store.habitLog[iso][id]){delete store.habitLog[iso][id];
     if(!Object.keys(store.habitLog[iso]).length)delete store.habitLog[iso];}
@@ -2058,106 +2290,311 @@ function toggleHabito(id,iso){
   saveHabitDay(iso);
   if(current==='habitos')vHabitos(); else if(current==='dashboard')vDashboard();
 }
-function habitStreak(id){
-  let s=0;const d=new Date();
-  if(!habitDone(id,localISO(d)))d.setDate(d.getDate()-1); // hoje ainda pendente não zera o streak
-  while(habitDone(id,localISO(d))){s++;d.setDate(d.getDate()-1);}
-  return s;
+
+/* ---- frequência-alvo ---- */
+function hbFreq(hb){return hb.freq||'diario';}
+function hbDiaEsperado(hb,iso){
+  const f=hbFreq(hb);
+  if(f==='diario')return true;
+  if(f==='dias')return (hb.dias||[]).includes(new Date(iso+'T12:00').getDay());
+  return null;   // 'semanal': não há dia esperado — a cobrança é por semana
 }
-function habitRate(id,days){let done=0;const d=new Date();
-  for(let i=0;i<days;i++){if(habitDone(id,localISO(d)))done++;d.setDate(d.getDate()-1);}
-  return Math.round(done/days*100);}
+function hbAlvoSemana(hb){
+  const f=hbFreq(hb);
+  if(f==='semanal')return Math.max(1,Math.min(7,hb.alvo||3));
+  if(f==='dias')return Math.max(1,(hb.dias||[]).length);
+  return 7;
+}
+function hbLabelFreq(hb){
+  const f=hbFreq(hb);
+  if(f==='diario')return 'todo dia';
+  if(f==='semanal')return hbAlvoSemana(hb)+'× por semana';
+  const wd=['dom','seg','ter','qua','qui','sex','sáb'];
+  return (hb.dias||[]).slice().sort().map(d=>wd[d]).join('/')||'sem dias definidos';
+}
+function semanaDias(monISO){const out=[];for(let i=0;i<7;i++)out.push(addDaysISO(monISO,i));return out;}
+function hbFeitosNaSemana(hb,monISO){
+  return semanaDias(monISO).filter(iso=>iso<=todayISO()&&habitDone(hb.id,iso)).length;
+}
+function ultimasSemanasCompletas(n){
+  const out=[];for(let i=n;i>=1;i--)out.push(localISO(anMonday(-i)));return out;
+}
+
+/* ---- taxa: feitos ÷ ESPERADOS (não ÷ dias corridos) ---- */
+function hbTaxa(hb){
+  const f=hbFreq(hb);
+  if(f==='diario'){
+    // 28 dias encerrados — hoje fica de fora porque ainda está em curso
+    let feitos=0;for(let i=1;i<=28;i++)if(habitDone(hb.id,addDaysISO(todayISO(),-i)))feitos++;
+    return {pct:Math.round(feitos/28*100),feitos,esp:28,janela:'28 dias'};
+  }
+  const sems=ultimasSemanasCompletas(4), alvo=hbAlvoSemana(hb);
+  let feitos=0;
+  // teto por semana: fazer 5× numa semana de alvo 3 não compensa a semana zerada
+  sems.forEach(mon=>{feitos+=Math.min(alvo,hbFeitosNaSemana(hb,mon));});
+  const esp=alvo*sems.length;
+  return {pct:esp?Math.round(feitos/esp*100):0,feitos,esp,janela:'4 semanas'};
+}
+
+/* ---- streak na unidade certa ---- */
+function hbStreak(hb){
+  const f=hbFreq(hb), hoje=todayISO();
+  if(f==='semanal'){
+    let n=0, i=0;
+    if(hbFeitosNaSemana(hb,localISO(anMonday(0)))>=hbAlvoSemana(hb))n++;   // semana em curso só soma se já bateu
+    i=1;
+    while(i<=104){const mon=localISO(anMonday(-i));
+      if(hbFeitosNaSemana(hb,mon)>=hbAlvoSemana(hb)){n++;i++;}else break;}
+    return {n,un:'sem'};
+  }
+  let n=0;const d=new Date();
+  if(hbDiaEsperado(hb,localISO(d))&&!habitDone(hb.id,localISO(d)))d.setDate(d.getDate()-1); // hoje pendente não zera
+  let guard=0;
+  while(guard++<400){
+    const iso=localISO(d);
+    if(!hbDiaEsperado(hb,iso)){d.setDate(d.getDate()-1);continue;}            // folga programada não quebra
+    if(!habitDone(hb.id,iso))break;
+    n++;d.setDate(d.getDate()-1);
+  }
+  return {n,un:'d'};
+}
 function habitDoneToday(){const t=todayISO();return store.habitos.filter(hb=>habitDone(hb.id,t)).length;}
 function habitYearCount(id,ano){ano=ano||new Date().getFullYear();const y=String(ano);
   const hb=store.habitos.find(x=>x.id===id);
-  if(hb&&hb.auto){const set=new Set(countableLogs().filter(l=>l.data.startsWith(y)&&logCountsForAuto(hb,l)).map(l=>l.data));return set.size;}
+  if(hb&&hb.auto)return Object.keys(dayLogIndex()).filter(iso=>iso.startsWith(y)&&habitDone(id,iso)).length;
   return Object.keys(store.habitLog).filter(iso=>iso.startsWith(y)&&store.habitLog[iso]&&store.habitLog[iso][id]).length;}
-function habitYearBestStreak(id,ano){ano=ano||new Date().getFullYear();const y=String(ano);
-  // maior sequência de dias consecutivos com o hábito feito dentro do ano
-  const dias=new Set();
-  const hb=store.habitos.find(x=>x.id===id);
-  if(hb&&hb.auto){countableLogs().filter(l=>l.data.startsWith(y)&&logCountsForAuto(hb,l)).forEach(l=>dias.add(l.data));}
-  else{Object.keys(store.habitLog).forEach(iso=>{if(iso.startsWith(y)&&store.habitLog[iso]&&store.habitLog[iso][id])dias.add(iso);});}
-  if(!dias.size)return 0;
-  const sorted=[...dias].sort();let best=1,cur=1;
-  for(let i=1;i<sorted.length;i++){const prev=new Date(sorted[i-1]+'T12:00');prev.setDate(prev.getDate()+1);
-    if(localISO(prev)===sorted[i]){cur++;best=Math.max(best,cur);}else cur=1;}
-  return best;}
-function diasAtivosAno(ano){ano=ano||new Date().getFullYear();const y=String(ano);const set=new Set();
-  Object.keys(store.habitLog).forEach(iso=>{if(iso.startsWith(y)&&store.habitLog[iso]&&Object.keys(store.habitLog[iso]).length)set.add(iso);});
-  countableLogs().filter(l=>l.data.startsWith(y)).forEach(l=>set.add(l.data));
-  return set.size;}
+function hbDiasFeitos(hb){
+  const set=new Set();
+  if(hb.auto)Object.keys(dayLogIndex()).forEach(iso=>{if(habitDone(hb.id,iso))set.add(iso);});
+  else Object.keys(store.habitLog).forEach(iso=>{if(store.habitLog[iso]&&store.habitLog[iso][hb.id])set.add(iso);});
+  return [...set].sort();
+}
+/* Melhor sequência que ATRAVESSA o ano, contada por inteiro. A versão anterior
+   filtrava os dias por prefixo do ano antes de medir, então uma sequência de
+   20/12 a 10/01 era partida em duas — um artefato do calendário, não do hábito. */
+function hbMelhorSequencia(hb,ano){
+  const y=String(ano), feitos=hbDiasFeitos(hb), semanal=hbFreq(hb)==='semanal';
+  if(!feitos.length)return {n:0,un:semanal?'sem':'d',cruza:false};
+  const fim=todayISO();
+  let cur=0,curIni=null,best=0,cruza=false,guard=0;
+  const registra=(fimRun)=>{
+    if(curIni.slice(0,4)<=y&&fimRun.slice(0,4)>=y&&cur>best){
+      best=cur; cruza=(curIni.slice(0,4)!==y)||(fimRun.slice(0,4)!==y);}
+  };
+  if(semanal){
+    const alvo=hbAlvoSemana(hb);
+    const mon=new Date(feitos[0]+'T12:00'); mon.setDate(mon.getDate()-((mon.getDay()+6)%7));
+    while(localISO(mon)<=fim&&guard++<600){
+      const mISO=localISO(mon);
+      if(hbFeitosNaSemana(hb,mISO)>=alvo){ if(!cur)curIni=mISO; cur++; registra(addDaysISO(mISO,6)); }
+      else cur=0;
+      mon.setDate(mon.getDate()+7);
+    }
+    return {n:best,un:'sem',cruza};
+  }
+  const d=new Date(feitos[0]+'T12:00');
+  while(localISO(d)<=fim&&guard++<4000){
+    const iso=localISO(d);
+    if(hbDiaEsperado(hb,iso)){
+      if(habitDone(hb.id,iso)){ if(!cur)curIni=iso; cur++; registra(iso); }
+      else cur=0;
+    }
+    d.setDate(d.getDate()+1);
+  }
+  return {n:best,un:'d',cruza};
+}
+
+/* ---- grade do ano inteiro (histórico, somente leitura) ---- */
+function hbGridAno(hb,ano){
+  const START=ano+'-01-01', END=ano+'-12-31', hoje=todayISO();
+  const s=new Date(START+'T12:00'); s.setDate(s.getDate()-((s.getDay()+6)%7));
+  const end=new Date(END+'T12:00');
+  const cols=[]; let cur=new Date(s);
+  while(cur<=end){const wk=[];for(let i=0;i<7;i++){const d=new Date(cur);d.setDate(d.getDate()+i);wk.push(localISO(d));}cols.push(wk);cur.setDate(cur.getDate()+7);}
+  const mA=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  let prevM=-1;
+  const monthRow=cols.map(w=>{const m=new Date(w[0]+'T12:00').getMonth();let l='';if(m!==prevM){l=mA[m];prevM=m;}return `<div class="hm-mcol">${l}</div>`;}).join('');
+  const grid=cols.map(w=>`<div class="hm-col">${w.map(iso=>{
+      if(iso<START||iso>END||iso>hoje)return `<div class="hm-cell out"></div>`;
+      const on=habitDone(hb.id,iso), esp=hbDiaEsperado(hb,iso);
+      const stl=on?`background:${hb.cor};border-color:transparent`:(esp===true?'border-style:dashed;border-color:var(--red);opacity:.5':'opacity:.4');
+      return `<div class="hm-cell" title="${fmtBR(iso)} · ${on?'feito':esp===false?'folga programada':'não feito'}" style="${stl}"></div>`;
+    }).join('')}</div>`).join('');
+  const wd=['S','T','Q','Q','S','S','D'];
+  return `<div class="hm-wrap" style="margin:10px 0"><div style="display:flex;gap:6px">
+      <div class="hm-wd">${wd.map(x=>`<span>${x}</span>`).join('')}</div>
+      <div style="min-width:0"><div class="hm-row hm-months">${monthRow}</div><div class="hm-row">${grid}</div></div>
+    </div></div>`;
+}
+function diasAtivosAno(ano){
+  // "dia ativo" = dia em que ao menos um hábito conta como feito, pela MESMA regra da tela
+  // (inclusive limiar de minutos e exclusões do hábito automático). Antes, qualquer log
+  // contável marcava o dia como ativo, mesmo abaixo do limiar — as duas métricas divergiam.
+  ano=ano||new Date().getFullYear();const y=String(ano);
+  const cand=new Set();
+  Object.keys(store.habitLog).forEach(iso=>{if(iso.startsWith(y))cand.add(iso);});
+  Object.keys(dayLogIndex()).forEach(iso=>{if(iso.startsWith(y))cand.add(iso);});
+  let n=0;
+  cand.forEach(iso=>{ if(store.habitos.some(hb=>habitDone(hb.id,iso))) n++; });
+  return n;}
+
+/* ---- risco de quebra (alimenta o Dashboard) ---- */
+function hbRiscos(){
+  const out=[], hoje=todayISO(), hora=new Date().getHours();
+  const diasRest=7-((new Date().getDay()+6)%7);   // inclui hoje
+  store.habitos.forEach(hb=>{
+    if(hb.auto||habitDone(hb.id,hoje))return;
+    const f=hbFreq(hb);
+    if(f==='semanal'||f==='dias'){
+      const alvo=hbAlvoSemana(hb), feitos=hbFeitosNaSemana(hb,localISO(anMonday(0)));
+      if(feitos>=alvo)return;
+      const faltam=alvo-feitos;
+      if(faltam>diasRest) out.push({hb,txt:`${feitos}/${alvo} e só restam ${diasRest} dia${diasRest>1?'s':''} — a meta da semana já não fecha`,crit:true});
+      else if(faltam===diasRest) out.push({hb,txt:`${feitos}/${alvo} — precisa fazer todos os ${diasRest} dias restantes`,crit:true});
+      else if(hora>=20&&hbDiaEsperado(hb,hoje)!==false) out.push({hb,txt:`${feitos}/${alvo} nesta semana`,crit:false});
+    }else{
+      const st=hbStreak(hb).n;
+      if(st>=5&&hora>=20) out.push({hb,txt:`sequência de ${st} dias em risco`,crit:st>=10});
+    }
+  });
+  return out.sort((a,b)=>(b.crit?1:0)-(a.crit?1:0));
+}
+
+/* ---- correlação hábito × horas estudadas ---- */
+function hbImpacto(hb,dias){
+  dias=dias||60;
+  const hoje=todayISO(), com=[], sem=[];
+  for(let i=1;i<=dias;i++){const iso=addDaysISO(hoje,-i);
+    (habitDone(hb.id,iso)?com:sem).push(hoursOnDay(iso));}
+  if(com.length<10||sem.length<10)return null;      // n pequeno demais: não mostra número
+  const md=a=>a.reduce((x,y)=>x+y,0)/a.length;
+  return {com:md(com),sem:md(sem),nCom:com.length,nSem:sem.length};
+}
+
+/* ---- heatmap de 8 semanas, clicável (permite corrigir dias antigos) ---- */
+function hbHeatmap(hb){
+  const hoje=todayISO(), sems=[];
+  for(let i=7;i>=0;i--)sems.push(localISO(anMonday(-i)));
+  const wd=['S','T','Q','Q','S','S','D'];
+  const head=wd.map(x=>`<span>${x}</span>`).join('');
+  const linhas=sems.map(mon=>semanaDias(mon).map(iso=>{
+    const futuro=iso>hoje, on=!futuro&&habitDone(hb.id,iso), esp=hbDiaEsperado(hb,iso);
+    let cls='hh-cell', st='';
+    if(futuro)cls+=' fut';
+    else if(on){cls+=' on';st=`background:${hb.cor};border-color:${hb.cor}`;}
+    else if(esp===true)cls+=' miss';
+    else if(esp===false)cls+=' off';
+    if(iso===hoje)cls+=' today';
+    if(hb.auto)cls+=' ro';
+    const tip=fmtBR(iso)+' · '+(futuro?'—':on?'feito':esp===false?'folga programada':'não feito')+(hb.auto?' (automático)':'');
+    return `<div class="${cls}" style="${st}" title="${h(tip)}" ${(hb.auto||futuro)?'':`onclick="toggleHabito('${hb.id}','${iso}')"`}></div>`;
+  }).join('')).join('');
+  return `<div class="hh"><div class="hh-head">${head}</div><div class="hh-grid">${linhas}</div>
+    <div class="hh-legend">8 semanas · ${hb.auto?'somente leitura':'toque em qualquer dia para corrigir'}</div></div>`;
+}
 
 function dashHabitChips(){
   if(!store.habitos.length)return '<div class="empty" style="padding:14px">Nenhum hábito ainda. <button class="btn sm ghost" onclick="go(\'habitos\')">Criar</button></div>';
-  const t=todayISO();
+  const t=todayISO(), mon=localISO(anMonday(0));
   return `<div class="hist-chips">`+store.habitos.map(hb=>{const on=habitDone(hb.id,t);
-    return `<button class="chip" onclick="toggleHabito('${hb.id}')" title="${hb.auto?'Automático (Diário de Bordo)':'Marcar/desmarcar'}"
+    const f=hbFreq(hb);
+    const prog=(f==='semanal'||f==='dias')?` ${Math.min(hbAlvoSemana(hb),hbFeitosNaSemana(hb,mon))}/${hbAlvoSemana(hb)}`:'';
+    return `<button class="chip" onclick="toggleHabito('${hb.id}')" title="${h(hb.nome+' · '+hbLabelFreq(hb)+(hb.auto?' · automático':''))}"
       style="${on?`background:${hb.cor}22;color:${hb.cor}`:'background:var(--card-2);color:var(--muted);border:1px solid var(--line)'}">
-      ${hb.icon||''} ${h(hb.nome)} ${on?'✓':''}</button>`;}).join('')+`</div>`;
+      ${hb.icon||''} ${h(hb.nome)}${prog} ${on?'✓':''}</button>`;}).join('')+`</div>`;
+}
+function dashHabitRiscos(){
+  const r=hbRiscos(); if(!r.length)return '';
+  return `<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">${r.slice(0,4).map(x=>
+    `<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:7px 10px;border-radius:9px;
+      background:${x.crit?'var(--red-soft)':'var(--amber-soft)'};color:${x.crit?'var(--red)':'var(--amber)'}">
+      <span>${x.crit?'⚠':'⏳'}</span><b>${h(x.hb.nome)}</b><span style="opacity:.85">${h(x.txt)}</span></div>`).join('')}</div>`;
 }
 
+let hbAno=null;
+function setHbAno(y){hbAno=+y;vHabitos();}
+function hbAnoSel(){ if(!hbAno||!anosComDado().includes(hbAno)) hbAno=anoAtual(); return hbAno; }
 function vHabitos(){
   const total=store.habitos.length;
-  const dias7=lastDays(7);
-  const hoje=todayISO();
-  const ano=new Date().getFullYear();
-  const melhorStreak=store.habitos.reduce((mx,hb)=>Math.max(mx,habitStreak(hb.id)),0);
+  const hoje=todayISO(), mon=localISO(anMonday(0));
+  const ano=hbAnoSel(), ehAtual=ano===anoAtual();
+  const melhor=store.habitos.reduce((mx,hb)=>{const s=hbStreak(hb);return s.n>mx.n?s:mx;},{n:0,un:'d'});
   const marcAno=store.habitos.reduce((s,hb)=>s+habitYearCount(hb.id,ano),0);
   const ativosAno=diasAtivosAno(ano);
+  const riscos=ehAtual?hbRiscos():[];
 
-  // rows de marcação (toque quando fizer — sem obrigação diária)
   const rowsHoje=store.habitos.map(hb=>{const on=habitDone(hb.id,hoje);
+    const f=hbFreq(hb), alvo=hbAlvoSemana(hb), feitos=hbFeitosNaSemana(hb,mon);
+    const esperadoHoje=hbDiaEsperado(hb,hoje);
+    const sub=hb.auto?`automático · Diário de Bordo${hb.minMin>1?` · mín. ${hb.minMin}min/dia`:''}`
+      :(f==='diario'?'todo dia':`${hbLabelFreq(hb)} · ${Math.min(alvo,feitos)}/${alvo} esta semana`);
     return `<div class="habit-toggle ${hb.auto?'auto':''}" ${hb.auto?'':`onclick="toggleHabito('${hb.id}')"`}
       style="${on?`background:${hb.cor}18;border-color:${hb.cor}55`:''}">
       <div class="habit-ic" style="background:${hb.cor}22;color:${hb.cor}">${hb.icon||'•'}</div>
-      <div class="habit-name">${h(hb.nome)}${hb.auto?'<small>automático · Diário de Bordo</small>':''}</div>
+      <div class="habit-name">${h(hb.nome)}${esperadoHoje===false&&!on?' <span class="pill gray" style="font-size:10px">folga hoje</span>':''}<small>${h(sub)}</small></div>
       <div class="habit-mark" style="${on?`background:${hb.cor};border-color:${hb.cor}`:''}">${on?'✓':''}</div>
     </div>`;}).join('');
 
-  // consistência por hábito: grade 7 dias clicável + streak + taxa 30d + total no ano
   const stats=store.habitos.map(hb=>{
-    const grid=dias7.map(iso=>{const on=habitDone(hb.id,iso);const isToday=iso===hoje;
-      return `<div class="hg-col"><span class="wd">${weekdayLetter(iso)}</span>
-        <div class="hg-cell ${on?'on':''} ${isToday?'today':''} ${hb.auto?'ro':''}"
-          ${hb.auto?'':`onclick="toggleHabito('${hb.id}','${iso}')"`}
-          style="${on?`background:${hb.cor}`:''}" title="${fmtBR(iso)}${hb.auto?' (automático)':''}">${on?'✓':''}</div>
-      </div>`;}).join('');
-    const st=habitStreak(hb.id), r30=habitRate(hb.id,30);
-    const yc=habitYearCount(hb.id,ano), ybs=habitYearBestStreak(hb.id,ano);
-    const rColor=r30>=70?'green':r30>=40?'amber':'red';
+    const tx=hbTaxa(hb), st=hbStreak(hb);
+    const yc=habitYearCount(hb.id,ano), ybs=hbMelhorSequencia(hb,ano);
+    const rColor=tx.pct>=80?'green':tx.pct>=50?'amber':'red';
+    const alvo=hbAlvoSemana(hb), feitos=Math.min(alvo,hbFeitosNaSemana(hb,mon));
+    const semanal=hbFreq(hb)!=='diario';
+    const imp=hb.auto?null:hbImpacto(hb);
     return `<div class="habit-stat">
-      <div class="hs-name"><span class="tag-dot" style="background:${hb.cor}"></span>${hb.icon||''} ${h(hb.nome)}</div>
-      <div class="hg">${grid}</div>
-      <div class="hs-metrics">
-        <span class="pill ${st>0?'purple':'gray'}">🔥 ${st}d</span>
-        <span class="pill ${rColor}">${r30}% · 30d</span>
-        <span class="pill blue" title="Vezes registradas em ${ano} · melhor sequência do ano: ${ybs} dias">📅 ${yc}× em ${ano}</span>
-        ${hb.auto?`<button class="icon-btn" onclick="mHabito('${hb.id}')" title="Editar">✎</button>`
-                 :`<button class="icon-btn" onclick="mHabito('${hb.id}')" title="Editar">✎</button>
-                   <button class="icon-btn" onclick="delHabito('${hb.id}')" title="Excluir">✕</button>`}
+      <div class="hs-head">
+        <div class="hs-name"><span class="tag-dot" style="background:${hb.cor}"></span>${hb.icon||''} ${h(hb.nome)}</div>
+        <div class="hs-freq">${h(hbLabelFreq(hb))}</div>
       </div>
+      ${ehAtual?hbHeatmap(hb):hbGridAno(hb,ano)}
+      <div class="hs-metrics">
+        ${ehAtual?`<span class="pill ${st.n>0?'purple':'gray'}" title="${st.un==='sem'?'Semanas consecutivas cumprindo o alvo':'Dias esperados consecutivos — folgas programadas não quebram'}">🔥 ${st.n}${st.un==='sem'?(st.n===1?' semana':' semanas'):'d'}</span>
+        <span class="pill ${rColor}" title="${tx.feitos} de ${tx.esp} esperados nas últimas ${tx.janela}">${tx.pct}% · ${tx.janela}</span>
+        ${semanal?`<span class="pill ${feitos>=alvo?'green':'blue'}">${feitos}/${alvo} esta semana</span>`:''}`:''}
+        <span class="pill blue">📅 ${yc}× em ${ano}</span>
+        <span class="pill gray" title="Sequências que atravessam a virada do ano são contadas por inteiro, não partidas em 1º de janeiro">🏆 melhor: ${ybs.n}${ybs.un==='sem'?(ybs.n===1?' semana':' semanas'):'d'}${ybs.cruza?' *':''}</span>
+        <span style="margin-left:auto;display:flex;gap:4px">
+          <button class="icon-btn" onclick="mHabito('${hb.id}')" title="Editar">✎</button>
+          ${hb.auto?'':`<button class="icon-btn" onclick="delHabito('${hb.id}')" title="Excluir">✕</button>`}
+        </span>
+      </div>
+      ${ehAtual&&imp?`<div class="hs-imp">
+        📊 Dias <b>com</b> ${h(hb.nome.toLowerCase())}: <b style="color:var(--ink)">${fmtDur(imp.com)}</b> de estudo em média ·
+        <b>sem</b>: <b style="color:var(--ink)">${fmtDur(imp.sem)}</b>
+        <span style="opacity:.7">(${imp.nCom}/${imp.nSem} dias · correlação, não causa)</span></div>`:''}
     </div>`;}).join('');
 
   document.getElementById('view').innerHTML=`
     <div class="page-title">hábitos</div>
-    <div class="page-sub">Toque no que você fez — grava sozinho. Sem meta diária: marque só nos dias em que fizer. A grade dos últimos 7 dias é clicável para corrigir qualquer dia. "Estudo" é automático (vem do Diário de Bordo).</div>
+    <div class="page-sub">Cada hábito tem uma <b>frequência-alvo</b>, e a taxa é calculada sobre os dias <b>esperados</b> — não sobre dias corridos. Treinar 3× por semana com alvo 3 é 100%, não 43%. A grade de 8 semanas é clicável: dá para corrigir qualquer dia.</div>
+
+    ${riscos.length?`<div class="card" style="margin-bottom:18px;border:1px solid ${riscos[0].crit?'var(--red)':'var(--amber)'};background:${riscos[0].crit?'var(--red-soft)':'var(--amber-soft)'}">
+      <h3 style="color:${riscos[0].crit?'var(--red)':'var(--amber)'}">Atenção hoje</h3>
+      <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px">${riscos.map(x=>
+        `<div style="font-size:13px"><b>${x.crit?'⚠':'⏳'} ${h(x.hb.nome)}</b> — ${h(x.txt)}</div>`).join('')}</div>
+    </div>`:''}
+
+    ${anosComDado().length>1?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 14px">
+      ${anosComDado().map(a=>`<button class="area-tab ${a===ano?'active':''}" style="padding:5px 14px;font-size:12px" onclick="setHbAno(${a})">${a}</button>`).join('')}
+    </div>`:''}
     <div class="stat-row" style="margin-bottom:22px">
       <div class="stat"><b>${marcAno}</b><span>marcações em ${ano}</span></div>
-      <div class="stat"><b>${ativosAno}</b><span>dias ativos em ${ano}</span></div>
-      <div class="stat"><b>🔥 ${melhorStreak}</b><span>maior sequência atual</span></div>
+      <div class="stat" title="Dias em que ao menos um hábito contou como feito — mesma regra da tela, incluindo o limiar de minutos do hábito automático"><b>${ativosAno}</b><span>dias com hábito em ${ano}</span></div>
+      <div class="stat"><b>🔥 ${ehAtual?melhor.n+(melhor.un==='sem'?' sem':''):'—'}</b><span>${ehAtual?'maior sequência atual':'ano encerrado'}</span></div>
     </div>
-    <div style="display:flex;align-items:center;margin-bottom:14px">
+    ${ehAtual?`<div style="display:flex;align-items:center;margin-bottom:14px">
       <h3 style="font-size:16px">Marcar</h3>
       <button class="btn sm" style="margin-left:auto" onclick="mHabito()">+ Novo hábito</button>
     </div>
     <div class="card" style="margin-bottom:20px">
       ${total?rowsHoje:'<div class="empty">Nenhum hábito cadastrado.<br><button class="btn sm ghost" style="margin-top:12px" onclick="mHabito()">Criar primeiro hábito</button></div>'}
-    </div>
-    ${total?`<div class="card">
-      <h3>Últimos 7 dias & consistência</h3><div class="h-sub">Streak atual, taxa de 30 dias e total acumulado em ${ano} por hábito</div>
-      ${stats}
-    </div>`:''}`;
+    </div>`:`<div class="card" style="margin-bottom:20px;background:var(--card-2)">
+      <div style="font-size:13px;color:var(--muted)">Visão histórica de <b>${ano}</b> — somente leitura. Taxa, streak atual e alertas são métricas do presente e não fazem sentido num ano encerrado; a grade abaixo mostra o ano inteiro.</div>
+    </div>`}
+    ${total?`<div class="card"><h3>Consistência${ehAtual?'':' · '+ano}</h3>
+      <div class="h-sub">Cor cheia = feito · contorno tracejado = dia esperado e não feito · cinza claro = folga programada${ehAtual?'':' · <b>*</b> = sequência que atravessa a virada do ano'}</div>
+      ${stats}</div>`:''}`;
 }
 
 function distinctCountableAtividades(){
@@ -2166,7 +2603,7 @@ function distinctCountableAtividades(){
   store.logs.forEach(l=>{if(areaById(l.area).conta&&l.atividade)set.add(l.atividade.trim());});
   return [...set].sort((a,b)=>a.localeCompare(b));
 }
-let _mhExcl=[]; // seleção temporária de exclusões no modal
+let _mhExcl=[], _mhDias=[];   // seleção temporária do modal
 function renderExclChips(){
   const list=distinctCountableAtividades();
   if(!list.length)return '<div style="font-size:12px;color:var(--faint)">Sem atividades registradas ainda.</div>';
@@ -2178,9 +2615,23 @@ function toggleMhExcl(i){const list=distinctCountableAtividades();const a=list[i
   const idx=_mhExcl.findIndex(x=>x.toLowerCase()===a.toLowerCase());
   if(idx>=0)_mhExcl.splice(idx,1); else _mhExcl.push(a);
   const box=document.getElementById('mhExclBox');if(box)box.innerHTML=renderExclChips();}
+function renderDiaChips(){
+  const wd=['dom','seg','ter','qua','qui','sex','sáb'];
+  return [1,2,3,4,5,6,0].map(d=>{const on=_mhDias.includes(d);
+    return `<button type="button" class="chip" onclick="toggleMhDia(${d})"
+      style="${on?'background:var(--purple);color:#fff':'background:var(--card-2);color:var(--muted);border:1px solid var(--line)'}">${wd[d]}</button>`;}).join('');
+}
+function toggleMhDia(d){const i=_mhDias.indexOf(d); if(i>=0)_mhDias.splice(i,1); else _mhDias.push(d);
+  const box=document.getElementById('mhDiasBox'); if(box)box.innerHTML=renderDiaChips();}
+function mhFreqChange(v){
+  document.getElementById('mhAlvoWrap').style.display = v==='semanal'?'block':'none';
+  document.getElementById('mhDiasWrap').style.display = v==='dias'?'block':'none';
+}
 function mHabito(id=null){
   const hb=id?store.habitos.find(x=>x.id===id):null;
   _mhExcl = hb&&Array.isArray(hb.excluir)?[...hb.excluir]:[];
+  _mhDias = hb&&Array.isArray(hb.dias)?[...hb.dias]:[1,3,5];
+  const f=hb?hbFreq(hb):'diario';
   const paletteEmojis=['🏃','🏋️','📖','📚','💧','🧘','🍎','😴','✍️','🎧','☀️','🙏'];
   modal(`<h3>${hb?'Editar hábito':'Novo hábito'}</h3>
     <div class="field"><label>Nome</label><input id="hbn" placeholder="Ex: Meditar" value="${hb?h(hb.nome):''}"></div>
@@ -2191,13 +2642,35 @@ function mHabito(id=null){
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 14px">
       ${paletteEmojis.map(e=>`<button type="button" class="chip" style="font-size:16px;padding:4px 9px" onclick="document.getElementById('hbi').value='${e}'">${e}</button>`).join('')}
     </div>
+
+    <div class="field"><label>Frequência-alvo</label>
+      <select id="hbf" onchange="mhFreqChange(this.value)">
+        <option value="diario" ${f==='diario'?'selected':''}>Todo dia</option>
+        <option value="semanal" ${f==='semanal'?'selected':''}>X vezes por semana (dias livres)</option>
+        <option value="dias" ${f==='dias'?'selected':''}>Dias fixos da semana</option>
+      </select>
+      <div style="font-size:11px;color:var(--faint);margin-top:6px">É isso que define o denominador da taxa e a unidade do streak. Escolher errado aqui deixa a métrica mentindo.</div>
+    </div>
+    <div id="mhAlvoWrap" class="field" style="display:${f==='semanal'?'block':'none'}">
+      <label>Quantas vezes por semana</label>
+      <select id="hbalvo">${[1,2,3,4,5,6,7].map(n=>`<option value="${n}" ${(hb&&hb.alvo||3)===n?'selected':''}>${n}× por semana</option>`).join('')}</select>
+    </div>
+    <div id="mhDiasWrap" class="field" style="display:${f==='dias'?'block':'none'}">
+      <label>Dias esperados</label>
+      <div id="mhDiasBox" style="display:flex;flex-wrap:wrap;gap:6px">${renderDiaChips()}</div>
+    </div>
+
     <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);cursor:pointer;margin-bottom:4px">
       <input type="checkbox" id="hba" ${hb&&hb.auto?'checked':''} style="width:auto"
-        onchange="document.getElementById('mhExclWrap').style.display=this.checked?'block':'none'">
-      Automático — marca sozinho quando há sessão no Diário de Bordo (recomendado só para "Estudo")
+        onchange="document.getElementById('mhAutoWrap').style.display=this.checked?'block':'none'">
+      Automático — marca sozinho a partir do Diário de Bordo (recomendado só para "Estudo")
     </label>
-    <div id="mhExclWrap" style="display:${hb&&hb.auto?'block':'none'};border-top:1px solid var(--line);margin-top:12px;padding-top:12px">
-      <div class="h-sub" style="margin-bottom:8px">Atividades que <b>NÃO</b> marcam o hábito (toque para excluir os microdrills):</div>
+    <div id="mhAutoWrap" style="display:${hb&&hb.auto?'block':'none'};border-top:1px solid var(--line);margin-top:12px;padding-top:12px">
+      <div class="field"><label>Mínimo de minutos no dia para contar</label>
+        <input type="number" id="hbmin" min="1" step="5" value="${hb&&hb.minMin?hb.minMin:60}">
+        <div style="font-size:11px;color:var(--faint);margin-top:6px">Sem limiar o hábito marca em 100% dos dias e deixa de informar qualquer coisa. 60min separa "dia de estudo" de "abri o Busuu".</div>
+      </div>
+      <div class="h-sub" style="margin-bottom:8px">Atividades que <b>NÃO</b> contam para o limiar (toque para excluir os microdrills):</div>
       <div id="mhExclBox" style="display:flex;flex-wrap:wrap;gap:6px">${renderExclChips()}</div>
     </div>
     <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
@@ -2207,8 +2680,14 @@ function mHabito(id=null){
 function saveHabito(id){
   const nome=document.getElementById('hbn').value.trim(); if(!nome){toast('Dê um nome ao hábito');return;}
   const auto=document.getElementById('hba').checked;
+  const freq=document.getElementById('hbf').value;
+  if(freq==='dias'&&!_mhDias.length){toast('Escolha ao menos um dia da semana');return;}
   const dados={nome,icon:document.getElementById('hbi').value.trim(),
-    cor:document.getElementById('hbc').value,auto,excluir:auto?_mhExcl.slice():[]};
+    cor:document.getElementById('hbc').value,auto,
+    excluir:auto?_mhExcl.slice():[],
+    minMin:auto?Math.max(1,+document.getElementById('hbmin').value||60):0,
+    freq, alvo:freq==='semanal'?+document.getElementById('hbalvo').value||3:0,
+    dias:freq==='dias'?_mhDias.slice().sort():[]};
   if(id){Object.assign(store.habitos.find(x=>x.id===id),dados);}
   else{store.habitos.push({id:uid(),...dados});}
   save();closeModal();vHabitos();toast(id?'Hábito atualizado':'Hábito adicionado');
@@ -2260,6 +2739,82 @@ function enableNotifs(){
 }
 
 /* ---------------- Export / Import ---------------- */
+/* ---------------- Diagnóstico de volume ----------------
+   O gargalo não é a contagem de registros, é o tamanho do payload: save() envia
+   o store inteiro ao Firebase a cada mutação. Medir bytes é o que importa. */
+const DIAG_LIMITES={aviso:400*1024, critico:1024*1024, localStorage:5*1024*1024};
+function fmtBytes(b){
+  if(b<1024)return b+' B';
+  if(b<1024*1024)return (b/1024).toFixed(1).replace('.',',')+' KB';
+  return (b/1024/1024).toFixed(2).replace('.',',')+' MB';
+}
+function diagnostico(){
+  const json=JSON.stringify(store);
+  const bytes=new Blob([json]).size;
+  const partes=[
+    ['Sessões do diário','logs',store.logs.length],
+    ['Aulas gravadas','aulas',store.aulas.length],
+    ['Aulas síncronas','sincronas',store.sincronas.length],
+    ['Entregáveis','entregaveis',store.entregaveis.length],
+    ['Pendências','pendencias',store.pendencias.length],
+    ['Matérias','materias',store.materias.length],
+    ['Blocos de grade','grade',store.grade.length],
+    ['Dias de hábito','habitLog',Object.keys(store.habitLog).length],
+  ].map(([nome,k,n])=>({nome,n,bytes:new Blob([JSON.stringify(store[k])]).size}))
+   .sort((a,b)=>b.bytes-a.bytes);
+  const registros=store.logs.length+store.aulas.length+store.sincronas.length
+    +store.entregaveis.length+store.pendencias.length+Object.keys(store.habitLog).length;
+
+  // ritmo real: sessões por semana nas últimas 8 semanas completas
+  let sess=0;
+  const ini=addDaysISO(localISO(anMonday(-8)),0), fim=addDaysISO(localISO(anMonday(0)),-1);
+  store.logs.forEach(l=>{if(l.data>=ini&&l.data<=fim)sess++;});
+  const porSemana=sess/8;
+  const bytesPorLog=store.logs.length?new Blob([JSON.stringify(store.logs)]).size/store.logs.length:150;
+  const crescimentoSemana=porSemana*bytesPorLog;
+  const faltaCritico=Math.max(0,DIAG_LIMITES.critico-bytes);
+  const semanas=crescimentoSemana>0?Math.round(faltaCritico/crescimentoSemana):null;
+  const dataLimite=semanas!=null?addDaysISO(todayISO(),semanas*7):null;
+
+  const nivel=bytes>=DIAG_LIMITES.critico?'critico':bytes>=DIAG_LIMITES.aviso?'aviso':'ok';
+  return {bytes,partes,registros,porSemana,crescimentoSemana,semanas,dataLimite,nivel};
+}
+function mDiagnostico(){
+  const d=diagnostico();
+  const cor=d.nivel==='critico'?'var(--red)':d.nivel==='aviso'?'var(--amber)':'var(--green)';
+  const rotulo=d.nivel==='critico'?'Hora de migrar para gravação granular'
+             :d.nivel==='aviso'?'Ainda tranquilo, mas já dá para planejar'
+             :'Saudável';
+  const pctLS=Math.min(100,d.bytes/DIAG_LIMITES.localStorage*100);
+  modal(`<h3>Saúde dos dados</h3>
+    <div class="h-sub">Cada gravação envia o arquivo inteiro ao Firebase. É o tamanho em KB que decide quando isso passa a incomodar — não a contagem de registros.</div>
+
+    <div class="stat-row" style="margin:14px 0">
+      <div class="stat"><b style="color:${cor}">${fmtBytes(d.bytes)}</b><span>payload por gravação</span></div>
+      <div class="stat"><b>${d.registros}</b><span>registros no total</span></div>
+      <div class="stat"><b>${d.porSemana.toFixed(1).replace('.',',')}</b><span>sessões/semana (8 sem)</span></div>
+    </div>
+
+    <div style="padding:11px 13px;border-radius:10px;background:${cor}18;color:${cor};font-size:13px;font-weight:600;margin-bottom:14px">
+      ${rotulo}${d.nivel!=='critico'&&d.semanas!=null?` — no ritmo atual, o limite de 1 MB chega em <b>~${d.semanas} semanas</b> (${fmtBR(d.dataLimite)})`:''}
+    </div>
+
+    <div class="h-sub" style="margin-bottom:6px">Ocupação do espelho local (limite ~5 MB do navegador)</div>
+    <div class="progress" style="height:9px;margin-bottom:16px"><i style="width:${pctLS}%;background:${cor}"></i></div>
+
+    <div class="table-wrap"><table><thead><tr><th>Coleção</th><th>Itens</th><th>Tamanho</th></tr></thead><tbody>
+      ${d.partes.map(p=>`<tr><td>${h(p.nome)}</td><td>${p.n}</td><td><b>${fmtBytes(p.bytes)}</b></td></tr>`).join('')}
+    </tbody></table></div>
+
+    <div style="font-size:11px;color:var(--faint);margin-top:12px">
+      Referência: <b>abaixo de 400 KB</b> nada precisa mudar. Entre 400 KB e 1 MB a sincronização começa a ficar perceptível em rede ruim.
+      Acima de 1 MB vale trocar o <code>set</code> do objeto inteiro por gravação por caminho — o mesmo que o registro de hábitos já faz.
+      Sessões antigas nunca precisam ser apagadas: dá para arquivá-las num nó separado que o app carrega só quando você abre um ano anterior.
+    </div>
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Fechar</button>
+    <button class="btn" onclick="exportData()">Exportar backup</button></div>`);
+}
+
 function exportData(){const blob=new Blob([JSON.stringify(store,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='planner-estudos-backup-'+todayISO()+'.json';a.click();toast('Backup exportado');}
