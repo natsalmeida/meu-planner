@@ -196,6 +196,29 @@ tr:last-child td{border-bottom:none}
 .habit-stat:last-child{border-bottom:none}
 .habit-stat .hs-name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
 .habit-stat .hs-metrics{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+#authGate{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;
+  background:var(--bg);padding:24px}
+.gate-card{max-width:400px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:18px;
+  padding:32px 28px;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.14)}
+.gate-card h2{font-family:var(--serif);font-size:26px;margin:0 0 10px}
+.gate-card p{font-size:13px;color:var(--muted);line-height:1.6;margin:0 0 18px}
+.gate-msg{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5;min-height:16px}
+.gate-msg.erro{color:var(--red)}
+.gate-link{margin-top:16px;font-size:12px;color:var(--faint);text-decoration:underline;background:none;cursor:pointer}
+.gate-link:hover{color:var(--muted)}
+.conta-row{display:flex;align-items:center;gap:9px;padding:8px 10px;margin-bottom:8px;
+  border:1px solid var(--line);border-radius:10px;background:var(--card-2)}
+.conta-row img,.conta-row i{width:24px;height:24px;border-radius:50%;flex-shrink:0;object-fit:cover}
+.conta-row i{background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;font-style:normal}
+.conta-row span{flex:1;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sync-badge{display:flex;align-items:center;gap:9px;width:100%;padding:9px 11px;margin-bottom:8px;
+  border:1px solid var(--line);border-radius:10px;background:var(--card-2);text-align:left;cursor:pointer;transition:border-color .15s}
+.sync-badge:hover{border-color:var(--purple-2)}
+.sync-badge .sb-dot{font-size:11px;line-height:1;flex-shrink:0}
+.sync-badge .sb-txt{display:flex;flex-direction:column;min-width:0}
+.sync-badge .sb-txt b{font-size:12px;font-weight:700;line-height:1.3}
+.sync-badge .sb-txt small{font-size:10px;color:var(--faint);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Hábitos — grade de 8 semanas */
 .hh{margin:10px 0 4px}
 .hh-head,.hh-grid{display:grid;grid-template-columns:repeat(7,22px);gap:3px}
@@ -279,6 +302,8 @@ tr:last-child td{border-bottom:none}
     <div class="side-foot">
       <button class="nav-item" onclick="toggleTema()"><span class="ic" id="temaIc">◐</span> <span id="temaLbl">Modo escuro</span></button>
       <button class="nav-item" onclick="enableNotifs()"><span class="ic">🔔</span> Ativar avisos de prazo</button>
+      <div id="contaBox"></div>
+      <button class="sync-badge" id="syncBadge" onclick="mDiagnostico()"></button>
       <button class="nav-item" onclick="mDiagnostico()"><span class="ic">◱</span> Saúde dos dados</button>
       <button class="nav-item" onclick="exportData()"><span class="ic">⭳</span> Exportar dados</button>
       <button class="nav-item" onclick="document.getElementById('importFile').click()"><span class="ic">⭱</span> Importar dados</button>
@@ -287,6 +312,7 @@ tr:last-child td{border-bottom:none}
   </aside>
   <main class="main" id="view"></main>
 </div>
+<div id="authGate"></div>
 <div id="modalRoot"></div>
 <div id="timerWidget"></div>
 <div class="toast" id="toast"></div>
@@ -446,13 +472,71 @@ function hydrateLocal(){
   return false;
 }
 
+/* ---- Estado de sincronização visível ----
+   Falha de sync é silenciosa por natureza: o app continua funcionando contra o
+   localStorage e o toast some em segundos. Sem indicador permanente, dá para
+   passar semanas achando que está sincronizado quando não está. */
+const SYNC_ST={estado:'conectando',erro:'',ultimo:0,tick:null};
+const SYNC_INFO={
+  ok:        {cor:'var(--green)', ic:'●', txt:'sincronizado'},
+  salvando:  {cor:'var(--blue)',  ic:'◐', txt:'salvando…'},
+  conectando:{cor:'var(--faint)', ic:'○', txt:'conectando…'},
+  offline:   {cor:'var(--amber)', ic:'▲', txt:'sem rede'},
+  local:     {cor:'var(--amber)', ic:'▲', txt:'só neste aparelho'},
+  bloqueado: {cor:'var(--red)',   ic:'■', txt:'acesso negado'},
+  erro:      {cor:'var(--red)',   ic:'■', txt:'falha ao salvar'}
+};
+function setSync(estado,erro){
+  SYNC_ST.estado=estado;
+  if(erro!==undefined)SYNC_ST.erro=erro||'';
+  if(estado==='ok')SYNC_ST.ultimo=Date.now();
+  renderSyncBadge();
+}
+function syncHaQuanto(){
+  if(!SYNC_ST.ultimo)return '';
+  const s=Math.floor((Date.now()-SYNC_ST.ultimo)/1000);
+  if(s<60)return 'agora mesmo';
+  if(s<3600)return 'há '+Math.floor(s/60)+'min';
+  if(s<86400)return 'há '+Math.floor(s/3600)+'h';
+  return 'há '+Math.floor(s/86400)+'d';
+}
+function renderSyncBadge(){
+  const el=document.getElementById('syncBadge'); if(!el)return;
+  const i=SYNC_INFO[SYNC_ST.estado]||SYNC_INFO.conectando;
+  const det=SYNC_ST.estado==='ok'?syncHaQuanto():(SYNC_ST.erro||'toque para detalhes');
+  el.innerHTML=`<span class="sb-dot" style="color:${i.cor}">${i.ic}</span>
+    <span class="sb-txt"><b style="color:${i.cor}">${i.txt}</b><small>${h(det)}</small></span>`;
+  el.title='Status da sincronização — toque para diagnóstico';
+  if(!SYNC_ST.tick)SYNC_ST.tick=setInterval(()=>{if(SYNC_ST.estado==='ok')renderSyncBadge();},30000);
+}
+if(typeof window!=='undefined'){
+  window.addEventListener('online', ()=>{ if(SYNC_ST.estado==='offline')setSync('conectando',''); });
+  window.addEventListener('offline',()=>setSync('offline','sem conexão de rede'));
+}
+function syncErrHandler(err,ctx){
+  const code=(err&&(err.code||err.message))||'erro desconhecido';
+  console.error(ctx,code);
+  if(String(code).includes('permission')){
+    setSync('bloqueado','regras do Firebase negando — confira Realtime Database → Regras');
+  }else if(typeof navigator!=='undefined'&&navigator.onLine===false){
+    setSync('offline','sem conexão de rede');
+  }else{
+    setSync('erro',String(code));
+  }
+}
+
 /* save principal: espelha local sempre; escreve no Firebase se autenticado */
 function save(){
   normalizeStore();
   mirrorLocal();
   if(authReady){
     lastPushedJSON = JSON.stringify(store);
-    db.ref(ROOT).set(store).catch(err=>{ console.error('save falhou',err); toast('Sem conexão — salvo localmente'); });
+    setSync('salvando');
+    db.ref(ROOT).set(store)
+      .then(()=>setSync('ok',''))
+      .catch(err=>{ syncErrHandler(err,'save falhou'); toast('Sem conexão — salvo localmente'); });
+  }else{
+    setSync('local','autenticação indisponível — nada sobe para a nuvem');
   }
 }
 /* write granular para o toggle de hábito (operação mais frequente) */
@@ -461,42 +545,130 @@ function saveHabitDay(iso){
   mirrorLocal();
   if(authReady){
     lastPushedJSON=''; // este write é parcial; não suprimir o eco do sync
+    setSync('salvando');
     db.ref(ROOT+'/habitLog/'+iso).set(store.habitLog[iso]||null)
-      .catch(err=>{ console.error(err); toast('Sem conexão — salvo localmente'); });
+      .then(()=>setSync('ok',''))
+      .catch(err=>{ syncErrHandler(err,'saveHabitDay falhou'); toast('Sem conexão — salvo localmente'); });
+  }else{
+    setSync('local','autenticação indisponível — nada sobe para a nuvem');
   }
 }
 
-/* ---- Auth anônimo + sincronização ao vivo ---- */
+/* ---- Auth com Google + sincronização ao vivo ----
+   Login anônimo foi removido: qualquer pessoa cria uma conta anônima em milissegundos,
+   então a regra `auth != null` não protegia nada num repositório público. Com Google
+   o UID é estável em todos os aparelhos, e a regra pode ser fixada nele de uma vez. */
+let authUser=null;
+let modoLocal=false;          // usuário optou por seguir sem sincronizar
+
 function initAuth(){
   firebase.auth().onAuthStateChanged(user=>{
-    if(user){ authReady=true; attachSync(); }
-  });
-  firebase.auth().signInAnonymously().catch(err=>{
-    authReady=false;
-    console.error('Auth anônimo falhou:', err.code, err.message);
-    if(err.code==='auth/operation-not-allowed'){
-      toast('Ative o login Anônimo no Firebase (Authentication → Sign-in method)');
-    }else if(err.code==='auth/configuration-not-found'){
-      toast('Habilite Authentication no console do Firebase');
+    authUser=user||null;
+    if(user){
+      authReady=true; modoLocal=false;
+      fecharPortao();
+      renderConta();
+      setSync('conectando','');
+      attachSync();
     }else{
-      toast('Rodando offline (sem sincronização)');
+      authReady=false;
+      try{ db.ref(ROOT).off(); }catch(e){}
+      syncAttached=false;
+      renderConta();
+      setSync('local','você não está autenticado — nada sobe para a nuvem');
+      if(!modoLocal) abrirPortao();
     }
   });
+  // conclui o fluxo de redirect (usado quando o popup é bloqueado)
+  try{ firebase.auth().getRedirectResult().catch(err=>{ if(err&&err.code)loginErro(err); }); }catch(e){}
+}
+function entrarComGoogle(){
+  const prov=new firebase.auth.GoogleAuthProvider();
+  prov.setCustomParameters({prompt:'select_account'});
+  setLoginMsg('Abrindo o Google…','');
+  firebase.auth().signInWithPopup(prov).catch(err=>{
+    const c=err&&err.code;
+    if(c==='auth/popup-closed-by-user'||c==='auth/cancelled-popup-request'){ setLoginMsg('',''); return; }
+    if(c==='auth/popup-blocked'||c==='auth/operation-not-supported-in-this-environment'){
+      setLoginMsg('Popup bloqueado — redirecionando…','');
+      firebase.auth().signInWithRedirect(prov).catch(e=>loginErro(e));
+      return;
+    }
+    loginErro(err);
+  });
+}
+function loginErro(err){
+  const c=(err&&err.code)||'', host=(typeof location!=='undefined'?location.hostname:'seu domínio');
+  let msg='Falha no login: '+(c||err);
+  if(c==='auth/unauthorized-domain')
+    msg=`O domínio <b>${h(host)}</b> não está autorizado. Firebase Console → Authentication → Settings → Domínios autorizados → adicione <b>${h(host)}</b>.`;
+  else if(c==='auth/operation-not-allowed')
+    msg='O provedor Google está desativado. Firebase Console → Authentication → Sign-in method → ative <b>Google</b>.';
+  else if(c==='auth/configuration-not-found')
+    msg='Authentication não está habilitado neste projeto do Firebase.';
+  else if(c==='auth/network-request-failed')
+    msg='Sem conexão com o Google. Você pode seguir offline por enquanto.';
+  console.error('login:',c,err);
+  setLoginMsg(msg,'erro');
+}
+function sair(){
+  if(!confirm('Sair da conta?\nSeus dados continuam salvos na nuvem e neste aparelho.'))return;
+  firebase.auth().signOut().then(()=>toast('Sessão encerrada'));
+}
+function usarOffline(){
+  modoLocal=true; fecharPortao();
+  setSync('local','modo offline escolhido por você — nada sobe para a nuvem');
+  toast('Usando só neste aparelho — nada será sincronizado');
+}
+
+/* ---- portão de login ---- */
+function abrirPortao(){
+  const el=document.getElementById('authGate'); if(!el)return;
+  el.innerHTML=`<div class="gate-card">
+      <div class="logo" style="margin:0 auto 14px">✷</div>
+      <h2>Meu Planner</h2>
+      <p>Entre com sua conta Google para sincronizar entre o computador e o celular.
+         O login também é o que protege seus dados — sem ele, qualquer pessoa que abrisse o endereço do app teria acesso.</p>
+      <button class="btn" style="width:100%;justify-content:center;margin-top:6px" onclick="entrarComGoogle()">Entrar com Google</button>
+      <div id="gateMsg" class="gate-msg"></div>
+      <button class="gate-link" onclick="usarOffline()">Usar só neste aparelho, sem sincronizar</button>
+    </div>`;
+  el.style.display='flex';
+}
+function fecharPortao(){const el=document.getElementById('authGate'); if(el){el.style.display='none';el.innerHTML='';}}
+function setLoginMsg(msg,tipo){
+  const el=document.getElementById('gateMsg'); if(!el)return;
+  el.innerHTML=msg||''; el.className='gate-msg'+(tipo==='erro'?' erro':'');
+}
+function renderConta(){
+  const el=document.getElementById('contaBox'); if(!el)return;
+  if(!authUser){
+    el.innerHTML=`<button class="nav-item" onclick="abrirPortao()"><span class="ic">→</span> Entrar com Google</button>`;
+    return;
+  }
+  const nome=authUser.displayName||authUser.email||'conta', ini=(nome[0]||'?').toUpperCase();
+  el.innerHTML=`<div class="conta-row">
+      ${authUser.photoURL?`<img src="${h(authUser.photoURL)}" alt="" referrerpolicy="no-referrer">`:`<i>${h(ini)}</i>`}
+      <span title="${h(authUser.email||'')}">${h(nome)}</span>
+      <button class="icon-btn" onclick="sair()" title="Sair">⇥</button>
+    </div>`;
 }
 function attachSync(){
   if(syncAttached) return; syncAttached=true;
   db.ref(ROOT).on('value', snap=>{
     const d=snap.val();
+    setSync('ok','');
     if(d==null){ save(); return; }               // banco vazio: sobe o estado inicial
     const incoming=JSON.stringify(d);
     if(incoming===lastPushedJSON) return;         // eco do nosso próprio set
     if(incoming===JSON.stringify(store)) return;  // nada mudou de fato
     if(!applyData(d)) return;                      // ignora payload inválido
+    setSync('ok','');
     mirrorLocal();
     if(document.querySelector('.modal-bg')){ pendingRerender=true; } // não destrói modal aberto
     else { aplicarTema(); renderNav(); renderCurrent(); renderTimerWidget(); }
   }, err=>{
-    console.error('Sync falhou:', err.code||err);
+    syncErrHandler(err,'Sync falhou');
     if((err.code||'').includes('permission')) toast('Regras do Firebase bloqueando — confira as rules');
   });
 }
@@ -2789,6 +2961,39 @@ function mDiagnostico(){
   modal(`<h3>Saúde dos dados</h3>
     <div class="h-sub">Cada gravação envia o arquivo inteiro ao Firebase. É o tamanho em KB que decide quando isso passa a incomodar — não a contagem de registros.</div>
 
+    ${(()=>{const i=SYNC_INFO[SYNC_ST.estado]||SYNC_INFO.conectando;
+      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border-radius:10px;margin:14px 0;
+        background:${i.cor}14;border:1px solid ${i.cor}44">
+        <span style="color:${i.cor};font-size:12px;line-height:1.5">${i.ic}</span>
+        <div style="font-size:13px;min-width:0">
+          <b style="color:${i.cor}">Sincronização: ${i.txt}</b>
+          <div style="color:var(--muted);font-size:12px;margin-top:2px">
+            ${SYNC_ST.estado==='ok'?'Último envio confirmado pelo Firebase '+h(syncHaQuanto())+'.'
+             :h(SYNC_ST.erro||'Aguardando resposta do servidor.')}
+          </div>
+          ${SYNC_ST.estado==='bloqueado'?`<div style="color:var(--muted);font-size:11px;margin-top:5px">
+            Firebase Console → Realtime Database → Regras. O nó <code>meu_planner</code> precisa permitir leitura e escrita para a sua sessão.</div>`:''}
+          ${SYNC_ST.estado==='local'?`<div style="color:var(--muted);font-size:11px;margin-top:5px">
+            Seus dados continuam salvos neste navegador, mas <b>não estão indo para a nuvem</b> — outro aparelho não vai enxergá-los, e limpar os dados do site apagaria tudo. Exporte um backup antes de mexer em qualquer configuração.</div>`:''}
+        </div></div>`;})()}
+    ${(()=>{
+      if(!authUser) return `<div style="padding:11px 13px;border-radius:10px;background:var(--amber-soft);color:var(--amber);font-size:12px;margin:14px 0">
+        Você não está autenticado. Entre com o Google para ver o seu UID e a regra de segurança correspondente.</div>`;
+      const uid=authUser.uid;
+      const regras=`{\n  "rules": {\n    "${ROOT}": {\n      ".read": "auth.uid === '${uid}'",\n      ".write": "auth.uid === '${uid}'"\n    }\n  }\n}`;
+      return `<div style="border:1px solid var(--line);border-radius:11px;padding:13px;margin:14px 0">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">Regra de segurança para este projeto</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:9px">
+          Cole isto em Firebase Console → Realtime Database → Regras. Com o login do Google o UID nunca muda,
+          então esta regra vale para sempre e em qualquer aparelho — diferente do login anônimo, que gerava um UID novo a cada navegador.
+        </div>
+        <pre id="regrasBox" style="background:var(--card-2);border:1px solid var(--line);border-radius:8px;padding:10px;
+          font-size:11px;line-height:1.5;overflow-x:auto;margin:0;white-space:pre">${h(regras)}</pre>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap">
+          <button class="btn sm line" onclick="copiarRegras()">Copiar regra</button>
+          <span style="font-size:10px;color:var(--faint);font-family:monospace">UID: ${h(uid)}</span>
+        </div>
+      </div>`;})()}
     <div class="stat-row" style="margin:14px 0">
       <div class="stat"><b style="color:${cor}">${fmtBytes(d.bytes)}</b><span>payload por gravação</span></div>
       <div class="stat"><b>${d.registros}</b><span>registros no total</span></div>
@@ -2815,6 +3020,13 @@ function mDiagnostico(){
     <button class="btn" onclick="exportData()">Exportar backup</button></div>`);
 }
 
+function copiarRegras(){
+  const el=document.getElementById('regrasBox'); if(!el)return;
+  const txt=el.textContent;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>toast('Regra copiada')).catch(()=>toast('Copie manualmente do bloco acima'));
+  }else toast('Copie manualmente do bloco acima');
+}
 function exportData(){const blob=new Blob([JSON.stringify(store,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='planner-estudos-backup-'+todayISO()+'.json';a.click();toast('Backup exportado');}
@@ -2835,6 +3047,8 @@ function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReade
 
 /* ---------------- Boot ---------------- */
 load();
+renderSyncBadge();
+if(typeof navigator!=='undefined'&&navigator.onLine===false)setSync('offline','sem conexão de rede');
 loadTimerState();
 timerEnsureTicking();
 renderTimerWidget();
