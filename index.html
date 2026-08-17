@@ -900,11 +900,16 @@ function savePend(id){const n=document.getElementById('pn').value.trim();if(!n)r
   else{store.pendencias.push({id:uid(),...dados,done:false});}
   save();closeModal();vPendencias();toast(id?'Pendência atualizada':'Pendência adicionada');}
 
-function vDiarios(){
-  window._diarioArea=window._diarioArea||'all';
-  if(window._diarioAtiv===undefined)window._diarioAtiv='';
-  if(window._diarioBusca===undefined)window._diarioBusca='';
-  const sel=window._diarioArea, ativSel=window._diarioAtiv, busca=window._diarioBusca.trim().toLowerCase();
+/* ---- Diário de Bordo (motor único: página geral + aba do Hub UNITINS) ----
+   ctx='geral'   → todas as áreas, com abas de área
+   ctx='unitins' → travado na área UNITINS, sem abas (usado dentro do Hub)
+   Cada contexto tem seu próprio estado de filtro, então um não interfere no outro. */
+const DIARIO_ST={geral:{area:'all',ativ:'',busca:''},unitins:{area:'unitins',ativ:'',busca:''}};
+function diarioRerender(ctx){ if(ctx==='unitins')vUnitins(); else vDiarios(); }
+
+function diarioPanel(ctx){
+  const st=DIARIO_ST[ctx];
+  const sel=st.area, busca=st.busca.trim().toLowerCase();
 
   const porArea=store.logs.filter(l=>sel==='all'||l.area===sel);
   // atividades distintas da área selecionada, com contagem e tempo
@@ -912,64 +917,71 @@ function vDiarios(){
   porArea.forEach(l=>{const a=(l.atividade||'').trim()||'(sem atividade)';
     if(!mapa[a])mapa[a]={n:0,min:0}; mapa[a].n++; mapa[a].min+=durMin(l.ini,l.fim);});
   const ativs=Object.keys(mapa).sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true,sensitivity:'base'}));
-  if(ativSel&&!mapa[ativSel]){window._diarioAtiv='';}
+  if(st.ativ&&!mapa[st.ativ]) st.ativ='';
 
   const logs=porArea.filter(l=>{
     const at=(l.atividade||'').trim()||'(sem atividade)';
-    if(window._diarioAtiv&&at!==window._diarioAtiv)return false;
+    if(st.ativ&&at!==st.ativ)return false;
     if(busca){const alvo=(at+' '+(l.obs||'')).toLowerCase();if(!alvo.includes(busca))return false;}
     return true;
   }).sort((a,b)=>(b.data+b.ini).localeCompare(a.data+a.ini));
 
-  const tabs=`<button class="area-tab ${sel==='all'?'active':''}" onclick="setDiario('all')">Todas</button>`+
-    AREAS.map(a=>`<button class="area-tab ${sel===a.id?'active':''}" onclick="setDiario('${a.id}')">${a.nome}</button>`).join('');
   const contaFiltro=logs.filter(l=>areaById(l.area).conta);
   const totalFiltro=contaFiltro.reduce((s,l)=>s+durH(l.ini,l.fim),0);
-  const filtrando=!!(window._diarioAtiv||busca);
+  const filtrando=!!(st.ativ||busca);
+  const areaNova=sel==='all'?'':sel;
 
-  document.getElementById('view').innerHTML=`
-    <div class="page-title">diários de bordo</div>
-    <div class="page-sub">Toda sessão registrada aqui — manualmente, pelo cronômetro ou pelo botão da Grade — alimenta as horas, a aderência semanal e o hábito "Estudo". Lançamentos de TRE nunca contam.</div>
-    <div class="area-tabs">${tabs}</div>
+  return `
     <div class="card" style="margin-bottom:16px;padding:14px 16px">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <div class="field" style="margin:0;flex:1;min-width:200px">
           <label>Atividade</label>
-          <select id="dAtiv" onchange="setDiarioAtiv(this.value)">
+          <select id="dAtiv_${ctx}" onchange="setDiarioAtiv(this.value,'${ctx}')">
             <option value="">Todas as atividades (${porArea.length})</option>
-            ${ativs.map(a=>`<option value="${h(a)}" ${a===window._diarioAtiv?'selected':''}>${h(a)} — ${mapa[a].n}× · ${fmtDur(mapa[a].min/60)}</option>`).join('')}
+            ${ativs.map(a=>`<option value="${h(a)}" ${a===st.ativ?'selected':''}>${h(a)} — ${mapa[a].n}× · ${fmtDur(mapa[a].min/60)}</option>`).join('')}
           </select>
         </div>
         <div class="field" style="margin:0;flex:1;min-width:180px">
           <label>Buscar em atividade/observações</label>
-          <input id="dBusca" placeholder="Ex: derivadas, aula 04" value="${h(window._diarioBusca)}" oninput="setDiarioBusca(this.value)">
+          <input id="dBusca_${ctx}" placeholder="Ex: derivadas, aula 04" value="${h(st.busca)}" oninput="setDiarioBusca(this.value,'${ctx}')">
         </div>
-        ${filtrando?`<button class="btn sm line" onclick="limparFiltroDiario()">Limpar filtros</button>`:''}
+        ${filtrando?`<button class="btn sm line" onclick="limparFiltroDiario('${ctx}')">Limpar filtros</button>`:''}
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
       <span class="pill purple">${logs.length} ${logs.length===1?'sessão':'sessões'}</span>
       ${contaFiltro.length?`<span class="pill green">${fmtDur(totalFiltro)} no filtro atual</span>`:''}
-      ${window._diarioAtiv?`<span class="pill blue">atividade: ${h(window._diarioAtiv)}</span>`:''}
-      <button class="btn sm" style="margin-left:auto" onclick="mNovaSessao('${sel==='all'?'':sel}')">+ Nova sessão</button>
+      ${st.ativ?`<span class="pill blue">atividade: ${h(st.ativ)}</span>`:''}
+      <button class="btn sm" style="margin-left:auto" onclick="mNovaSessao('${areaNova}')">+ Nova sessão</button>
     </div>
     <div class="card" style="padding:6px 20px">
-      ${logs.length?`<div class="table-wrap"><table><thead><tr><th>Data</th><th>Área</th><th>Atividade</th><th>Observações</th><th>Horário</th><th>Duração</th><th></th></tr></thead>
+      ${logs.length?`<div class="table-wrap"><table><thead><tr><th>Data</th>${ctx==='geral'?'<th>Área</th>':''}<th>Atividade</th><th>Observações</th><th>Horário</th><th>Duração</th><th></th></tr></thead>
       <tbody>${logs.map(l=>`<tr>
-        <td>${fmtBR(l.data)}</td><td>${areaPill(l.area)}</td><td>${h(l.atividade||'—')}</td>
+        <td>${fmtBR(l.data)}</td>${ctx==='geral'?`<td>${areaPill(l.area)}</td>`:''}<td>${h(l.atividade||'—')}</td>
         <td style="color:var(--muted);max-width:220px">${l.obs?h(l.obs):'—'}</td>
         <td>${l.ini}–${l.fim}</td><td><b>${fmtDur(durH(l.ini,l.fim))}</b></td>
         <td style="white-space:nowrap"><button class="icon-btn" onclick="mNovaSessao(null,'${l.id}')" title="Editar">✎</button><button class="icon-btn" onclick="delLog('${l.id}')" title="Excluir">✕</button></td></tr>`).join('')}</tbody></table></div>`
       :`<div class="empty">${filtrando?'Nenhuma sessão com esse filtro.':'Nenhuma sessão registrada ainda.'}</div>`}
     </div>`;
 }
-function setDiario(a){window._diarioArea=a;window._diarioAtiv='';window._diarioBusca='';vDiarios();}
-function setDiarioAtiv(v){window._diarioAtiv=v;vDiarios();}
-function setDiarioBusca(v){window._diarioBusca=v;vDiarios();
-  const el=document.getElementById('dBusca');
+
+function vDiarios(){
+  const sel=DIARIO_ST.geral.area;
+  const tabs=`<button class="area-tab ${sel==='all'?'active':''}" onclick="setDiario('all')">Todas</button>`+
+    AREAS.map(a=>`<button class="area-tab ${sel===a.id?'active':''}" onclick="setDiario('${a.id}')">${a.nome}</button>`).join('');
+  document.getElementById('view').innerHTML=`
+    <div class="page-title">diários de bordo</div>
+    <div class="page-sub">Toda sessão registrada aqui — manualmente, pelo cronômetro ou pelo botão da Grade — alimenta as horas, a aderência semanal e o hábito "Estudo". Lançamentos de TRE nunca contam.</div>
+    <div class="area-tabs">${tabs}</div>
+    ${diarioPanel('geral')}`;
+}
+function setDiario(a){DIARIO_ST.geral.area=a;DIARIO_ST.geral.ativ='';DIARIO_ST.geral.busca='';vDiarios();}
+function setDiarioAtiv(v,ctx='geral'){DIARIO_ST[ctx].ativ=v;diarioRerender(ctx);}
+function setDiarioBusca(v,ctx='geral'){DIARIO_ST[ctx].busca=v;diarioRerender(ctx);
+  const el=document.getElementById('dBusca_'+ctx);
   if(el){el.focus();try{el.setSelectionRange(el.value.length,el.value.length);}catch(e){}}}
-function limparFiltroDiario(){window._diarioAtiv='';window._diarioBusca='';vDiarios();}
-function delLog(id){store.logs=store.logs.filter(l=>l.id!==id);save();vDiarios();}
+function limparFiltroDiario(ctx='geral'){DIARIO_ST[ctx].ativ='';DIARIO_ST[ctx].busca='';diarioRerender(ctx);}
+function delLog(id){store.logs=store.logs.filter(l=>l.id!==id);save();renderCurrent();}
 function recentActivities(area){
   // atividades únicas mais recentes SOMENTE da área selecionada
   const seen=new Set(); const out=[];
@@ -1015,7 +1027,7 @@ function addLog(editId=null){const area=document.getElementById('sa').value,ini=
   else{store.logs.push({id:uid(),...dados});}
   save();closeModal();
   if(!areaById(area).conta)toast('Sessão salva (TRE não conta como estudo)');else toast(editId?'Sessão atualizada':'Sessão salva');
-  if(current==='diarios')vDiarios();else if(current==='dashboard')vDashboard();}
+  renderCurrent();}
 
 function vGrade(){
   _gaCache=null;
@@ -1240,11 +1252,12 @@ function vUnitins(){
   if(t==='materias')       body=uniMaterias();
   else if(t==='aulas')     body=uniAulas();
   else if(t==='sincronas') body=uniSincronas();
+  else if(t==='diario')    body=uniDiario();
   else                     body=uniEntregaveis();
   document.getElementById('view').innerHTML=`
     <div class="page-title">hub unitins</div>
-    <div class="page-sub">Aulas gravadas agrupadas por matéria, aulas síncronas com data e hora (avisam no Dashboard no dia) e entregáveis com prazo. O status da matéria se atualiza sozinho conforme você marca as aulas.</div>
-    <div class="area-tabs">${tab('materias','Matérias')}${tab('aulas','Aulas gravadas')}${tab('sincronas','Aulas síncronas'+(nSinc?` · ${nSinc}`:''))}${tab('entregaveis','Entregáveis')}</div>
+    <div class="page-sub">Aulas gravadas agrupadas por matéria, aulas síncronas com data e hora (avisam no Dashboard no dia), entregáveis com prazo e o diário de bordo da área. O status da matéria se atualiza sozinho conforme você marca as aulas.</div>
+    <div class="area-tabs">${tab('materias','Matérias')}${tab('aulas','Aulas gravadas')}${tab('sincronas','Aulas síncronas'+(nSinc?` · ${nSinc}`:''))}${tab('entregaveis','Entregáveis')}${tab('diario','Diário de bordo')}</div>
     ${body}`;
 }
 function setUni(t){window._uniTab=t;vUnitins();}
@@ -1667,19 +1680,55 @@ function dashSincronasCard(){
   </div>`;
 }
 
+/* ---- Aba: Diário de bordo (mesma engine da página "Diários de Bordo") ---- */
+function uniDiario(){
+  const totalUni=countableLogs().filter(l=>l.area==='unitins').reduce((s,l)=>s+durH(l.ini,l.fim),0);
+  const nSess=store.logs.filter(l=>l.area==='unitins').length;
+  return `<div class="card" style="margin-bottom:16px;padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div><h3>Diário de bordo · UNITINS</h3>
+          <div class="h-sub" style="margin-bottom:0">As mesmas sessões da página Diários de Bordo, filtradas nesta área. Editar aqui edita lá.</div></div>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+          <span class="pill purple">${nSess} ${nSess===1?'sessão':'sessões'}</span>
+          <span class="pill green">${fmtDur(totalUni)} acumuladas</span>
+        </div>
+      </div>
+    </div>
+    ${diarioPanel('unitins')}`;
+}
+
 /* ---- Aba: Entregáveis ---- */
 function uniEntregaveis(){
-  return `<button class="btn sm" style="margin-bottom:14px" onclick="mNovoEntreg()">+ Novo entregável</button>
-    <div class="card" style="padding:6px 20px">${store.entregaveis.length?
-      `<div class="table-wrap"><table><thead><tr><th>Entregável</th><th>Matéria</th><th>Prazo</th><th>Status</th><th>Urgência</th><th></th></tr></thead><tbody>
-      ${[...store.entregaveis].sort((a,b)=>(a.prazo||'9').localeCompare(b.prazo||'9')).map(e=>`<tr>
-        <td><b>${h(e.nome)}</b></td><td>${h(materiaNome(e.materia))}</td><td>${fmtBR(e.prazo)}</td>
-        <td><select class="st-select" onchange="setEntregStatus('${e.id}',this.value)">
-          ${['A fazer','Em andamento','Entregue','Atrasado'].map(s=>`<option ${e.status===s?'selected':''}>${s}</option>`).join('')}
-        </select></td>
-        <td>${urgPill(e)}</td>
-        <td><button class="icon-btn" onclick="delEntreg('${e.id}')">✕</button></td></tr>`).join('')}
-      </tbody></table></div>`:'<div class="empty">Nenhum entregável com prazo cadastrado.</div>'}</div>`;
+  const ordPrazo=e=>e.prazo||'9999-99-99';                       // sem prazo vai para o fim
+  const abertos=store.entregaveis.filter(e=>e.status!=='Entregue')
+    .sort((a,b)=>ordPrazo(a).localeCompare(ordPrazo(b)));        // crescente: o que vence antes primeiro
+  const entregues=store.entregaveis.filter(e=>e.status==='Entregue')
+    .sort((a,b)=>ordPrazo(b).localeCompare(ordPrazo(a)));        // mais recentes primeiro
+  const atrasados=abertos.filter(e=>e.prazo&&e.prazo<todayISO()).length;
+
+  const linha=e=>`<tr>
+    <td><b>${h(e.nome)}</b></td><td>${h(materiaNome(e.materia))}</td><td style="white-space:nowrap">${fmtBR(e.prazo)}</td>
+    <td><select class="st-select" onchange="setEntregStatus('${e.id}',this.value)">
+      ${['A fazer','Em andamento','Entregue','Atrasado'].map(x=>`<option ${e.status===x?'selected':''}>${x}</option>`).join('')}
+    </select></td>
+    <td>${urgPill(e)}</td>
+    <td><button class="icon-btn" onclick="delEntreg('${e.id}')" title="Excluir">✕</button></td></tr>`;
+  const tabela=rows=>`<div class="table-wrap"><table>
+      <thead><tr><th>Entregável</th><th>Matéria</th><th>Prazo</th><th>Status</th><th>Urgência</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+
+  return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <span class="pill purple">${abertos.length} em aberto</span>
+      ${atrasados?`<span class="pill red">⚠ ${atrasados} atrasados</span>`:''}
+      ${entregues.length?`<span class="pill green">${entregues.length} entregues</span>`:''}
+      <button class="btn sm" style="margin-left:auto" onclick="mNovoEntreg()">+ Novo entregável</button>
+    </div>
+    <div class="card" style="padding:6px 20px">
+      ${abertos.length?tabela(abertos.map(linha).join('')):'<div class="empty">Nenhum entregável em aberto. 🎉</div>'}
+    </div>
+    ${entregues.length?`<div class="card" style="margin-top:16px;padding:6px 20px">
+      <div style="padding:14px 0 4px"><h3>Já entregues</h3><div class="h-sub" style="margin-bottom:0">${entregues.length} ${entregues.length===1?'item concluído':'itens concluídos'}</div></div>
+      ${tabela(entregues.map(linha).join(''))}</div>`:''}`;
 }
 function urgPill(e){if(e.status==='Entregue')return '<span class="pill green">✓ Concluído</span>';
   if(!e.prazo)return '<span class="pill gray">sem prazo</span>';
