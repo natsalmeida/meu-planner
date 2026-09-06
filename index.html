@@ -128,19 +128,61 @@ tr:last-child td{border-bottom:none}
 .cal .hr{padding:8px 6px;text-align:right;color:var(--faint);border-bottom:1px solid var(--line);border-left:1px solid var(--line)}
 .cal .cell{border-bottom:1px solid var(--line);border-left:1px solid var(--line);min-height:42px;padding:3px;position:relative}
 .cal-ev{border-radius:5px;padding:3px 5px;font-size:10px;font-weight:500;color:#fff;margin-bottom:2px;line-height:1.2;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.mcal{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line);border-top:none;border-radius:var(--radius);overflow:hidden;background:var(--card)}
-.mc-head{background:var(--card-2);padding:9px 6px;font-weight:600;text-align:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-left:1px solid var(--line);text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-size:11px}
+/* Calendário mensal — colunas travadas em minmax(0,1fr) para o texto do evento
+   nunca empurrar a largura da coluna (era o que estourava o grid no desktop). */
+.mcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid var(--line);border-top:none;border-radius:var(--radius);overflow:hidden;background:var(--card);width:100%}
+.mc-head{background:var(--card-2);padding:9px 4px;font-weight:600;text-align:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-left:1px solid var(--line);text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-size:11px;min-width:0;overflow:hidden}
 .mc-head:first-child{border-left:none}
-.mc-cell{border-bottom:1px solid var(--line);border-left:1px solid var(--line);min-height:96px;padding:6px}
+.mc-cell{border-bottom:1px solid var(--line);border-left:1px solid var(--line);min-height:clamp(78px,9vw,112px);padding:5px;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:2px}
 .mc-cell:nth-child(7n+1){border-left:none}
-.cal-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.cal-scroll .mcal{min-width:640px}
+.mc-wk{background:var(--card-2)}
 .mc-empty{background:var(--card-2)}
-.mc-num{font-size:12px;color:var(--faint);font-weight:600;margin-bottom:4px}
+.mc-num{font-size:12px;color:var(--faint);font-weight:600;margin-bottom:2px;flex-shrink:0}
 .mc-today .mc-num{background:var(--purple);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .mc-click{cursor:pointer;transition:background .12s}
 .mc-click:hover{background:var(--purple-soft)}
-.cal-ev{cursor:default}
+.cal-ev{border-radius:5px;padding:3px 5px;font-size:10px;font-weight:500;color:#fff;line-height:1.25;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:100%;cursor:pointer;transition:filter .12s}
+.cal-ev:hover{filter:brightness(1.08)}
+.cal-more{font-size:10px;font-weight:600;color:var(--muted);padding:2px 4px;border-radius:5px;background:var(--card-2);text-align:left}
+.cal-more:hover{color:var(--purple)}
+.cal-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.cal-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-left:auto}
+.cal-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;vertical-align:middle;margin-right:3px}
+.cal-agenda{display:none}
+/* Visão de ano — 12 mini-meses */
+.cal-switch{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--card)}
+.cal-switch button{padding:7px 14px;font-size:13px;font-weight:600;color:var(--muted);transition:.12s}
+.cal-switch button.on{background:var(--ink);color:#fff}
+.ym-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:12px}
+.ym{border:1px solid var(--line);border-radius:12px;padding:10px 11px 11px;background:var(--card);min-width:0}
+.ym-atual{border-color:var(--purple);box-shadow:0 0 0 1px var(--purple)}
+.ym-h{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:7px}
+.ym-h button{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink)}
+.ym-h button:hover{color:var(--purple)}
+.ym-h small{font-size:10px;font-weight:700;color:var(--purple);background:var(--purple-soft);border-radius:9px;padding:1px 7px}
+.ym-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+.ym-wd{font-size:8px;color:var(--faint);text-align:center;font-weight:700}
+.ym-d{aspect-ratio:1/1;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:var(--muted);cursor:pointer;border:1px solid transparent;transition:.12s}
+.ym-d:hover{border-color:var(--purple)}
+.ym-d.fds{color:var(--faint)}
+.ym-d.has{color:#fff;font-weight:700;border-color:transparent}
+.ym-d.hoje{box-shadow:0 0 0 2px var(--purple)}
+.ym-d.pad{visibility:hidden;cursor:default}
+@media(max-width:420px){ .ym-wrap{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px} }
+.cal-ag-day{display:flex;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line)}
+.cal-ag-day:last-child{border-bottom:none}
+.cal-ag-date{width:44px;flex-shrink:0;text-align:center;line-height:1.1}
+.cal-ag-date b{font-size:19px;font-weight:700;display:block}
+.cal-ag-date span{font-size:10px;color:var(--faint);text-transform:uppercase;font-weight:600}
+.cal-ag-day.hoje .cal-ag-date b{color:var(--purple)}
+.cal-ag-evs{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.cal-ag-evs .cal-ev{white-space:normal;font-size:12px;padding:7px 10px;border-radius:8px}
+@media(max-width:760px){
+  .cal-grid-wrap{display:none}
+  .cal-agenda{display:block}
+}
 
 .modal-bg{position:fixed;inset:0;background:rgba(20,16,28,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
 .modal{background:var(--card);border-radius:18px;padding:26px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto}
@@ -233,6 +275,25 @@ tr:last-child td{border-bottom:none}
 .hh-cell.ro{cursor:default}
 .hh-cell.today{box-shadow:0 0 0 2px var(--purple-soft)}
 .hh-legend{font-size:10px;color:var(--faint);margin-top:6px}
+/* Hábitos — ano por mês (mini-calendários) */
+.mm-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(152px,1fr));gap:10px;margin:10px 0 6px}
+.mm{border:1px solid var(--line);border-radius:11px;padding:8px 9px 9px;background:var(--card-2);min-width:0}
+.mm-h{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:6px}
+.mm-h span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.mm-h small{font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap}
+.mm-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.mm-wd{font-size:8px;color:var(--faint);text-align:center;font-weight:700;letter-spacing:.02em}
+.mm-d{aspect-ratio:1/1;border-radius:4px;border:1px solid var(--line);background:var(--card);
+  display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--faint);cursor:pointer;transition:filter .12s}
+.mm-d:hover{filter:brightness(.93)}
+.mm-d.on{border-color:transparent;color:#fff;font-weight:700}
+.mm-d.miss{border:1px dashed var(--red);background:transparent;opacity:.65}
+.mm-d.off{border-color:transparent;opacity:.35}
+.mm-d.fut,.mm-d.pad{background:transparent;border-color:transparent;color:transparent;cursor:default}
+.mm-d.fut:hover,.mm-d.pad:hover{filter:none}
+.mm-d.today{box-shadow:0 0 0 2px var(--purple-soft)}
+.mm-d.ro{cursor:default}
+@media(max-width:420px){ .mm-wrap{grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px} }
 .hs-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .hs-freq{font-size:11px;color:var(--faint);font-weight:600;text-transform:lowercase}
 .hs-imp{font-size:12px;color:var(--muted);margin-top:10px;padding:9px 11px;border-radius:9px;background:var(--card-2)}
@@ -319,13 +380,16 @@ tr:last-child td{border-bottom:none}
 
 <script>
 /* ---------------- Data layer ---------------- */
+/* tipo:'estudo' → entra nas horas estudadas, metas, hábito automático e Analytics.
+   tipo:'trabalho' → contabilizado em bloco próprio (Carga de trabalho), NUNCA somado
+   ao estudo. `conta` continua sendo a flag de estudo lida pelo resto do sistema. */
 const AREAS = [
-  {id:'unitins', nome:'UNITINS', cor:'#378add', conta:true},
-  {id:'ingles',  nome:'Inglês',  cor:'#1d9e75', conta:true},
-  {id:'espanhol',nome:'Espanhol',cor:'#ba7517', conta:true},
-  {id:'pibiex',  nome:'PIBIEX',  cor:'#7c3aed', conta:true},
-  {id:'ia',      nome:'IA',      cor:'#db5c88', conta:true},
-  {id:'tre',     nome:'TRE (trabalho)', cor:'#6d6879', conta:false}, // NUNCA conta como estudo
+  {id:'unitins', nome:'UNITINS', cor:'#378add', conta:true,  tipo:'estudo'},
+  {id:'ingles',  nome:'Inglês',  cor:'#1d9e75', conta:true,  tipo:'estudo'},
+  {id:'espanhol',nome:'Espanhol',cor:'#ba7517', conta:true,  tipo:'estudo'},
+  {id:'pibiex',  nome:'PIBIEX',  cor:'#7c3aed', conta:true,  tipo:'estudo'},
+  {id:'ia',      nome:'IA',      cor:'#db5c88', conta:true,  tipo:'estudo'},
+  {id:'tre',     nome:'TRE (trabalho)', cor:'#6d6879', conta:false, tipo:'trabalho'},
 ];
 const areaById = id => AREAS.find(a=>a.id===id) || {nome:'—',cor:'#999',conta:true};
 
@@ -840,6 +904,18 @@ function fmtDur(horasDecimais){
 
 /* ---------------- Study hours (TRE excluded) ---------------- */
 function countableLogs(){return store.logs.filter(l=>areaById(l.area).conta);}
+/* ---- Trabalho (TRE em casa): agregados paralelos, jamais somados ao estudo ---- */
+function workLogs(){return store.logs.filter(l=>!areaById(l.area).conta);}
+function workHoursRange(iniISO,fimISO){
+  return workLogs().filter(l=>l.data>=iniISO&&l.data<=fimISO).reduce((s,l)=>s+durH(l.ini,l.fim),0);}
+function workHoursWeek(wk){wk=wk||weekKey(todayISO());
+  return workLogs().filter(l=>weekKey(l.data)===wk).reduce((s,l)=>s+durH(l.ini,l.fim),0);}
+function workHoursMonth(mk){mk=mk||monthKey(todayISO());
+  return workLogs().filter(l=>monthKey(l.data)===mk).reduce((s,l)=>s+durH(l.ini,l.fim),0);}
+function workHoursYear(y){y=String(y||anoAtual());
+  return workLogs().filter(l=>String(l.data).startsWith(y)).reduce((s,l)=>s+durH(l.ini,l.fim),0);}
+function workHoursOnDay(iso){
+  return workLogs().filter(l=>l.data===iso).reduce((s,l)=>s+durH(l.ini,l.fim),0);}
 function hoursBy(fn){const m={};countableLogs().forEach(l=>{const k=fn(l);m[k]=(m[k]||0)+durH(l.ini,l.fim);});return m;}
 function hoursThisWeek(){const wk=weekKey(todayISO());return countableLogs().filter(l=>weekKey(l.data)===wk).reduce((s,l)=>s+durH(l.ini,l.fim),0);}
 function hoursThisWeekByArea(areaId){const wk=weekKey(todayISO());
@@ -920,7 +996,7 @@ function metaSemanalCard(){
       <div class="val">${fmtDur(fz)}/${fmtDur(mt)}</div></div>`;}).join('');
   return `<div class="card" style="margin-bottom:20px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
-      <div><h3>Meta de estudo semanal</h3><div class="h-sub" style="margin-bottom:0">Horas contabilizadas nesta semana (TRE não entra)</div></div>
+      <div><h3>Meta de estudo semanal</h3><div class="h-sub" style="margin-bottom:0">Horas de estudo nesta semana · TRE tem card próprio abaixo</div></div>
       <button class="btn sm line" onclick="mMetaSemanal()">Editar metas</button>
     </div>
     <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
@@ -951,6 +1027,41 @@ function saveMetaSemanal(){const v=parseFloat(document.getElementById('ms').valu
     const n=parseFloat(el.value); store.metasArea[a.id]=isNaN(n)?0:n;});
   save();closeModal();vDashboard();toast('Metas atualizadas');}
 
+/* Card de carga de trabalho — deliberadamente cinza, sem barra de progresso e sem
+   meta. Trabalho levado para casa não é conquista; a linguagem visual não pode
+   sugerir que encher a barra é bom. Sem teto por enquanto: só acumulado + tendência. */
+function trabalhoCard(){
+  const logs=workLogs(); if(!logs.length)return '';
+  const cor=areaById('tre').cor, hoje=todayISO();
+  const wkAtual=weekKey(hoje), wkAnt=weekKey(addDaysISO(hoje,-7));
+  const sem=workHoursWeek(wkAtual), semAnt=workHoursWeek(wkAnt);
+  const mes=workHoursMonth(), ano=workHoursYear(hoje.slice(0,4));
+  const dif=sem-semAnt;
+  const ultimas=logs.slice().sort((a,b)=>(b.data+b.ini).localeCompare(a.data+a.ini)).slice(0,3);
+  return `<div class="card" style="margin-bottom:20px;border-left:3px solid ${cor}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+      <div><h3>Carga de trabalho · TRE em casa</h3>
+        <div class="h-sub" style="margin-bottom:0">Contabilizado à parte. Não entra nas horas estudadas, nas metas nem no hábito de estudo.</div></div>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+      <span style="font-family:var(--serif);font-size:32px;font-weight:600;color:${cor}">${fmtDur(sem)}</span>
+      <span style="color:var(--muted);font-size:15px">esta semana</span>
+      ${semAnt>0||sem>0?`<span class="pill ${dif>0?'amber':dif<0?'green':'gray'}" title="Comparado à semana anterior (${fmtDur(semAnt)})">
+        ${dif>0?'▲':dif<0?'▼':'='} ${fmtDur(Math.abs(dif))} vs. semana anterior</span>`:''}
+      <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+        <span class="pill gray">${fmtDur(mes)} no mês</span>
+        <span class="pill gray">${fmtDur(ano)} em ${hoje.slice(0,4)}</span>
+        <span class="pill gray">${logs.length} ${logs.length===1?'sessão':'sessões'}</span>
+      </span>
+    </div>
+    <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+      <div class="h-sub" style="margin-bottom:8px">Últimos lançamentos</div>
+      ${ultimas.map(l=>`<div style="display:flex;gap:10px;font-size:13px;padding:4px 0;color:var(--muted)">
+        <span style="color:var(--ink);font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h(l.atividade||'(sem atividade)')}</span>
+        <span>${fmtBR(l.data)}</span><span style="font-weight:600">${fmtDur(durH(l.ini,l.fim))}</span></div>`).join('')}
+    </div>
+  </div>`;
+}
 function vDashboard(){
   const hoje=todayISO();
   const logsHoje=store.logs.filter(l=>l.data===hoje);
@@ -992,6 +1103,7 @@ function vDashboard(){
       <div class="stat"><b>${pendAbertas}</b><span>pendências abertas</span></div>
     </div>
     ${metaSemanalCard()}
+    ${trabalhoCard()}
     <div class="row">
       <div class="card" style="flex:1;min-width:320px">
         <h3>Sessões de hoje</h3><div class="h-sub">Lançamentos no Diário de Bordo</div>
@@ -1028,56 +1140,193 @@ function vDashboard(){
 }
 
 let calMonth = (()=>{const d=new Date();return {y:d.getFullYear(),m:d.getMonth()};})();
+const MESES_PT=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const MESES_ABR=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 function calNav(delta){calMonth.m+=delta;if(calMonth.m<0){calMonth.m=11;calMonth.y--;}if(calMonth.m>11){calMonth.m=0;calMonth.y++;}vCalendario();}
+function calGo(y,m){calMonth={y:+y,m:+m};vCalendario();}
+function calHoje(){const d=new Date();calMonth={y:d.getFullYear(),m:d.getMonth()};vCalendario();}
+
+/* Modelo de evento (dado, não HTML) — a mesma lista alimenta a grade, a agenda
+   mobile e o modal do dia. Evita as três representações divergirem. */
+function calEventos(){
+  const hoje=todayISO(), out={};
+  const push=(iso,ev)=>{if(!iso)return;const k=iso.slice(0,10);(out[k]=out[k]||[]).push(ev);};
+  store.pendencias.filter(p=>p.prazo&&!p.done).forEach(p=>{
+    const late=p.prazo<hoje;
+    push(p.prazo,{tipo:'pend',id:p.id,late,cor:late?'var(--red)':p.prio==='Alta'?'var(--red)':p.prio==='Média'?'var(--amber)':'var(--muted)',
+      ord:'0',icon:late?'⚠':'○',txt:p.nome,sub:p.prio||'',
+      tip:`Pendência: ${p.nome}${late?' (atrasada)':''} — clique para editar`});});
+  store.entregaveis.filter(e=>e.prazo&&e.status!=='Entregue').forEach(e=>{
+    const late=e.prazo<hoje, mat=materiaNome(e.materia);
+    push(e.prazo,{tipo:'entreg',id:e.id,late,cor:late?'var(--red)':'var(--blue)',
+      ord:'0',icon:'📌',txt:e.nome,sub:mat&&mat!=='—'?mat:'',
+      tip:`Entregável UNITINS — ${mat}: ${e.nome}${late?' (atrasado)':''} — clique para abrir no Hub`});});
+  store.sincronas.forEach(s=>{const mat=materiaNome(s.materia);
+    push(s.data,{tipo:'sinc',id:s.id,late:false,cor:'var(--purple)',
+      ord:s.ini||'99:99',icon:'🎥',txt:s.nome,sub:[s.ini,mat&&mat!=='—'?mat:''].filter(Boolean).join(' · '),
+      tip:`Aula síncrona — ${mat}: ${s.nome} ${s.ini||''} — clique para editar`});});
+  Object.values(out).forEach(a=>a.sort((x,y)=>x.ord.localeCompare(y.ord)));
+  return out;
+}
+function calEvHTML(ev,compacto){
+  const label=compacto
+    ? `${ev.icon} ${h(ev.tipo==='sinc'&&ev.ord!=='99:99'?ev.ord+' ':'')}${h(ev.txt)}`
+    : `${ev.icon} ${h(ev.txt)}${ev.sub?` <span style="opacity:.82">· ${h(ev.sub)}</span>`:''}`;
+  return `<div class="cal-ev" style="background:${ev.cor}" title="${h(ev.tip)}"
+    onclick="calAbrir('${ev.tipo}','${ev.id}',event)">${label}</div>`;
+}
+function calAbrir(tipo,id,ev){
+  if(ev){ev.stopPropagation();}
+  if(tipo==='pend')return mPendencia(id);
+  if(tipo==='sinc')return mSincrona(id);
+  if(tipo==='entreg'){window._uniTab='entregaveis';go('unitins');}
+}
+
+/* ---- Visão de ano inteiro (12 mini-meses) ----
+   O calendário nunca teve limite de data; o que faltava era enxergar o ano de
+   uma vez. A lista de anos é derivada dos dados (+3 à frente), então 2027, 2028…
+   aparecem sozinhos conforme você lança prazos lá. As setas não têm limite. */
+let calVista='mes';
+function setCalVista(v){calVista=v;vCalendario();}
+function calAnoNav(d){calMonth.y+=d;vCalendario();}
+function calAbrirMes(y,m){calMonth={y:+y,m:+m};calVista='mes';vCalendario();}
+function anosCalendario(){
+  const set=new Set([new Date().getFullYear(),calMonth.y]);
+  const add=iso=>{if(iso&&/^\d{4}/.test(iso))set.add(+iso.slice(0,4));};
+  store.pendencias.forEach(p=>add(p.prazo));
+  store.entregaveis.forEach(e=>add(e.prazo));
+  store.sincronas.forEach(s=>add(s.data));
+  store.periodos.forEach(p=>{add(p.ini);add(p.fim);});
+  const arr=[...set], out=[];
+  for(let y=Math.min(...arr)-1;y<=Math.max(...arr)+3;y++)out.push(y);
+  return out;
+}
+function calCorDia(dia){
+  if(dia.some(e=>e.late))return 'var(--red)';
+  if(dia.some(e=>e.tipo==='entreg'))return 'var(--blue)';
+  if(dia.some(e=>e.tipo==='sinc'))return 'var(--purple)';
+  return 'var(--muted)';
+}
+function calAnoHTML(y,evs){
+  const hoje=todayISO(), mAtual=new Date().getMonth(), yAtual=new Date().getFullYear();
+  let total=0;
+  const meses=[];
+  for(let m=0;m<12;m++){
+    const off=(new Date(y,m,1).getDay()+6)%7, nd=new Date(y,m+1,0).getDate();
+    let cells='', cnt=0;
+    for(let i=0;i<off;i++)cells+='<div class="ym-d pad"></div>';
+    for(let d=1;d<=nd;d++){
+      const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dia=evs[iso]||[]; cnt+=dia.length;
+      const fds=[5,6].includes((new Date(iso+'T12:00').getDay()+6)%7);
+      const tip=dia.length
+        ? `${fmtBR(iso)} — ${dia.map(e=>e.txt).join(' · ')}`
+        : `${fmtBR(iso)} — clique para criar uma pendência`;
+      cells+=`<div class="ym-d ${dia.length?'has':''} ${fds?'fds':''} ${iso===hoje?'hoje':''}"
+        style="${dia.length?`background:${calCorDia(dia)}`:''}" title="${h(tip)}"
+        onclick="${dia.length?`calDiaModal('${iso}')`:`novaPendenciaNoDia('${iso}')`}">${d}</div>`;
+    }
+    total+=cnt;
+    meses.push(`<div class="ym ${(y===yAtual&&m===mAtual)?'ym-atual':''}">
+      <div class="ym-h"><button onclick="calAbrirMes(${y},${m})" title="Abrir ${MESES_PT[m]} em detalhe">${MESES_PT[m]}</button>
+        ${cnt?`<small>${cnt}</small>`:''}</div>
+      <div class="ym-g">${['S','T','Q','Q','S','S','D'].map(x=>`<div class="ym-wd">${x}</div>`).join('')}</div>
+      <div class="ym-g" style="margin-top:2px">${cells}</div>
+    </div>`);
+  }
+  return {html:`<div class="ym-wrap">${meses.join('')}</div>`,total};
+}
+function calDiaModal(iso){
+  const evs=(calEventos()[iso]||[]);
+  const d=new Date(iso+'T12:00');
+  modal(`<h3 style="text-transform:capitalize">${d.getDate()} de ${MESES_PT[d.getMonth()]}</h3>
+    <div class="h-sub">${['domingo','segunda','terça','quarta','quinta','sexta','sábado'][d.getDay()]} · ${evs.length} ${evs.length===1?'item':'itens'}</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:14px">
+      ${evs.length?evs.map(e=>calEvHTML(e,false)).join(''):'<div class="empty">Nada marcado neste dia.</div>'}
+    </div>
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Fechar</button>
+    <button class="btn" onclick="closeModal();novaPendenciaNoDia('${iso}')">+ Pendência</button></div>`);
+}
 function vCalendario(){
   const {y,m}=calMonth;
-  const nomeMes=new Date(y,m,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const first=new Date(y,m,1);
-  const startOffset=(first.getDay()+6)%7; // segunda=0
+  const startOffset=(first.getDay()+6)%7;                 // segunda = 0
   const daysInMonth=new Date(y,m+1,0).getDate();
   const abbr=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
-  // build events map by ISO date
-  const evs={};
-  const push=(iso,html)=>{if(!iso)return;const k=iso.slice(0,10);(evs[k]=evs[k]||[]).push(html);};
-  const hojeStr=todayISO();
-  store.pendencias.filter(p=>p.prazo&&!p.done).forEach(p=>{const late=p.prazo<hojeStr;
-    const c=late?'var(--red)':p.prio==='Alta'?'var(--red)':p.prio==='Média'?'var(--amber)':'var(--muted)';
-    push(p.prazo,`<div class="cal-ev" style="background:${c}" title="Pendência: ${h(p.nome)}${late?' (atrasada)':''}">${late?'⚠ ':''}${h(p.nome)}</div>`);});
-  store.entregaveis.filter(e=>e.prazo&&e.status!=='Entregue').forEach(e=>{const late=e.prazo<hojeStr;
-    const mat=materiaNome(e.materia);
-    push(e.prazo,`<div class="cal-ev" style="background:${late?'var(--red)':'var(--blue)'}" title="Entregável UNITINS — ${h(mat)}: ${h(e.nome)}${late?' (atrasado)':''}">📌 ${h(e.nome)}${mat&&mat!=='—'?` <span style="opacity:.8">· ${h(mat)}</span>`:''}</div>`);});
-
-  store.sincronas.forEach(s=>{const mat=materiaNome(s.materia);
-    push(s.data,`<div class="cal-ev" style="background:var(--purple)" title="Aula síncrona — ${h(mat)}: ${h(s.nome)} ${h(s.ini||'')}">🎥 ${h(s.ini||'')} ${h(s.nome)}</div>`);});
+  const evs=calEventos(), hoje=todayISO();
+  const MAX=3;                                            // itens visíveis por célula; o resto vira "+N"
+  const isoDe=d=>`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 
   let cells=abbr.map(a=>`<div class="mc-head">${a}</div>`).join('');
   for(let i=0;i<startOffset;i++)cells+=`<div class="mc-cell mc-empty"></div>`;
-  const todayStr=todayISO();
+  let totalMes=0;
   for(let d=1;d<=daysInMonth;d++){
-    const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isToday=iso===todayStr;
-    const dayEvs=evs[iso]||[];
-    cells+=`<div class="mc-cell mc-click ${isToday?'mc-today':''}" onclick="novaPendenciaNoDia('${iso}',event)" title="Clique para adicionar uma pendência neste dia">
-      <div class="mc-num">${d}</div>${dayEvs.join('')}</div>`;
+    const iso=isoDe(d), dia=evs[iso]||[]; totalMes+=dia.length;
+    const fds=[5,6].includes((new Date(iso+'T12:00').getDay()+6)%7);
+    const vis=dia.slice(0,MAX).map(e=>calEvHTML(e,true)).join('');
+    const rest=dia.length-MAX;
+    cells+=`<div class="mc-cell mc-click ${iso===hoje?'mc-today':''} ${fds?'mc-wk':''}"
+      onclick="novaPendenciaNoDia('${iso}',event)" title="Clique para criar uma pendência em ${fmtBR(iso)}">
+      <div class="mc-num">${d}</div>${vis}
+      ${rest>0?`<button class="cal-more" onclick="event.stopPropagation();calDiaModal('${iso}')">+${rest} ${rest===1?'item':'itens'}</button>`:''}
+    </div>`;
   }
+
+  // Agenda (≤760px): só dias com evento, texto inteiro, sem grade espremida
+  const agenda=[];
+  for(let d=1;d<=daysInMonth;d++){
+    const iso=isoDe(d), dia=evs[iso]||[]; if(!dia.length)continue;
+    const wd=['dom','seg','ter','qua','qui','sex','sáb'][new Date(iso+'T12:00').getDay()];
+    agenda.push(`<div class="cal-ag-day ${iso===hoje?'hoje':''}">
+      <div class="cal-ag-date"><b>${d}</b><span>${wd}</span></div>
+      <div class="cal-ag-evs">${dia.map(e=>calEvHTML(e,false)).join('')}</div></div>`);
+  }
+
+  const anos=anosCalendario();
+  const ano=calAnoHTML(y,evs);
+  const navMes=`
+      <button class="btn line sm" onclick="calNav(-1)" title="Mês anterior">‹</button>
+      <select class="st-select" onchange="calGo(${y},this.value)" style="font-size:14px;padding:7px 10px;text-transform:capitalize">
+        ${MESES_PT.map((n,i)=>`<option value="${i}" ${i===m?'selected':''}>${n}</option>`).join('')}
+      </select>
+      <select class="st-select" onchange="calGo(this.value,${m})" style="font-size:14px;padding:7px 10px">
+        ${anos.map(a=>`<option value="${a}" ${a===y?'selected':''}>${a}</option>`).join('')}
+      </select>
+      <button class="btn line sm" onclick="calNav(1)" title="Próximo mês">›</button>`;
+  const navAno=`
+      <button class="btn line sm" onclick="calAnoNav(-1)" title="Ano anterior">‹</button>
+      <select class="st-select" onchange="calGo(this.value,${m})" style="font-size:14px;padding:7px 10px">
+        ${anos.map(a=>`<option value="${a}" ${a===y?'selected':''}>${a}</option>`).join('')}
+      </select>
+      <button class="btn line sm" onclick="calAnoNav(1)" title="Próximo ano">›</button>`;
+  const ehAno=calVista==='ano';
+
   document.getElementById('view').innerHTML=`
     <div class="page-title">calendário</div>
-    <div class="page-sub">Só aparece aqui o que tem data marcada: pendências com prazo, entregáveis da UNITINS e aulas síncronas. Clique em qualquer dia para criar uma pendência já com aquela data.</div>
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap">
-      <button class="btn line sm" onclick="calNav(-1)">‹</button>
-      <b style="font-size:17px;text-transform:capitalize;min-width:190px;text-align:center">${nomeMes}</b>
-      <button class="btn line sm" onclick="calNav(1)">›</button>
-      <div style="margin-left:auto;display:flex;gap:12px;font-size:12px;color:var(--muted)">
-        <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--blue);vertical-align:middle"></i> Entregável UNITINS</span>
-        <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple);vertical-align:middle"></i> Aula síncrona</span>
-        <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--muted);vertical-align:middle"></i> Pendência</span>
-        <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--red);vertical-align:middle"></i> Atrasado</span>
+    <div class="page-sub">Só aparece aqui o que tem data marcada: pendências com prazo, entregáveis da UNITINS e aulas síncronas. Clique num dia vazio para criar uma pendência já com aquela data; clique num evento para abri-lo. A navegação não tem data-limite — 2027, 2028 e seguintes já existem.</div>
+    <div class="cal-toolbar">
+      <div class="cal-switch">
+        <button class="${ehAno?'':'on'}" onclick="setCalVista('mes')">Mês</button>
+        <button class="${ehAno?'on':''}" onclick="setCalVista('ano')">Ano</button>
+      </div>
+      ${ehAno?navAno:navMes}
+      <button class="btn line sm" onclick="calHoje()">Hoje</button>
+      ${ehAno
+        ? `<span class="pill ${ano.total?'purple':'gray'}">${ano.total} ${ano.total===1?'item em':'itens em'} ${y}</span>`
+        : `<span class="pill ${totalMes?'purple':'gray'}">${totalMes} ${totalMes===1?'item no mês':'itens no mês'}</span>`}
+      <div class="cal-legend">
+        <span><i style="background:var(--blue)"></i>Entregável</span>
+        <span><i style="background:var(--purple)"></i>Aula síncrona</span>
+        <span><i style="background:var(--muted)"></i>Pendência</span>
+        <span><i style="background:var(--red)"></i>Atrasado</span>
       </div>
     </div>
-    <div class="cal-scroll"><div class="mcal">${cells}</div></div>`;
+    ${ehAno ? ano.html : `
+    <div class="cal-grid-wrap"><div class="mcal">${cells}</div></div>
+    <div class="cal-agenda card">${agenda.length?agenda.join(''):'<div class="empty">Nada marcado em '+MESES_PT[m]+'.</div>'}</div>`}`;
 }
 function novaPendenciaNoDia(iso,ev){
-  if(ev&&ev.target&&ev.target.classList.contains('cal-ev'))return; // clicou num evento, não cria
+  if(ev&&ev.target&&ev.target.closest&&ev.target.closest('.cal-ev,.cal-more'))return; // clique num evento não cria
   mPendencia(); setTimeout(()=>{const d=document.getElementById('pd'); if(d)d.value=iso;},60);
 }
 
@@ -1122,7 +1371,7 @@ function savePend(id){const n=document.getElementById('pn').value.trim();if(!n)r
   const dados={nome:n,area:document.getElementById('pa').value,prio:document.getElementById('pp').value,prazo:document.getElementById('pd').value};
   if(id){Object.assign(store.pendencias.find(x=>x.id===id),dados);}
   else{store.pendencias.push({id:uid(),...dados,done:false});}
-  save();closeModal();vPendencias();toast(id?'Pendência atualizada':'Pendência adicionada');}
+  save();closeModal();renderCurrent();toast(id?'Pendência atualizada':'Pendência adicionada');}
 
 /* ---- Diário de Bordo (motor único: página geral + aba do Hub UNITINS) ----
    ctx='geral'   → todas as áreas, com abas de área
@@ -1153,6 +1402,9 @@ function diarioPanel(ctx){
 
   const contaFiltro=logs.filter(l=>areaById(l.area).conta);
   const totalFiltro=contaFiltro.reduce((s,l)=>s+durH(l.ini,l.fim),0);
+  // sessões de trabalho têm total próprio: antes elas apareciam na lista e somavam zero
+  const trabFiltro=logs.filter(l=>!areaById(l.area).conta);
+  const totalTrab=trabFiltro.reduce((s,l)=>s+durH(l.ini,l.fim),0);
   const filtrando=!!(st.ativ||busca);
   const areaNova=sel==='all'?'':sel;
 
@@ -1175,7 +1427,8 @@ function diarioPanel(ctx){
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
       <span class="pill purple">${logs.length} ${logs.length===1?'sessão':'sessões'}</span>
-      ${contaFiltro.length?`<span class="pill green">${fmtDur(totalFiltro)} no filtro atual</span>`:''}
+      ${contaFiltro.length?`<span class="pill green">${fmtDur(totalFiltro)} de estudo no filtro atual</span>`:''}
+      ${trabFiltro.length?`<span class="pill gray" title="Trabalho não entra nas horas estudadas — é contabilizado à parte">${fmtDur(totalTrab)} de trabalho (TRE)</span>`:''}
       ${st.ativ?`<span class="pill blue">atividade: ${h(st.ativ)}</span>`:''}
       <button class="btn sm" style="margin-left:auto" onclick="mNovaSessao('${areaNova}')">+ Nova sessão</button>
     </div>
@@ -1196,7 +1449,7 @@ function vDiarios(){
     AREAS.map(a=>`<button class="area-tab ${sel===a.id?'active':''}" onclick="setDiario('${a.id}')">${a.nome}</button>`).join('');
   document.getElementById('view').innerHTML=`
     <div class="page-title">diários de bordo</div>
-    <div class="page-sub">Toda sessão registrada aqui — manualmente, pelo cronômetro ou pelo botão da Grade — alimenta as horas, a aderência semanal e o hábito "Estudo". Lançamentos de TRE nunca contam.</div>
+    <div class="page-sub">Toda sessão registrada aqui — manualmente, pelo cronômetro ou pelo botão da Grade — alimenta as horas, a aderência semanal e o hábito "Estudo". Lançamentos de TRE têm total próprio, em cinza: contam como carga de trabalho, nunca como estudo.</div>
     <div class="area-tabs">${tabs}</div>
     ${diarioPanel('geral')}`;
 }
@@ -1987,7 +2240,7 @@ function saveSincrona(id){
     const fut=all?serieFuturas(s):[];
     Object.assign(s,base);
     fut.forEach(f=>Object.assign(f,{nome:base.nome,materia:base.materia,ini:base.ini,fim:base.fim,link:base.link,obs:base.obs}));
-    save();closeModal();vUnitins();
+    save();closeModal();renderCurrent();
     toast(fut.length?`Atualizada + ${fut.length} da série`:'Aula síncrona atualizada');
     return;
   }
@@ -1996,14 +2249,14 @@ function saveSincrona(id){
   const datas=gerarDatasSincrona(data,freq,ate);
   const serie=datas.length>1?uid():null;
   datas.forEach(d=>store.sincronas.push({id:uid(),...base,data:d,serie}));
-  save();closeModal();vUnitins();
+  save();closeModal();renderCurrent();
   toast(datas.length>1?`${datas.length} aulas síncronas criadas`:'Aula síncrona adicionada');
 }
 function delSincrona(id){
   const s=store.sincronas.find(x=>x.id===id); if(!s)return;
   const fut=serieFuturas(s);
   if(!fut.length){
-    store.sincronas=store.sincronas.filter(x=>x.id!==id);save();vUnitins();toast('Aula removida');return;
+    store.sincronas=store.sincronas.filter(x=>x.id!==id);save();renderCurrent();toast('Aula removida');return;
   }
   modal(`<h3>Excluir aula da série</h3>
     <div class="h-sub">${h(s.nome)} · ${fmtBR(s.data)}<br>Esta aula faz parte de uma série com mais <b>${fut.length}</b> encontro(s) a partir desta data.</div>
@@ -2017,7 +2270,7 @@ function delSincronaConfirm(id,todas){
   const s=store.sincronas.find(x=>x.id===id); if(!s)return;
   const ids=new Set([id,...(todas?serieFuturas(s).map(x=>x.id):[])]);
   store.sincronas=store.sincronas.filter(x=>!ids.has(x.id));
-  save();closeModal();vUnitins();toast(ids.size>1?`${ids.size} aulas removidas`:'Aula removida');
+  save();closeModal();renderCurrent();toast(ids.size>1?`${ids.size} aulas removidas`:'Aula removida');
 }
 function registrarSincrona(id){
   const s=store.sincronas.find(x=>x.id===id); if(!s)return;
@@ -2067,11 +2320,29 @@ function uniDiario(){
 }
 
 /* ---- Aba: Entregáveis ---- */
+let _entregMat='all';
+function setEntregMat(v){_entregMat=v;vUnitins();}
 function uniEntregaveis(){
   const ordPrazo=e=>e.prazo||'9999-99-99';                       // sem prazo vai para o fim
-  const abertos=store.entregaveis.filter(e=>e.status!=='Entregue'&&noPeriodo(e))
+  const doPeriodo=store.entregaveis.filter(noPeriodo);
+
+  // Matérias disponíveis = as que realmente têm entregável no período selecionado.
+  // Se o filtro apontar para uma matéria fora do período atual, volta para "todas"
+  // (senão a tela ficaria vazia sem explicação depois de trocar de período).
+  const matsComItem=[...new Set(doPeriodo.map(e=>e.materia))];
+  if(_entregMat!=='all'&&!matsComItem.includes(_entregMat))_entregMat='all';
+  const contaAberto=mid=>doPeriodo.filter(e=>e.status!=='Entregue'&&(mid==='all'||e.materia===mid)).length;
+
+  const chips=`<div class="area-tabs" style="margin-bottom:14px;gap:7px">
+    <button class="area-tab ${_entregMat==='all'?'active':''}" onclick="setEntregMat('all')">Todas <b style="opacity:.6">${contaAberto('all')}</b></button>
+    ${matsComItem.map(mid=>{const n=contaAberto(mid);
+      return `<button class="area-tab ${_entregMat===mid?'active':''}" onclick="setEntregMat('${mid}')">${h(materiaNome(mid))} <b style="opacity:.6">${n}</b></button>`;}).join('')}
+  </div>`;
+
+  const noFiltro=e=>_entregMat==='all'||e.materia===_entregMat;
+  const abertos=doPeriodo.filter(e=>e.status!=='Entregue'&&noFiltro(e))
     .sort((a,b)=>ordPrazo(a).localeCompare(ordPrazo(b)));        // crescente: o que vence antes primeiro
-  const entregues=store.entregaveis.filter(e=>e.status==='Entregue'&&noPeriodo(e))
+  const entregues=doPeriodo.filter(e=>e.status==='Entregue'&&noFiltro(e))
     .sort((a,b)=>ordPrazo(b).localeCompare(ordPrazo(a)));        // mais recentes primeiro
   const atrasados=abertos.filter(e=>e.prazo&&e.prazo<todayISO()).length;
 
@@ -2086,14 +2357,16 @@ function uniEntregaveis(){
       <thead><tr><th>Entregável</th><th>Matéria</th><th>Prazo</th><th>Status</th><th>Urgência</th><th></th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
 
-  return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+  return `${matsComItem.length>1?chips:''}
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <span class="pill purple">${abertos.length} em aberto</span>
       ${atrasados?`<span class="pill red">⚠ ${atrasados} atrasados</span>`:''}
       ${entregues.length?`<span class="pill green">${entregues.length} entregues</span>`:''}
+      ${_entregMat!=='all'?`<button class="pill gray" style="cursor:pointer" onclick="setEntregMat('all')">✕ filtro: ${h(materiaNome(_entregMat))}</button>`:''}
       <button class="btn sm" style="margin-left:auto" onclick="mNovoEntreg()">+ Novo entregável</button>
     </div>
     <div class="card" style="padding:6px 20px">
-      ${abertos.length?tabela(abertos.map(linha).join('')):'<div class="empty">Nenhum entregável em aberto. 🎉</div>'}
+      ${abertos.length?tabela(abertos.map(linha).join('')):`<div class="empty">${_entregMat==='all'?'Nenhum entregável em aberto. 🎉':'Nada em aberto em '+h(materiaNome(_entregMat))+'. 🎉'}</div>`}
     </div>
     ${entregues.length?`<div class="card" style="margin-top:16px;padding:6px 20px">
       <div style="padding:14px 0 4px"><h3>Já entregues</h3><div class="h-sub" style="margin-bottom:0">${entregues.length} ${entregues.length===1?'item concluído':'itens concluídos'}</div></div>
@@ -2291,6 +2564,62 @@ function trendPill(cur,prev,sufixo){
 }
 function somaDias(iso0,n){let s=0;for(let i=0;i<n;i++)s+=hoursOnDay(addDaysISO(iso0,i));return s;}
 
+/* Semanas completas do ano com os dois números lado a lado. Semana em curso fica
+   de fora — comparar uma semana pela metade com semanas inteiras distorce a média. */
+function semanasEstudoTrabalho(y){
+  const hoje=todayISO();
+  return weekStarts(y).map(mon=>{
+    const fim=addDaysISO(mon,6);
+    if(fim>=hoje)return null;
+    const est=Object.values(hoursRangeByArea(mon,fim)).reduce((a,b)=>a+b,0);
+    const trab=workHoursRange(mon,fim);
+    // semanas sem lançamento nenhum são ausência de dado, não semana de estudo zero.
+    // Sem esse filtro, cada semana em branco entra como "sem trabalho e 0h de estudo"
+    // e derruba a média do grupo de controle até inverter o sinal da correlação.
+    if(est===0&&trab===0)return null;
+    return {mon,fim,est,trab};
+  }).filter(Boolean);
+}
+function trabalhoImpacto(y){
+  const rows=semanasEstudoTrabalho(y);
+  const com=rows.filter(r=>r.trab>0), sem=rows.filter(r=>r.trab===0);
+  if(com.length<3||sem.length<3)return {n:false,com:com.length,sem:sem.length};
+  const md=a=>a.reduce((s,r)=>s+r.est,0)/a.length;
+  return {n:true,mediaCom:md(com),mediaSem:md(sem),nCom:com.length,nSem:sem.length,
+          mediaTrab:com.reduce((s,r)=>s+r.trab,0)/com.length};
+}
+function trabalhoAnalyticsCard(y){
+  const cor=areaById('tre').cor;
+  const logsAno=workLogs().filter(l=>String(l.data).startsWith(String(y)));
+  if(!logsAno.length)return '';
+  const total=logsAno.reduce((s,l)=>s+durH(l.ini,l.fim),0);
+  const hoje=todayISO();
+  const pts=weekStarts(y).map(mon=>{const fim=addDaysISO(mon,6), v=workHoursRange(mon,fim), parcial=fim>=hoje;
+    return {lbl:mon.slice(8,10)+'/'+mon.slice(5,7), v, parcial,
+      tip:'Semana '+fmtBR(mon).slice(0,5)+'–'+fmtBR(fim).slice(0,5)+' · '+(v>0?fmtDur(v):'sem trabalho em casa')+(parcial?' (em curso)':'')};});
+  const semComTrab=pts.filter(p=>!p.parcial&&p.v>0).length;
+  const imp=trabalhoImpacto(y);
+  return `<div class="card" style="margin-bottom:18px;border-left:3px solid ${cor}">
+    <h3>Trabalho em casa · TRE</h3>
+    <div class="h-sub">Série paralela, em escala própria. Nunca somada às horas de estudo — o objetivo é ver quando o trabalho invade a semana, não celebrar volume.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <span class="pill gray">${fmtDur(total)} em ${y}</span>
+      <span class="pill gray">${logsAno.length} ${logsAno.length===1?'sessão':'sessões'}</span>
+      <span class="pill gray">${semComTrab} ${semComTrab===1?'semana afetada':'semanas afetadas'}</span>
+    </div>
+    ${svgColChart({pts,cor,maxLabels:12,minColW:24,maxColW:72,maxBarW:54,minW:470,h:150})}
+    <div style="margin-top:14px;padding:11px 13px;border-radius:10px;background:var(--card-2);font-size:13px;color:var(--muted)">
+      ${imp.n
+        ? `📊 Semanas <b>com</b> trabalho em casa (${imp.nCom}): <b style="color:var(--ink)">${fmtDur(imp.mediaCom)}</b> de estudo em média ·
+           <b>sem</b> (${imp.nSem}): <b style="color:var(--ink)">${fmtDur(imp.mediaSem)}</b>
+           <div style="margin-top:6px;opacity:.85">Média de ${fmtDur(imp.mediaTrab)} de TRE nas semanas afetadas.
+           ${imp.mediaCom<imp.mediaSem
+             ? `Diferença de <b>${fmtDur(imp.mediaSem-imp.mediaCom)}</b> por semana — correlação, não prova de causa, mas é a ordem de grandeza do que o trabalho em casa custa em estudo.`
+             : `Aqui o estudo não caiu nas semanas com trabalho — pelo dado atual, uma coisa não está comendo a outra.`}</div>`
+        : `📊 Correlação com as horas de estudo ainda não é confiável: ${imp.com} ${imp.com===1?'semana':'semanas'} com trabalho e ${imp.sem} sem. Preciso de ao menos 3 de cada lado para o número não ser ruído.`}
+    </div>
+  </div>`;
+}
 function vAnalytics(){
   const y=anoSel(), hoje=todayISO(), anc=anoAncora(y), ehAtual=y===anoAtual();
   const doAno=l=>String(l.data||'').startsWith(String(y));
@@ -2354,7 +2683,7 @@ function vAnalytics(){
     ${anosComDado().length>1?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 14px">
       ${anosComDado().map(a=>`<button class="area-tab ${a===y?'active':''}" style="padding:5px 14px;font-size:12px" onclick="setAnAno(${a})">${a}</button>`).join('')}
     </div>`:''}
-    <div class="page-sub">Colunas em ordem cronológica, com média móvel de 7 dias no diário e a linha da meta no semanal. Colunas hachuradas são períodos <b>em curso</b> — elas ficam de fora do cálculo de tendência, senão todo dia 17 pareceria uma queda. O TRE nunca entra.</div>
+    <div class="page-sub">Colunas em ordem cronológica, com média móvel de 7 dias no diário e a linha da meta no semanal. Colunas hachuradas são períodos <b>em curso</b> — elas ficam de fora do cálculo de tendência, senão todo dia 17 pareceria uma queda. O TRE não entra em nenhum gráfico de estudo: tem bloco próprio no fim da página.</div>
 
     <div class="stat-row" style="margin-bottom:20px">
       <div class="stat"><b>${fmtDur(total)}</b><span>estudadas em ${y}</span></div>
@@ -2411,6 +2740,8 @@ function vAnalytics(){
       <h3>Mapa de ${y}</h3><div class="h-sub">Intensidade de estudo por dia — encontre as quedas de consistência num relance${store.periodos.filter(p=>p.ini.slice(0,4)==String(y)||p.fim.slice(0,4)==String(y)).length?' · períodos letivos em '+y+': '+h(store.periodos.filter(p=>p.ini.slice(0,4)==String(y)||p.fim.slice(0,4)==String(y)).map(p=>p.nome).join(', ')):''}</div>
       ${studyHeatmap(y)}
     </div>
+
+    ${trabalhoAnalyticsCard(y)}
 
     <div class="card"><h3>Horas por área</h3>
       <div class="h-sub">Dado categórico, sem ordem temporal — barra horizontal continua sendo a leitura certa aqui</div>
@@ -2576,6 +2907,78 @@ function hbMelhorSequencia(hb,ano){
   return {n:best,un:'d',cruza};
 }
 
+/* ---- Visão do ano por mês (mini-calendários), com seleção de meses ----
+   Substitui a grade de 8 semanas: o recorte de tempo passa a ser escolhido,
+   não fixo. Dias passados continuam clicáveis para correção (exceto hábito
+   automático, que é derivado do Diário de Bordo). */
+let hbMeses=null, _hbMesesAno=null;
+function mesesDoAno(ano){
+  const hoje=new Date();
+  if(ano<hoje.getFullYear())return [0,1,2,3,4,5,6,7,8,9,10,11];
+  if(ano>hoje.getFullYear())return [0];
+  return Array.from({length:hoje.getMonth()+1},(_,i)=>i);   // jan → mês atual
+}
+function hbMesesSel(ano){
+  if(!hbMeses||_hbMesesAno!==ano){hbMeses=mesesDoAno(ano);_hbMesesAno=ano;}
+  return hbMeses;
+}
+function toggleHbMes(m){
+  const ano=hbAnoSel(), sel=hbMesesSel(ano), i=sel.indexOf(m);
+  if(i>=0){ if(sel.length===1)return; sel.splice(i,1); } else sel.push(m);
+  sel.sort((a,b)=>a-b); vHabitos();
+}
+function setHbMeses(modo){
+  const ano=hbAnoSel(), hoje=new Date(), atual=ano===hoje.getFullYear()?hoje.getMonth():11;
+  if(modo==='ano')hbMeses=[0,1,2,3,4,5,6,7,8,9,10,11];
+  else if(modo==='ate')hbMeses=mesesDoAno(ano);
+  else if(modo==='tri')hbMeses=[atual-2,atual-1,atual].filter(m=>m>=0);
+  else if(modo==='mes')hbMeses=[atual];
+  _hbMesesAno=ano; vHabitos();
+}
+function hbMesFiltro(){
+  const ano=hbAnoSel(), sel=hbMesesSel(ano);
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 4px">
+    <span style="font-size:11px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Meses</span>
+    ${MESES_ABR.map((n,i)=>`<button class="chip" onclick="toggleHbMes(${i})"
+      style="${sel.includes(i)?'background:var(--purple);color:#fff':'background:var(--card-2);color:var(--muted);border:1px solid var(--line)'}">${n}</button>`).join('')}
+    <span style="width:1px;height:18px;background:var(--line);margin:0 2px"></span>
+    <button class="chip" onclick="setHbMeses('ano')" style="background:var(--card-2);color:var(--muted);border:1px solid var(--line)">ano todo</button>
+    <button class="chip" onclick="setHbMeses('ate')" style="background:var(--card-2);color:var(--muted);border:1px solid var(--line)">até hoje</button>
+    <button class="chip" onclick="setHbMeses('tri')" style="background:var(--card-2);color:var(--muted);border:1px solid var(--line)">3 meses</button>
+    <button class="chip" onclick="setHbMeses('mes')" style="background:var(--card-2);color:var(--muted);border:1px solid var(--line)">só este mês</button>
+  </div>`;
+}
+function hbMiniMes(hb,ano,mes){
+  const hoje=todayISO();
+  const first=new Date(ano,mes,1), off=(first.getDay()+6)%7, ndias=new Date(ano,mes+1,0).getDate();
+  let feitos=0, esperados=0, cells='';
+  for(let i=0;i<off;i++)cells+='<div class="mm-d pad"></div>';
+  for(let d=1;d<=ndias;d++){
+    const iso=`${ano}-${String(mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if(iso>hoje){cells+=`<div class="mm-d fut">${d}</div>`;continue;}
+    const on=habitDone(hb.id,iso), esp=hbDiaEsperado(hb,iso);
+    if(on)feitos++; if(esp!==false)esperados++;
+    let cls='mm-d', st='';
+    if(on){cls+=' on';st=`background:${hb.cor};border-color:${hb.cor}`;}
+    else if(esp===true)cls+=' miss';
+    else if(esp===false)cls+=' off';
+    if(iso===hoje)cls+=' today';
+    if(hb.auto)cls+=' ro';
+    const tip=`${fmtBR(iso)} · ${on?'feito':esp===false?'folga programada':'não feito'}${hb.auto?' (automático)':''}`;
+    cells+=`<div class="${cls}" style="${st}" title="${h(tip)}" ${hb.auto?'':`onclick="toggleHabito('${hb.id}','${iso}')"`}>${d}</div>`;
+  }
+  const pct=esperados?Math.round(feitos/esperados*100):0;
+  return `<div class="mm">
+    <div class="mm-h"><span>${MESES_ABR[mes]}</span><small title="${feitos} de ${esperados} dias esperados">${feitos}/${esperados} · ${pct}%</small></div>
+    <div class="mm-g">${['S','T','Q','Q','S','S','D'].map(x=>`<div class="mm-wd">${x}</div>`).join('')}</div>
+    <div class="mm-g" style="margin-top:3px">${cells}</div>
+  </div>`;
+}
+function hbGridMeses(hb,ano){
+  const sel=hbMesesSel(ano);
+  return `<div class="mm-wrap">${sel.map(m=>hbMiniMes(hb,ano,m)).join('')}</div>`;
+}
+
 /* ---- grade do ano inteiro (histórico, somente leitura) ---- */
 function hbGridAno(hb,ano){
   const START=ano+'-01-01', END=ano+'-12-31', hoje=todayISO();
@@ -2719,7 +3122,7 @@ function vHabitos(){
         <div class="hs-name"><span class="tag-dot" style="background:${hb.cor}"></span>${hb.icon||''} ${h(hb.nome)}</div>
         <div class="hs-freq">${h(hbLabelFreq(hb))}</div>
       </div>
-      ${ehAtual?hbHeatmap(hb):hbGridAno(hb,ano)}
+      ${hbGridMeses(hb,ano)}
       <div class="hs-metrics">
         ${ehAtual?`<span class="pill ${st.n>0?'purple':'gray'}" title="${st.un==='sem'?'Semanas consecutivas cumprindo o alvo':'Dias esperados consecutivos — folgas programadas não quebram'}">🔥 ${st.n}${st.un==='sem'?(st.n===1?' semana':' semanas'):'d'}</span>
         <span class="pill ${rColor}" title="${tx.feitos} de ${tx.esp} esperados nas últimas ${tx.janela}">${tx.pct}% · ${tx.janela}</span>
@@ -2739,7 +3142,7 @@ function vHabitos(){
 
   document.getElementById('view').innerHTML=`
     <div class="page-title">hábitos</div>
-    <div class="page-sub">Cada hábito tem uma <b>frequência-alvo</b>, e a taxa é calculada sobre os dias <b>esperados</b> — não sobre dias corridos. Treinar 3× por semana com alvo 3 é 100%, não 43%. A grade de 8 semanas é clicável: dá para corrigir qualquer dia.</div>
+    <div class="page-sub">Cada hábito tem uma <b>frequência-alvo</b>, e a taxa é calculada sobre os dias <b>esperados</b> — não sobre dias corridos. Treinar 3× por semana com alvo 3 é 100%, não 43%. Os mini-calendários abaixo cobrem o ano inteiro, mês a mês, e são clicáveis: dá para corrigir qualquer dia passado.</div>
 
     ${riscos.length?`<div class="card" style="margin-bottom:18px;border:1px solid ${riscos[0].crit?'var(--red)':'var(--amber)'};background:${riscos[0].crit?'var(--red-soft)':'var(--amber-soft)'}">
       <h3 style="color:${riscos[0].crit?'var(--red)':'var(--amber)'}">Atenção hoje</h3>
@@ -2762,10 +3165,11 @@ function vHabitos(){
     <div class="card" style="margin-bottom:20px">
       ${total?rowsHoje:'<div class="empty">Nenhum hábito cadastrado.<br><button class="btn sm ghost" style="margin-top:12px" onclick="mHabito()">Criar primeiro hábito</button></div>'}
     </div>`:`<div class="card" style="margin-bottom:20px;background:var(--card-2)">
-      <div style="font-size:13px;color:var(--muted)">Visão histórica de <b>${ano}</b> — somente leitura. Taxa, streak atual e alertas são métricas do presente e não fazem sentido num ano encerrado; a grade abaixo mostra o ano inteiro.</div>
+      <div style="font-size:13px;color:var(--muted)">Visão histórica de <b>${ano}</b>. Taxa, streak atual e alertas são métricas do presente e não fazem sentido num ano encerrado — mas os mini-calendários continuam clicáveis, caso você precise corrigir algum dia.</div>
     </div>`}
-    ${total?`<div class="card"><h3>Consistência${ehAtual?'':' · '+ano}</h3>
+    ${total?`<div class="card"><h3>Consistência · ${ano}</h3>
       <div class="h-sub">Cor cheia = feito · contorno tracejado = dia esperado e não feito · cinza claro = folga programada${ehAtual?'':' · <b>*</b> = sequência que atravessa a virada do ano'}</div>
+      ${hbMesFiltro()}
       ${stats}</div>`:''}`;
 }
 
