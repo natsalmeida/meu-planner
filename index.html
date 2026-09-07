@@ -2395,32 +2395,46 @@ function addEntreg(){const n=document.getElementById('een').value.trim();if(!n)r
 function delEntreg(id){store.entregaveis=store.entregaveis.filter(e=>e.id!==id);save();vUnitins();}
 function setEntregStatus(id,status){const e=store.entregaveis.find(x=>x.id===id);if(!e)return;e.status=status;save();vUnitins();toast('Status atualizado');}
 
-function studyHeatmap(y){
+/* Heatmap anual parametrizável. studyHeatmap() e o mapa de trabalho compartilham
+   a mesma malha; só mudam a fonte das horas, a cor e os cortes de intensidade. */
+function heatmapAno(y,opt){
   y=y||anoSel();
+  const o=Object.assign({horas:hoursOnDay,rgb:'124,58,237',vazio:'sem estudo',
+    cortes:[1,2,3],alphas:[.28,.52,.74,1],unidade:'1 dia'},opt||{});
   const START=y+'-01-01', END=y+'-12-31';
   const s=new Date(START+'T12:00'); s.setDate(s.getDate()-((s.getDay()+6)%7)); // segunda <= START
   const end=new Date(END+'T12:00');
   const cols=[]; let cur=new Date(s);
   while(cur<=end){const week=[];for(let i=0;i<7;i++){const d=new Date(cur);d.setDate(d.getDate()+i);week.push(localISO(d));}cols.push(week);cur.setDate(cur.getDate()+7);}
-  const colorOf=lv=>['transparent','rgba(124,58,237,.28)','rgba(124,58,237,.52)','rgba(124,58,237,.74)','rgba(124,58,237,1)'][lv];
-  const shade=hh=>hh<=0?0:hh<1?1:hh<2?2:hh<3?3:4;
+  const colorOf=lv=>lv?`rgba(${o.rgb},${o.alphas[lv-1]})`:'transparent';
+  const shade=hh=>hh<=0?0:hh<o.cortes[0]?1:hh<o.cortes[1]?2:hh<o.cortes[2]?3:4;
   const inRange=iso=>iso>=START&&iso<=END;
   const hoje=todayISO();
   const mAbbr=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  // Rótulo só para meses que ocupam 2+ colunas: a primeira coluna costuma ser a
+  // sobra de dezembro do ano anterior, e o rótulo dela colidia com "jan".
+  const mesDaCol=cols.map(w=>new Date(w[0]+'T12:00').getMonth());
+  const larg={}; mesDaCol.forEach((m,i)=>{const k=m+'|'+cols[i][0].slice(0,4);larg[k]=(larg[k]||0)+1;});
   let prevM=-1;
-  const monthRow=cols.map(week=>{const m=new Date(week[0]+'T12:00').getMonth();let lbl='';
-    if(m!==prevM){lbl=mAbbr[m];prevM=m;}return `<div class="hm-mcol">${lbl}</div>`;}).join('');
+  const monthRow=cols.map((week,i)=>{const m=mesDaCol[i];let lbl='';
+    if(m!==prevM){ if((larg[m+'|'+week[0].slice(0,4)]||0)>=2) lbl=mAbbr[m]; prevM=m; }
+    return `<div class="hm-mcol">${lbl}</div>`;}).join('');
   const grid=cols.map(week=>`<div class="hm-col">${week.map(iso=>{
       if(!inRange(iso))return `<div class="hm-cell out"></div>`;
-      const hh=hoursOnDay(iso),lv=shade(hh);
-      return `<div class="hm-cell${iso===hoje?' hm-today':''}" title="${fmtBR(iso)} · ${hh>0?fmtDur(hh):'sem estudo'}" style="background:${colorOf(lv)};${lv?'border-color:transparent':''}"></div>`;
+      const hh=o.horas(iso),lv=shade(hh);
+      return `<div class="hm-cell${iso===hoje?' hm-today':''}" title="${fmtBR(iso)} · ${hh>0?fmtDur(hh):o.vazio}" style="background:${colorOf(lv)};${lv?'border-color:transparent':''}"></div>`;
     }).join('')}</div>`).join('');
   const wd=['S','T','Q','Q','S','S','D'];
-  const legenda=`<div class="hm-legend">menos ${[0,1,2,3,4].map(l=>`<span class="sq" style="background:${colorOf(l)};${l?'border-color:transparent':''}"></span>`).join('')} mais · cada quadrado = 1 dia</div>`;
+  const legenda=`<div class="hm-legend">menos ${[0,1,2,3,4].map(l=>`<span class="sq" style="background:${colorOf(l)};${l?'border-color:transparent':''}"></span>`).join('')} mais · cada quadrado = ${o.unidade}</div>`;
   return `<div class="hm-wrap"><div style="display:flex;gap:6px">
       <div class="hm-wd">${wd.map(x=>`<span>${x}</span>`).join('')}</div>
       <div style="min-width:0"><div class="hm-row hm-months">${monthRow}</div><div class="hm-row">${grid}</div></div>
     </div>${legenda}</div>`;
+}
+function studyHeatmap(y){return heatmapAno(y);}
+function workHeatmap(y){
+  return heatmapAno(y,{horas:workHoursOnDay,rgb:'109,104,121',vazio:'sem trabalho em casa',
+    cortes:[.75,1.5,3],alphas:[.34,.56,.78,1]});
 }
 /* ---------------- Analytics ---------------- */
 let anDias=30;                 // janela do gráfico diário
@@ -2608,6 +2622,11 @@ function trabalhoAnalyticsCard(y){
       <span class="pill gray">${semComTrab} ${semComTrab===1?'semana afetada':'semanas afetadas'}</span>
     </div>
     ${svgColChart({pts,cor,maxLabels:12,minColW:24,maxColW:72,maxBarW:54,minW:470,h:150})}
+    <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+      <h3 style="font-size:15px">Mapa de ${y} · trabalho em casa</h3>
+      <div class="h-sub">Mesma malha do mapa de estudo, em cinza. Sobreponha mentalmente os dois: onde os quadrados cinza aparecem, veja se os roxos sumiram.</div>
+      ${workHeatmap(y)}
+    </div>
     <div style="margin-top:14px;padding:11px 13px;border-radius:10px;background:var(--card-2);font-size:13px;color:var(--muted)">
       ${imp.n
         ? `📊 Semanas <b>com</b> trabalho em casa (${imp.nCom}): <b style="color:var(--ink)">${fmtDur(imp.mediaCom)}</b> de estudo em média ·
