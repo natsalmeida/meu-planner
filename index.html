@@ -143,6 +143,29 @@ tr:last-child td{border-bottom:none}
 .ar.up{background:var(--green-soft);color:var(--green)}
 .ar.down{background:var(--red-soft);color:var(--red)}
 .ar.flat,.ar.new{background:var(--card-2);color:var(--faint);font-weight:600}
+/* Aderência ao plano da grade. Cor semântica em 3 faixas: a barra de volume acima
+   diz "quanto", esta diz "quanto do combinado" — são leituras diferentes e por isso
+   escalas separadas, nunca a mesma barra. */
+.ha-ader{height:4px;background:var(--card-2);border-radius:4px;margin-top:5px;overflow:hidden}
+.ha-ader i{display:block;height:100%;border-radius:4px}
+.ad-ok{color:var(--green)} .ad-ok i{background:var(--green)}
+.ad-mid{color:#b8860b}     .ad-mid i{background:#d19a1a}
+.ad-bad{color:var(--red)}  .ad-bad i{background:var(--red)}
+.ha-id small .ad-ok,.ha-id small .ad-mid,.ha-id small .ad-bad{font-weight:700}
+.ha-plan{margin:10px 0 4px;padding:10px 13px;border-radius:10px;background:var(--card-2);
+  font-size:13px;line-height:1.5;border-left:3px solid currentColor}
+.ha-plan b{font-family:var(--serif);font-size:15px}
+.ha-plan small{display:block;font-size:11px;color:var(--faint);margin-top:4px;line-height:1.45}
+.ha-zero span.ad-bad{font-weight:600}
+/* Rodapé de trabalho: mesma grade das linhas de área, mas deliberadamente
+   apagado e separado por borda tracejada — o cinza e o tracejado são o sinal
+   visual de que esse número NÃO entra no total nem no ranking acima. */
+.ha-work{margin-top:14px;padding-top:13px;border-top:1px dashed var(--line)}
+.ha-work .ha-row{border-bottom:none;padding:4px 0;opacity:.72}
+.ha-work .ha-rank{font-size:12px}
+.ha-work .ha-track i{background:repeating-linear-gradient(135deg,var(--faint) 0 5px,transparent 5px 10px);opacity:.55}
+.ha-work-note{font-size:11px;color:var(--faint);margin-top:7px;padding-left:34px;line-height:1.45}
+@media(max-width:860px){.ha-work-note{padding-left:0}}
 .ha-zero{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--faint);
   display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .ha-zero span i{display:inline-block;width:8px;height:8px;border-radius:3px;margin-right:5px;opacity:.5}
@@ -1634,6 +1657,35 @@ function parseGradeTime(hor){
 }
 function gradeBlockMin(g){const t=parseGradeTime(g.horario);return t?durMin(t.ini,t.fim):60;}
 
+/* ---- Plano previsto por área num intervalo ----
+   Percorre dia a dia porque a grade é versionada por período: 11/07→06/12 pode ter
+   uma grade e o período seguinte outra, e comparar a aderência de agosto contra a
+   grade de dezembro daria um número falso. Dia fora de qualquer período não gera
+   plano — assim janeiro a julho de 2026 não entra como "não cumprido".
+   Retorna minutos por área + a janela realmente coberta, para o texto não mentir
+   sobre o recorte. */
+function planoPorAreaRange(iniISO,fimISO){
+  const tabela={}, out={}; let dias=0, de=null, ate=null;
+  for(let iso=iniISO; iso<=fimISO; iso=addDaysISO(iso,1)){
+    const p=periodoDe(iso); if(!p)continue;
+    if(!tabela[p.id]){
+      const t=[{},{},{},{},{},{},{}];
+      gradeDoPeriodo(p.id).forEach(g=>{
+        if(!areaById(g.area).conta)return;                    // TRE nunca vira plano de estudo
+        const di=DIAS.indexOf(g.dia); if(di<0)return;
+        t[di][g.area]=(t[di][g.area]||0)+gradeBlockMin(g);
+      });
+      tabela[p.id]=t;
+    }
+    const di=(new Date(iso+'T12:00').getDay()+6)%7;            // DIAS começa na segunda
+    const m=tabela[p.id][di];
+    dias++; if(!de)de=iso; ate=iso;
+    Object.keys(m).forEach(a=>{out[a]=(out[a]||0)+m[a];});
+  }
+  const totalMin=Object.values(out).reduce((a,b)=>a+b,0);
+  return {min:out, totalH:totalMin/60, dias, de, ate};
+}
+
 /* Alocação semanal: os minutos registrados na semana viram um "saldo" por área e
    pagam os blocos daquela área na ordem cronológica da semana — dia nenhum fica preso
    ao seu próprio registro. Blocos passados/hoje são pagos primeiro; a sobra adianta os futuros. */
@@ -2719,6 +2771,13 @@ function cardHorasPorArea(y,byArea,total){
   const comDado=lista.filter(r=>r.v>0), semDado=lista.filter(r=>r.v===0);
   const maxV=Math.max(1,...comDado.map(r=>r.v));
 
+  /* Plano previsto até a âncora (hoje, se for o ano corrente): comparar o ano
+     inteiro incluiria semanas que ainda não aconteceram e todo mundo apareceria
+     em déficit por construção. */
+  const plano=planoPorAreaRange(y+'-01-01',anc);
+  const temPlano=plano.totalH>0;
+  const aderH=v=>v<50?'ad-bad':v<85?'ad-mid':'ad-ok';
+
   const faixa=comDado.length?`<div class="mix-bar" title="Composição das ${fmtDur(total)} de ${y}">
     ${comDado.map(r=>`<i style="width:${(r.v/total*100).toFixed(2)}%;background:${r.a.cor}"
       title="${h(r.a.nome)} · ${fmtDur(r.v)} · ${Math.round(r.v/total*100)}%"></i>`).join('')}
@@ -2734,25 +2793,77 @@ function cardHorasPorArea(y,byArea,total){
     const n=sess[r.a.id]||0;
     const vals=wkKeys.map(k=>matriz[k][r.a.id]||0);
     const meta=store.metasArea[r.a.id]||0;
+    const prevH=(plano.min[r.a.id]||0)/60;
+    const ader=prevH>0?r.v/prevH*100:null;
+    const adLbl=ader===null?'':` · <span class="${aderH(ader)}">${Math.round(ader)}% do plano</span>`;
+    const adBar=ader===null?'':`<div class="ha-ader ${aderH(ader)}"
+      title="${fmtDur(r.v)} registradas de ${fmtDur(prevH)} previstas pela grade ${plano.de?'de '+fmtBR(plano.de).slice(0,5)+' a '+fmtBR(plano.ate).slice(0,5):''}"><i style="width:${Math.min(100,ader).toFixed(1)}%"></i></div>`;
     return `<div class="ha-row">
       <div class="ha-rank">${i+1}</div>
       <div class="ha-id"><i style="background:${r.a.cor}"></i><b>${h(r.a.nome)}</b>
-        <small>${n} ${n===1?'sessão':'sessões'}${n?` · ${fmtDur(r.v/n)}/sessão`:''}${meta?` · meta ${hLbl(meta)}/sem`:''}</small></div>
-      <div class="ha-bar"><div class="ha-track"><i style="width:${Math.max(1.5,r.v/maxV*100)}%;background:${r.a.cor}"></i></div></div>
+        <small>${n} ${n===1?'sessão':'sessões'}${n?` · ${fmtDur(r.v/n)}/sessão`:''}${meta?` · meta ${hLbl(meta)}/sem`:''}${adLbl}</small></div>
+      <div class="ha-bar"><div class="ha-track"><i style="width:${Math.max(1.5,r.v/maxV*100)}%;background:${r.a.cor}"></i></div>${adBar}</div>
       <div class="ha-spark" title="Últimas 12 semanas">${svgSpark(vals,r.a.cor)}</div>
       <div class="ha-num"><b>${fmtDur(r.v)}</b><small>${pct<1&&pct>0?'<1':Math.round(pct)}% do total</small></div>
       <div class="ha-delta">${seta}</div>
     </div>`;}).join('');
 
+  /* ---- TRE em casa: agregado paralelo, renderizado FORA do ranking.
+     Não entra em `total`, na mix-bar nem no % — só responde "quanto trabalho
+     invadiu o ano", que hoje nenhum lugar do sistema responde em horas. ---- */
+  const areaTre=AREAS.find(a=>!a.conta);
+  const logsTre=workLogs().filter(l=>String(l.data).startsWith(String(y)));
+  const treH=logsTre.reduce((s,l)=>s+durH(l.ini,l.fim),0);
+  let rodapeTre='';
+  if(areaTre&&treH>0){
+    const treWk={}; wkKeys.forEach(k=>{treWk[k]=0;});
+    workLogs().forEach(l=>{const k=weekKey(l.data); if(k in treWk)treWk[k]+=durH(l.ini,l.fim);});
+    const treCur=workHoursRange(j1i,anc), trePrev=workHoursRange(j2i,j2f);
+    const treD=trePrev>0?Math.round((treCur-trePrev)/trePrev*100):(treCur>0?null:0);
+    const treSeta=treD===null?`<span class="ar new" title="Sem registro nos 28 dias anteriores">novo</span>`
+      :Math.abs(treD)<5?`<span class="ar flat" title="${fmtDur(treCur)} nos últimos 28 dias vs. ${fmtDur(trePrev)} nos 28 anteriores">estável</span>`
+      :`<span class="ar ${treD>0?'down':'up'}" title="${fmtDur(treCur)} nos últimos 28 dias vs. ${fmtDur(trePrev)} nos 28 anteriores">${treD>0?'▲':'▼'} ${Math.abs(treD)}%</span>`;
+    const nT=logsTre.length, diasT=new Set(logsTre.map(l=>l.data)).size;
+    // acima de 1× a leitura natural é "quantas vezes"; abaixo, "quantos %"
+    const razao=total>0?treH/total:0;
+    const razaoLbl=razao>=1
+      ? (Math.round(razao*10)/10).toString().replace('.',',')+'×'
+      : Math.round(razao*100)+'%';
+    const razaoPrep=razao>=1?'o':'do';
+    rodapeTre=`<div class="ha-work">
+      <div class="ha-row">
+        <div class="ha-rank" title="Fora do ranking">—</div>
+        <div class="ha-id"><i style="background:${areaTre.cor}"></i><b>${h(areaTre.nome)}</b>
+          <small>${nT} ${nT===1?'sessão':'sessões'} em ${diasT} ${diasT===1?'dia':'dias'}${nT?` · ${fmtDur(treH/nT)}/sessão`:''} · não conta como estudo</small></div>
+        <div class="ha-bar"><div class="ha-track"><i style="width:100%"></i></div></div>
+        <div class="ha-spark" title="Últimas 12 semanas">${svgSpark(wkKeys.map(k=>treWk[k]||0),areaTre.cor)}</div>
+        <div class="ha-num"><b>${fmtDur(treH)}</b><small>fora do total</small></div>
+        <div class="ha-delta">${treSeta}</div>
+      </div>
+      <div class="ha-work-note">Trabalho levado para casa em ${y}${total>0?` — <b>${razaoLbl}</b> ${razaoPrep} estudo registrado no ano`:''}. Fica fora do total, da barra de composição e do ranking. A seta está invertida de propósito: aqui, subir é piorar.</div>
+    </div>`;
+  }
+
   const zeradas=semDado.length?`<div class="ha-zero">
-    Sem nenhum registro em ${y}: ${semDado.map(r=>`<span><i style="background:${r.a.cor}"></i>${h(r.a.nome)}</span>`).join('')}
+    Sem nenhum registro em ${y}: ${semDado.map(r=>{const pv=(plano.min[r.a.id]||0)/60;
+      return `<span${pv>0?' class="ad-bad" title="'+fmtDur(pv)+' previstas pela grade e nada registrado"':''}><i style="background:${r.a.cor}"></i>${h(r.a.nome)}${pv>0?` · 0% de ${fmtDur(pv)}`:''}</span>`;}).join('')}
+  </div>`:'';
+
+  /* Cabeçalho de aderência: sem ele, os % da lista são "% do que foi registrado",
+     não "% do que era pra ter sido feito" — leitura otimista por construção. */
+  const adGeral=temPlano?total/plano.totalH*100:null;
+  const faixaAder=temPlano?`<div class="ha-plan ${aderH(adGeral)}">
+    <b>${Math.round(adGeral)}%</b> de aderência ao plano · ${fmtDur(total)} registradas de <b>${fmtDur(plano.totalH)}</b> previstas pela grade
+    <small>${fmtBR(plano.de)} → ${fmtBR(plano.ate)} · ${plano.dias} ${plano.dias===1?'dia':'dias'} sob período com grade definida. Dias fora de qualquer período não geram plano e não contam como falha.</small>
   </div>`:'';
 
   return `<div class="card">
     <h3>Distribuição por área · ${y}</h3>
     <div class="h-sub">Ordenado por volume. A seta compara os <b>últimos 28 dias</b> com os 28 anteriores — janela móvel, para o mês em curso não puxar todas as áreas para baixo. A minissérie é o traçado das últimas 12 semanas.</div>
     ${faixa}
+    ${faixaAder}
     ${comDado.length?`<div class="ha-list">${linhas}</div>`:'<div class="empty">Sem dados ainda.</div>'}
+    ${rodapeTre}
     ${zeradas}
   </div>`;
 }
