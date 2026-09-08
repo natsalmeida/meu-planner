@@ -143,6 +143,29 @@ tr:last-child td{border-bottom:none}
 .ar.up{background:var(--green-soft);color:var(--green)}
 .ar.down{background:var(--red-soft);color:var(--red)}
 .ar.flat,.ar.new{background:var(--card-2);color:var(--faint);font-weight:600}
+/* Estante de livros dentro do card do hábito */
+.estante{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.est-head{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.est-head b{font-size:13px} .est-head .btn{margin-left:auto}
+.est-stats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.est-meses{display:flex;gap:4px;align-items:flex-end;margin-bottom:14px}
+.est-mes{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.est-mes .est-bar{width:100%;height:34px;display:flex;align-items:flex-end;background:var(--card-2);border-radius:3px;overflow:hidden}
+.est-mes .est-bar i{display:block;width:100%;border-radius:3px 3px 0 0}
+.est-mes span{font-size:9px;color:var(--faint);line-height:1}
+.est-mes b{font-size:10px;color:var(--muted);line-height:1;min-height:11px}
+.est-mes:not(.on){opacity:.45}
+.est-grupo{margin-bottom:10px}
+.est-gh{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin:0 0 5px 2px}
+.est-gh span{text-transform:none;letter-spacing:0;opacity:.8}
+.est-item{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line)}
+.est-item:last-child{border-bottom:none}
+.est-cap{width:28px;height:36px;border-radius:3px 5px 5px 3px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--serif);font-size:15px;font-weight:700;flex-shrink:0;box-shadow:inset 3px 0 0 rgba(0,0,0,.13)}
+.est-body{flex:1;min-width:0}
+.est-body .t{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.est-body .m{font-size:11px;color:var(--faint);margin-top:1px}
+@media(max-width:520px){.est-mes span{font-size:8px}.est-cap{width:24px;height:31px}}
 /* Aderência ao plano da grade. Cor semântica em 3 faixas: a barra de volume acima
    diz "quanto", esta diz "quanto do combinado" — são leituras diferentes e por isso
    escalas separadas, nunca a mesma barra. */
@@ -489,7 +512,7 @@ const DIAS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
 const DEFAULT_HABITOS = [
   {id:'h_aerobico',   nome:'Aeróbico',   cor:'#378add', icon:'🏃', freq:'semanal', alvo:3},
   {id:'h_musculacao', nome:'Musculação', cor:'#db5c88', icon:'🏋️', freq:'semanal', alvo:3},
-  {id:'h_leitura',    nome:'Leitura',    cor:'#ba7517', icon:'📖', freq:'diario'},
+  {id:'h_leitura',    nome:'Leitura',    cor:'#ba7517', icon:'📖', freq:'diario', livros:true},
   {id:'h_estudo',     nome:'Estudo',     cor:'#7c3aed', icon:'📚', auto:true, freq:'diario', minMin:60,
     excluir:['Inglês Busuu','Espanhol Busuu','Espanhol Drops']}, // microdrills não contam para o limiar
 ];
@@ -514,6 +537,7 @@ const db = firebase.database();
 const store = {
   version: 4,
   logs:[], pendencias:[], materias:[], aulas:[], entregaveis:[], sincronas:[],
+  livros:[],  // { id, titulo, autor, paginas, mes:'YYYY-MM' } — estante ligada ao hábito de leitura
   periodos: DEFAULT_PERIODOS.map(p=>({...p})),
   grade: DEFAULT_GRADE.map(g=>({...g})),
   habitos: DEFAULT_HABITOS.map(x=>({...x})),
@@ -535,7 +559,7 @@ let pendingRerender = false;      // re-render adiado enquanto um modal está ab
 function isPlainObj(o){return o&&typeof o==='object'&&!Array.isArray(o);}
 function validateStore(d){
   if(!isPlainObj(d)) return false;
-  const arrays=['logs','pendencias','materias','aulas','entregaveis','sincronas','grade','habitos','periodos'];
+  const arrays=['logs','pendencias','materias','aulas','entregaveis','sincronas','grade','habitos','periodos','livros'];
   for(const k of arrays){ if(k in d && !Array.isArray(d[k])) return false; }
   const objs=['habitLog','metasArea'];
   for(const k of objs){ if(k in d && !isPlainObj(d[k])) return false; }
@@ -544,7 +568,7 @@ function validateStore(d){
 }
 /* ---- normaliza defaults/migrações num só lugar ---- */
 function normalizeStore(){
-  ['logs','pendencias','materias','aulas','entregaveis','sincronas'].forEach(k=>{ if(!Array.isArray(store[k])) store[k]=[]; });
+  ['logs','pendencias','materias','aulas','entregaveis','sincronas','livros'].forEach(k=>{ if(!Array.isArray(store[k])) store[k]=[]; });
   if(!Array.isArray(store.periodos)||!store.periodos.length) store.periodos=DEFAULT_PERIODOS.map(p=>({...p}));
   store.periodos.forEach(p=>{ if(!p.id)p.id=uid(); if(!p.nome)p.nome='Período'; });
   store.periodos.sort((a,b)=>String(a.ini).localeCompare(String(b.ini)));
@@ -569,7 +593,13 @@ function normalizeStore(){
     if(!Array.isArray(hb.dias)) hb.dias=[];
     if(hb.auto&&hb.minMin===undefined) hb.minMin=60;     // sem limiar o auto marca todo dia e não informa nada
     if(!hb.auto) hb.minMin=0;
+    // A estante é um FLAG do hábito, não um id fixo: se o "Leitura" for renomeado
+    // ou excluído, os livros não viram órfãos e qualquer outro hábito pode adotá-los.
+    if(hb.id==='h_leitura'&&hb.livros===undefined) hb.livros=true;
+    hb.livros=!!hb.livros;
   });
+  store.livros.forEach(lv=>{ if(!lv.id)lv.id=uid(); lv.paginas=Math.max(0,+lv.paginas||0);
+    if(!/^\d{4}-\d{2}$/.test(String(lv.mes||''))) lv.mes=todayISO().slice(0,7); });
   invalidateHabitCache();
   // matérias: status automático derivado das aulas, salvo quando travado manualmente
   store.materias.forEach(m=>{
@@ -2581,6 +2611,7 @@ function anosComDado(){
   Object.keys(dayLogIndex()).forEach(iso=>set.add(+iso.slice(0,4)));
   Object.keys(store.habitLog).forEach(iso=>set.add(+iso.slice(0,4)));
   store.periodos.forEach(p=>{set.add(+p.ini.slice(0,4));set.add(+p.fim.slice(0,4));});
+  store.livros.forEach(lv=>set.add(+String(lv.mes).slice(0,4)));
   return [...set].sort((a,b)=>b-a);
 }
 function anoSel(){ if(!anAno||!anosComDado().includes(anAno)) anAno=anoAtual(); return anAno; }
@@ -3377,6 +3408,94 @@ function dashHabitRiscos(){
 let hbAno=null;
 function setHbAno(y){hbAno=+y;vHabitos();}
 function hbAnoSel(){ if(!hbAno||!anosComDado().includes(hbAno)) hbAno=anoAtual(); return hbAno; }
+/* ---------------- Estante (livros lidos) ----------------
+   Vive em store.livros e aparece dentro do card do hábito marcado com `livros:true`.
+   Ligar por flag e não pelo id 'h_leitura' evita órfãos se o hábito for renomeado
+   ou recriado, e permite mais de uma estante no futuro sem tocar nesta função. */
+const MESES_CURTO=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function livrosDoAno(ano){return store.livros.filter(lv=>+String(lv.mes).slice(0,4)===ano)
+  .sort((a,b)=>String(b.mes).localeCompare(String(a.mes))||String(a.titulo).localeCompare(String(b.titulo)));}
+function mesLabel(mes){const[y,m]=String(mes).split('-');return (MESES_CURTO[+m-1]||'?')+'/'+String(y).slice(2);}
+function hbEstante(hb,ano){
+  const livros=livrosDoAno(ano), ehAtual=ano===anoAtual();
+  const paginas=livros.reduce((s,lv)=>s+(lv.paginas||0),0);
+  const comPag=livros.filter(lv=>lv.paginas>0);
+  // meses decorridos: no ano corrente o ritmo é sobre o que já passou, senão
+  // dezembro puxaria a média para baixo em janeiro e o número não diria nada.
+  const mesesCorridos=ehAtual?(new Date().getMonth()+1):12;
+  const ritmo=livros.length/mesesCorridos;
+
+  const porMes=Array.from({length:12},()=>({n:0,p:0}));
+  livros.forEach(lv=>{const i=+String(lv.mes).slice(5,7)-1; if(i>=0&&i<12){porMes[i].n++;porMes[i].p+=lv.paginas||0;}});
+  const maxP=Math.max(1,...porMes.map(x=>x.p));
+  const barras=`<div class="est-meses">${porMes.map((x,i)=>`
+    <div class="est-mes ${x.n?'on':''}" title="${MESES_CURTO[i]}/${ano}: ${x.n} ${x.n===1?'livro':'livros'}${x.p?' · '+x.p+' páginas':''}">
+      <div class="est-bar"><i style="height:${x.p?Math.max(8,x.p/maxP*100):0}%;background:${hb.cor}"></i></div>
+      <span>${MESES_CURTO[i]}</span><b>${x.n||''}</b>
+    </div>`).join('')}</div>`;
+
+  const grupos=[...new Set(livros.map(lv=>lv.mes))].map(mes=>{
+    const doMes=livros.filter(lv=>lv.mes===mes);
+    return `<div class="est-grupo"><div class="est-gh">${mesLabel(mes)} <span>${doMes.length} ${doMes.length===1?'livro':'livros'}${doMes.reduce((s,l)=>s+(l.paginas||0),0)?' · '+doMes.reduce((s,l)=>s+(l.paginas||0),0)+' pág.':''}</span></div>
+      ${doMes.map(lv=>`<div class="est-item">
+        <div class="est-cap" style="background:${hb.cor}1f;color:${hb.cor}">${h((lv.titulo||'?').trim().charAt(0).toUpperCase())}</div>
+        <div class="est-body"><div class="t">${h(lv.titulo)}</div>
+          <div class="m">${lv.autor?h(lv.autor):'<i style="opacity:.55">sem autor</i>'}${lv.paginas?` · ${lv.paginas} pág.`:''}</div></div>
+        <button class="icon-btn" onclick="mLivro('${lv.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="delLivro('${lv.id}')" title="Excluir">✕</button>
+      </div>`).join('')}</div>`;}).join('');
+
+  return `<div class="estante">
+    <div class="est-head">
+      <b>📚 Estante · ${ano}</b>
+      <button class="btn sm line" onclick="mLivro(null)">+ Livro</button>
+    </div>
+    <div class="est-stats">
+      <span class="pill purple">${livros.length} ${livros.length===1?'livro':'livros'}</span>
+      ${paginas?`<span class="pill blue">${paginas.toLocaleString('pt-BR')} páginas</span>`:''}
+      ${comPag.length?`<span class="pill gray" title="${comPag.length} de ${livros.length} ${livros.length===1?'livro':'livros'} com nº de páginas preenchido — os demais ficam fora desta média">média ${Math.round(comPag.reduce((s,l)=>s+l.paginas,0)/comPag.length)} pág./livro</span>`:''}
+      ${livros.length?`<span class="pill ${ritmo>=1?'green':'amber'}" title="${livros.length} ${livros.length===1?'livro':'livros'} em ${mesesCorridos} ${mesesCorridos===1?'mês decorrido':'meses decorridos'}">${ritmo.toFixed(1).replace('.',',')} livro/mês</span>`:''}
+    </div>
+    ${livros.length?barras+grupos:'<div class="empty" style="padding:16px">Nenhum livro registrado em '+ano+'.</div>'}
+  </div>`;
+}
+function mLivro(id=null){
+  const lv=id?store.livros.find(x=>x.id===id):null;
+  const mesPad=lv?lv.mes:todayISO().slice(0,7);
+  modal(`<h3>${lv?'Editar livro':'Novo livro'}</h3>
+    <div class="field"><label>Título</label><input id="lvt" placeholder="Ex: Clean Architecture" value="${lv?h(lv.titulo):''}"></div>
+    <div class="field"><label>Autor</label><input id="lva" placeholder="Ex: Robert C. Martin" value="${lv?h(lv.autor||''):''}"></div>
+    <div class="grid2">
+      <div class="field"><label>Páginas</label><input type="number" id="lvp" min="0" step="1" placeholder="0" value="${lv&&lv.paginas?lv.paginas:''}"></div>
+      <div class="field"><label>Mês da leitura</label><input type="month" id="lvm" value="${mesPad}"></div>
+    </div>
+    <div style="font-size:11px;color:var(--faint);margin:-6px 0 4px">O mês é o da <b>conclusão</b> — livro atravessando a virada do mês conta uma vez só, no mês em que terminou. Páginas em branco não entram na média.</div>
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+    <button class="btn" onclick="saveLivro(${lv?`'${id}'`:'null'})">${lv?'Salvar':'Adicionar'}</button></div>`);
+  setTimeout(()=>document.getElementById('lvt').focus(),50);
+}
+function saveLivro(id){
+  const titulo=document.getElementById('lvt').value.trim();
+  if(!titulo){toast('Dê um título ao livro');return;}
+  const mes=document.getElementById('lvm').value;
+  if(!/^\d{4}-\d{2}$/.test(mes)){toast('Informe o mês da leitura');return;}
+  if(mes>todayISO().slice(0,7)){toast('Mês no futuro — a estante registra o que já foi lido');return;}
+  const dados={titulo, autor:document.getElementById('lva').value.trim(),
+    paginas:Math.max(0,+document.getElementById('lvp').value||0), mes};
+  if(id){Object.assign(store.livros.find(x=>x.id===id),dados);}
+  else{store.livros.push({id:uid(),...dados});}
+  // Um livro cadastrado num ano sem marcações abre esse ano no seletor: pular
+  // para o ano do livro evita o cadastro "sumir" logo depois de salvo.
+  hbAno=+mes.slice(0,4);
+  save();closeModal();vHabitos();toast(id?'Livro atualizado':'Livro adicionado');
+}
+function delLivro(id){
+  const lv=store.livros.find(x=>x.id===id); if(!lv)return;
+  if(!confirm('Excluir "'+lv.titulo+'" da estante?'))return;
+  store.livros=store.livros.filter(x=>x.id!==id);
+  save();vHabitos();toast('Livro removido');
+}
+
 function vHabitos(){
   const total=store.habitos.length;
   const hoje=todayISO(), mon=localISO(anMonday(0));
@@ -3422,6 +3541,7 @@ function vHabitos(){
           ${hb.auto?'':`<button class="icon-btn" onclick="delHabito('${hb.id}')" title="Excluir">✕</button>`}
         </span>
       </div>
+      ${hb.livros?hbEstante(hb,ano):''}
       ${ehAtual&&imp?`<div class="hs-imp">
         📊 Dias <b>com</b> ${h(hb.nome.toLowerCase())}: <b style="color:var(--ink)">${fmtDur(imp.com)}</b> de estudo em média ·
         <b>sem</b>: <b style="color:var(--ink)">${fmtDur(imp.sem)}</b>
@@ -3524,6 +3644,10 @@ function mHabito(id=null){
       <div id="mhDiasBox" style="display:flex;flex-wrap:wrap;gap:6px">${renderDiaChips()}</div>
     </div>
 
+    <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);cursor:pointer;margin-bottom:10px">
+      <input type="checkbox" id="hblv" ${hb&&hb.livros?'checked':''} style="width:auto">
+      📚 Estante — registrar os livros lidos (título, autor, páginas e mês) dentro deste hábito
+    </label>
     <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);cursor:pointer;margin-bottom:4px">
       <input type="checkbox" id="hba" ${hb&&hb.auto?'checked':''} style="width:auto"
         onchange="document.getElementById('mhAutoWrap').style.display=this.checked?'block':'none'">
@@ -3551,7 +3675,8 @@ function saveHabito(id){
     excluir:auto?_mhExcl.slice():[],
     minMin:auto?Math.max(1,+document.getElementById('hbmin').value||60):0,
     freq, alvo:freq==='semanal'?+document.getElementById('hbalvo').value||3:0,
-    dias:freq==='dias'?_mhDias.slice().sort():[]};
+    dias:freq==='dias'?_mhDias.slice().sort():[],
+    livros:document.getElementById('hblv').checked};
   if(id){Object.assign(store.habitos.find(x=>x.id===id),dados);}
   else{store.habitos.push({id:uid(),...dados});}
   save();closeModal();vHabitos();toast(id?'Hábito atualizado':'Hábito adicionado');
@@ -3624,6 +3749,7 @@ function diagnostico(){
     ['Matérias','materias',store.materias.length],
     ['Blocos de grade','grade',store.grade.length],
     ['Dias de hábito','habitLog',Object.keys(store.habitLog).length],
+    ['Livros lidos','livros',store.livros.length],
   ].map(([nome,k,n])=>({nome,n,bytes:new Blob([JSON.stringify(store[k])]).size}))
    .sort((a,b)=>b.bytes-a.bytes);
   const registros=store.logs.length+store.aulas.length+store.sincronas.length
