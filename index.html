@@ -2060,21 +2060,65 @@ function delMateria(id){
 }
 
 /* ---- Aba: Aulas gravadas (agrupadas por matéria) ---- */
+let _aulasMat='all', _aulasEst='todas';
+function setAulasMat(v){_aulasMat=v;vUnitins();}
+function setAulasEst(v){_aulasEst=v;vUnitins();}
+/* Uma aula só está "fechada" quando foi assistida E estudada — as duas marcações
+   são independentes, então usar só `done` como conclusão esconderia exatamente o
+   backlog de revisão que este filtro existe para expor. */
+function aulaEstado(a){return !a.done?'assistir':(!a.estudada?'estudar':'ok');}
 function uniAulas(){
   const mats=materiasDoPeriodo();
   if(!mats.length)
     return `<div class="card"><div class="empty">Cadastre uma matéria neste período primeiro.<br>
       <button class="btn sm ghost" style="margin-top:12px" onclick="setUni('materias')">Ir para Matérias</button></div></div>`;
+
+  // Se o filtro apontar para matéria fora do período selecionado, volta para "todas"
+  // — senão a aba abriria vazia sem explicação depois de trocar de período.
+  if(_aulasMat!=='all'&&!mats.some(m=>m.id===_aulasMat))_aulasMat='all';
+  const todasAulas=mats.flatMap(m=>aulasDaMateria(m.id));
+  const nEstado={assistir:0,estudar:0,ok:0};
+  todasAulas.forEach(a=>{nEstado[aulaEstado(a)]++;});
+  const abertoDaMat=mid=>(mid==='all'?todasAulas:aulasDaMateria(mid)).filter(a=>aulaEstado(a)!=='ok').length;
+
+  const chipsMat=mats.length>1?`<div class="area-tabs" style="margin-bottom:9px;gap:7px">
+    <button class="area-tab ${_aulasMat==='all'?'active':''}" onclick="setAulasMat('all')">Todas <b style="opacity:.6">${abertoDaMat('all')}</b></button>
+    ${mats.map(m=>`<button class="area-tab ${_aulasMat===m.id?'active':''}" onclick="setAulasMat('${m.id}')">${h(m.nome)} <b style="opacity:.6">${abertoDaMat(m.id)}</b></button>`).join('')}
+  </div>`:'';
+
+  const ce=(k,lbl,n)=>`<button class="area-tab ${_aulasEst===k?'active':''}" onclick="setAulasEst('${k}')">${lbl}${n!=null?` <b style="opacity:.6">${n}</b>`:''}</button>`;
+  const chipsEst=`<div class="area-tabs" style="margin-bottom:14px;gap:7px">
+    ${ce('todas','Qualquer estado',todasAulas.length)}
+    ${ce('assistir','⭘ A assistir',nEstado.assistir)}
+    ${ce('estudar','📖 Falta estudar',nEstado.estudar)}
+    ${ce('ok','✓ Concluídas',nEstado.ok)}
+  </div>`;
+
+  const filtroAtivo=_aulasMat!=='all'||_aulasEst!=='todas';
+  const estLbl={assistir:'a assistir',estudar:'falta estudar',ok:'concluídas'}[_aulasEst];
+  // rótulo separado para caber na frase "Nenhuma aula ___ em X"
+  const estFrase={assistir:'pendente de assistir',estudar:'com revisão pendente',ok:'concluída'}[_aulasEst];
+  const barra=filtroAtivo?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    ${_aulasMat!=='all'?`<button class="pill gray" style="cursor:pointer" onclick="setAulasMat('all')">✕ matéria: ${h(materiaNome(_aulasMat))}</button>`:''}
+    ${_aulasEst!=='todas'?`<button class="pill gray" style="cursor:pointer" onclick="setAulasEst('todas')">✕ estado: ${estLbl}</button>`:''}
+  </div>`:'';
+
   const legenda=`<div class="h-sub" style="margin-bottom:14px">
     <span class="check on" style="width:16px;height:16px;font-size:9px;display:inline-flex;vertical-align:middle">✓</span> assisti ·
     <span class="check-sq on" style="width:16px;height:16px;font-size:9px;display:inline-flex;vertical-align:middle">📖</span> estudei (revisão, exercícios, resumo) — as duas são independentes.</div>`;
-  const blocos=mats.map(m=>{
+  const visiveis=mats.filter(m=>_aulasMat==='all'||m.id===_aulasMat);
+  let ocultas=0;
+  const blocos=visiveis.map(m=>{
     const aulas=aulasDaMateria(m.id);
+    // As barras seguem o TOTAL da matéria, nunca o subconjunto filtrado: um progresso
+    // que muda de valor conforme o filtro é um progresso em que não dá para confiar.
     const vistas=aulas.filter(a=>a.done).length;
     const estud=aulas.filter(a=>a.estudada).length;
     const pV=aulas.length?Math.round(vistas/aulas.length*100):0;
     const pE=aulas.length?Math.round(estud/aulas.length*100):0;
-    const lista=aulas.length?aulas.map(a=>`<div class="list-item ${a.estudada?'done':''}">
+    const filtradas=aulas.filter(a=>_aulasEst==='todas'||aulaEstado(a)===_aulasEst);
+    if(aulas.length&&!filtradas.length&&_aulasEst!=='todas'){ocultas++;return '';}
+    const lista=filtradas.length?filtradas.map(a=>`<div class="list-item ${a.estudada?'done':''}">
         <div class="check ${a.done?'on':''}" onclick="toggleAula('${a.id}')" title="${a.done?'Assistida':'Marcar como assistida'}">${a.done?'✓':''}</div>
         <div class="check-sq ${a.estudada?'on':''}" onclick="toggleAulaEstudo('${a.id}')" title="${a.estudada?'Estudada':'Marcar como estudada'}">${a.estudada?'📖':''}</div>
         <div class="li-body"><div class="t">${h(a.nome)}</div>
@@ -2088,6 +2132,7 @@ function uniAulas(){
         <h3 style="margin:0">${h(m.nome)}</h3>
         ${statusPill(materiaStatus(m))}
         ${m.statusManual?'<span class="pill gray" title="Status travado manualmente">🔒 manual</span>':''}
+        ${_aulasEst!=='todas'?`<span class="pill gray">${filtradas.length} de ${aulas.length}</span>`:''}
         <div style="margin-left:auto;display:flex;gap:8px">
           <button class="btn sm line" onclick="mAula(null,'${m.id}')">+ Aula</button>
           <button class="btn sm line" onclick="mGerarAulas('${m.id}')" title="Criar várias aulas numeradas de uma vez">⚡ Série</button>
@@ -2105,7 +2150,10 @@ function uniAulas(){
       </div>`:''}
       ${lista}
     </div>`;}).join('');
-  return legenda+blocos;
+
+  const vazio=!blocos?`<div class="card"><div class="empty">Nenhuma aula ${estFrase||''} ${_aulasMat==='all'?'em nenhuma matéria':'em '+h(materiaNome(_aulasMat))}. 🎉</div></div>`:'';
+  const rodape=ocultas?`<div class="h-sub" style="margin-top:-4px">${ocultas} ${ocultas===1?'matéria sem aula':'matérias sem aula'} neste estado ${ocultas===1?'foi omitida':'foram omitidas'}.</div>`:'';
+  return chipsMat+chipsEst+barra+legenda+blocos+vazio+rodape;
 }
 function mAula(id=null,materiaSel=''){
   const a=id?store.aulas.find(x=>x.id===id):null;
