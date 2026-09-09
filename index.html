@@ -12,7 +12,7 @@
   --sidebar:#17141b; --sidebar-2:#211d29; --sidebar-hover:#2b2635;
   --bg:#f3f1f7; --card:#ffffff; --card-2:#faf9fc;
   --ink:#1e1b24; --muted:#6d6879; --faint:#9b96a7;
-  --line:#e9e6f0;
+  --line:#e9e6f0; --track:#f0eef5;
   --purple:#7c3aed; --purple-2:#8b5cf6; --purple-soft:#efe9fe;
   --rose:#db5c88; --rose-soft:#fbe9f0;
   --green:#1d9e75; --green-soft:#e1f5ee;
@@ -25,7 +25,7 @@
 :root[data-tema="escuro"]{
   --bg:#131118; --card:#1c1922; --card-2:#232029;
   --ink:#ece9f2; --muted:#a29caf; --faint:#7a7488;
-  --line:#2e2a36;
+  --line:#2e2a36; --track:#2a2633;
   --purple-soft:#2c2440; --rose-soft:#3a2230; --green-soft:#16302a;
   --amber-soft:#352713; --red-soft:#3a1f1f; --blue-soft:#122c44;
 }
@@ -198,7 +198,7 @@ tr:last-child td{border-bottom:none}
 }
 .bar-row{display:flex;align-items:center;gap:12px}
 .bar-row .lbl{width:110px;font-size:13px;flex-shrink:0}
-.bar-track{flex:1;height:22px;background:#f0eef5;border-radius:7px;overflow:hidden}
+.bar-track{flex:1;height:22px;background:var(--track);border-radius:7px;overflow:hidden}
 .bar-track > i{display:block;height:100%;border-radius:7px;transition:width .5s}
 .bar-row .val{width:64px;text-align:right;font-size:13px;font-weight:600;color:var(--muted)}
 
@@ -1003,6 +1003,9 @@ function workHoursYear(y){y=String(y||anoAtual());
   return workLogs().filter(l=>String(l.data).startsWith(y)).reduce((s,l)=>s+durH(l.ini,l.fim),0);}
 function workHoursOnDay(iso){
   return workLogs().filter(l=>l.data===iso).reduce((s,l)=>s+durH(l.ini,l.fim),0);}
+// segunda-feira da semana de `iso` (semana ISO, igual ao weekKey)
+function inicioSemanaISO(iso){const d=new Date((iso||todayISO())+'T12:00');
+  d.setDate(d.getDate()-((d.getDay()+6)%7)); return localISO(d);}
 function hoursBy(fn){const m={};countableLogs().forEach(l=>{const k=fn(l);m[k]=(m[k]||0)+durH(l.ini,l.fim);});return m;}
 function hoursThisWeek(){const wk=weekKey(todayISO());return countableLogs().filter(l=>weekKey(l.data)===wk).reduce((s,l)=>s+durH(l.ini,l.fim),0);}
 function hoursThisWeekByArea(areaId){const wk=weekKey(todayISO());
@@ -1125,6 +1128,14 @@ function trabalhoCard(){
   const mes=workHoursMonth(), ano=workHoursYear(hoje.slice(0,4));
   const dif=sem-semAnt;
   const ultimas=logs.slice().sort((a,b)=>(b.data+b.ini).localeCompare(a.data+a.ini)).slice(0,3);
+  /* Faixa de números do dia. Cinza-ardósia de propósito: mesma estrutura da faixa
+     do topo, sem o roxo/gradiente de conquista — trabalho em casa não é streak. */
+  const seg=inicioSemanaISO(hoje);
+  const porDia=Array.from({length:7},(_,i)=>{const d=addDaysISO(seg,i);return workHoursOnDay(d);});
+  const hojeH=workHoursOnDay(hoje);
+  const diasComCarga=porDia.filter(v=>v>0).length;
+  const picoDia=Math.max(...porDia);
+  const mediaDia=diasComCarga?porDia.reduce((s,v)=>s+v,0)/diasComCarga:0;
   return `<div class="card" style="margin-bottom:20px;border-left:3px solid ${cor}">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
       <div><h3>Carga de trabalho · TRE em casa</h3>
@@ -1140,6 +1151,11 @@ function trabalhoCard(){
         <span class="pill gray">${fmtDur(ano)} em ${hoje.slice(0,4)}</span>
         <span class="pill gray">${logs.length} ${logs.length===1?'sessão':'sessões'}</span>
       </span>
+    </div>
+    <div class="stat-row" style="margin-top:14px;background:linear-gradient(120deg,${cor},#585365);padding:18px 22px">
+      <div class="stat"><b>${fmtDur(hojeH)}</b><span>trabalhadas hoje</span></div>
+      <div class="stat"><b>${fmtDur(mediaDia)}</b><span>média por dia com carga</span></div>
+      <div class="stat"><b>${diasComCarga}/7</b><span>dias com carga na semana</span></div>
     </div>
     <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
       <div class="h-sub" style="margin-bottom:8px">Últimos lançamentos</div>
