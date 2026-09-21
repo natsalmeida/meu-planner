@@ -797,6 +797,13 @@ let modoLocal=false;          // usuário optou por seguir sem sincronizar
 
 function initAuth(){
   firebase.auth().onAuthStateChanged(user=>{
+    /* Sessão anônima da versão antiga continua salva no navegador e é aceita como login:
+       cada aparelho tem um UID diferente e a regra só serve para um deles. Derruba e exige Google. */
+    if(user&&user.isAnonymous){
+      firebase.auth().signOut();
+      toast('Sessão anônima antiga encerrada — entre com o Google');
+      return;                                   // signOut dispara este callback de novo com null → abre o portão
+    }
     authUser=user||null;
     if(user){
       authReady=true; modoLocal=false;
@@ -4201,7 +4208,7 @@ function finErrSync(err){
   else finSetSync('erro',code);
 }
 function finSyncBox(){
-  const st=FIN_SYNC.estado, conta=authUser?(authUser.email||authUser.uid):'';
+  const st=FIN_SYNC.estado, conta=authUser?(authUser.email?authUser.email+' · UID '+authUser.uid.slice(0,6)+'…':authUser.uid):'';
   const map={
     ok:['green','● Finanças sincronizadas',`conta ${conta}`],
     conectando:['gray','○ Conectando finanças…',conta?`conta ${conta}`:''],
