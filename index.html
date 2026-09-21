@@ -429,6 +429,69 @@ tr:last-child td{border-bottom:none}
   th,td{padding:9px 7px}
 }
 .menu-btn{display:none;position:fixed;top:14px;left:14px;z-index:70;background:var(--sidebar);color:#fff;width:40px;height:40px;border-radius:10px;align-items:center;justify-content:center;font-size:18px}
+/* ---------------- Finanças ---------------- */
+.fin-inf{display:block;font-size:10px;font-weight:500;color:var(--amber);text-align:right}
+.fin-imp td{font-size:13px;vertical-align:top}
+.fin-imp tr.off td{opacity:.45}
+.fin-imp-av{font-size:11px;color:var(--amber);margin-top:3px}
+.modal textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card-2);color:var(--ink);font-family:ui-monospace,monospace;font-size:12px}
+
+.fin-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.fin-top-r{margin-left:auto;display:flex;gap:6px;align-items:center}
+.fin-nav{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.fin-nav b{font-family:var(--serif);font-size:22px;font-weight:500;display:block;text-transform:capitalize;line-height:1.1}
+.fin-nav small{font-size:11px;color:var(--faint)}
+.fin-card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.fin-val{font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap}
+.fin-val.pos,.fin-eq .pos b{color:var(--green)}
+.fin-eq .neg b{color:var(--red)}
+.fin-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:11px;background:var(--purple-soft);color:var(--purple);font-size:13px;margin-bottom:12px}
+.fin-alert{margin-bottom:12px}
+.fin-soon{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-bottom:14px}
+.fin-eq{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:13px;color:var(--muted)}
+.fin-eq b{display:block;font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums}
+.fin-eq i{font-style:normal;color:var(--faint);font-size:18px}
+.fin-mic-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;margin:4px 0 18px;text-align:center}
+.fin-mic{width:84px;height:84px;border-radius:50%;background:var(--purple);color:#fff;font-size:34px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(124,58,237,.35);transition:transform .12s}
+.fin-mic.on{background:var(--rose);animation:finPulse 1.1s infinite}
+.fin-mic.sm{width:44px;height:44px;font-size:20px;box-shadow:none;flex-shrink:0}
+@keyframes finPulse{0%{box-shadow:0 0 0 0 rgba(219,92,136,.55)}100%{box-shadow:0 0 0 22px rgba(219,92,136,0)}}
+.fin-live{font-size:14px;color:var(--muted);min-height:20px;max-width:360px;line-height:1.45}
+.fin-ex{font-size:11px;color:var(--faint);line-height:1.6;margin-top:-4px}
+.fin-heard{font-size:12px;color:var(--faint);font-style:italic;margin:-8px 0 8px}
+.fin-sum{padding:11px 13px;border-radius:10px;background:var(--green-soft);color:var(--green);font-size:14px;font-weight:600;margin-bottom:10px;line-height:1.45}
+.fin-flag{padding:8px 12px;border-radius:9px;background:var(--amber-soft);color:var(--amber);font-size:12px;margin-bottom:8px}
+.fin-sn{font-size:13px;color:var(--purple);min-height:18px;margin-top:4px}
+.fin-chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:6px 0;cursor:pointer}
+.fin-chk input{width:16px;height:16px;accent-color:var(--purple)}
+.fin-voice-cta{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:14px 16px;border-radius:var(--radius);background:var(--card);border:1px dashed var(--purple-2);transition:background .12s}
+.fin-voice-cta:hover{background:var(--purple-soft)}
+.fin-voice-cta b{display:block;font-size:15px}
+.fin-voice-cta small{font-size:12px;color:var(--faint)}
+.fin-day{display:flex;justify-content:space-between;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600;padding:14px 4px 4px;border-bottom:1px solid var(--line)}
+.fin-proj{display:flex;gap:8px;align-items:flex-end;margin:14px 0 8px;overflow-x:auto}
+.fin-proj>div{flex:1;min-width:52px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.fin-proj i{display:block;width:100%;max-width:38px;background:var(--purple-2);border-radius:5px 5px 2px 2px;opacity:.85}
+.fin-proj b{font-size:10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fin-proj span{font-size:10px;color:var(--faint);text-transform:uppercase}
+.fin-fat{border-top:1px solid var(--line)}
+.fin-fat summary{display:flex;align-items:center;gap:10px;padding:11px 2px;cursor:pointer;list-style:none;flex-wrap:wrap}
+.fin-fat summary::-webkit-details-marker{display:none}
+.fin-fat summary::before{content:"▸";color:var(--faint);font-size:11px;transition:transform .12s}
+.fin-fat[open] summary::before{transform:rotate(90deg)}
+.fin-fat-t{font-weight:600;font-size:14px;text-transform:capitalize}
+.fin-fat summary b{margin-left:auto;font-variant-numeric:tabular-nums}
+.fin-parc{display:flex;align-items:center;gap:9px;padding:7px 4px 7px 22px;font-size:13px;border-top:1px dashed var(--line)}
+.fin-parc .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fin-parc small{color:var(--faint);font-size:11px;white-space:nowrap}
+.fin-parc b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.fin-apr{display:flex;flex-wrap:wrap;gap:6px}
+.fin-apr .chip{display:inline-flex;align-items:center;gap:2px}
+@media(max-width:820px){
+  .fin-top-r{margin-left:0;width:100%}
+  .fin-top-r .btn:first-child{flex:1;justify-content:center}
+  .fin-eq b{font-size:15px}
+}
 </style>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -734,10 +797,12 @@ function initAuth(){
       renderConta();
       setSync('conectando','');
       attachSync();
+      attachFinSync();
     }else{
       authReady=false;
       try{ db.ref(ROOT).off(); }catch(e){}
       syncAttached=false;
+      detachFinSync();
       renderConta();
       setSync('local','você não está autenticado — nada sobe para a nuvem');
       if(!modoLocal) abrirPortao();
@@ -775,9 +840,22 @@ function loginErro(err){
   console.error('login:',c,err);
   setLoginMsg(msg,'erro');
 }
+/* Sair NÃO bastava: o espelho local (estudos + finanças) ficava no navegador e o botão
+   "Usar só neste aparelho" do portão abria essa cópia sem login. Em computador que não é
+   seu (ex.: TRE), sair tem que limpar o aparelho. Só limpa se a nuvem estiver em dia. */
+function limparAparelho(){
+  try{ Object.keys(localStorage).filter(k=>k.startsWith('planner_')).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+}
 function sair(){
-  if(!confirm('Sair da conta?\nSeus dados continuam salvos na nuvem e neste aparelho.'))return;
-  firebase.auth().signOut().then(()=>toast('Sessão encerrada'));
+  if(!confirm('Sair da conta?'))return;
+  let limpar=confirm('Apagar também os dados guardados NESTE aparelho?\n\nOK = recomendado em computador que não é só seu (os dados continuam na nuvem).\nCancelar = manter a cópia local.');
+  if(limpar&&SYNC_ST.estado!=='ok'){
+    limpar=confirm('ATENÇÃO: a sincronização não está confirmada ('+(SYNC_INFO[SYNC_ST.estado]||{}).txt+').\nApagar agora pode perder o que ainda não subiu.\n\nApagar mesmo assim?');
+  }
+  firebase.auth().signOut().then(()=>{
+    if(limpar){ limparAparelho(); location.reload(); }   // reload zera também o que está na memória
+    else toast('Sessão encerrada — cópia local mantida');
+  });
 }
 function usarOffline(){
   modoLocal=true; fecharPortao();
@@ -839,11 +917,13 @@ function attachSync(){
 
 function load(){
   hydrateLocal();          // pinta a UI instantaneamente (funciona offline)
+  finHydrate();            // finanças: nó e espelho local próprios
   aplicarTema();
   renderNav();
   go('dashboard');
   initAuth();              // conecta o Firebase e passa a sincronizar ao vivo
   setTimeout(checkDeadlineAlerts, 1200);
+  setTimeout(finAvisos, 1500);
 }
 
 function aplicarTema(){document.documentElement.setAttribute('data-tema',store.tema||'claro');}
@@ -1040,7 +1120,7 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1900);}
 function modal(html){document.getElementById('modalRoot').innerHTML=
   `<div class="modal-bg"><div class="modal">${html}</div></div>`;}
-function closeModal(){document.getElementById('modalRoot').innerHTML='';
+function closeModal(){if(typeof finPararEscuta==='function'){finPararEscuta();try{speechSynthesis.cancel();}catch(e){}}document.getElementById('modalRoot').innerHTML='';
   if(pendingRerender){pendingRerender=false;aplicarTema();renderNav();renderCurrent();}}
 function h(s){return(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function areaOptions(sel,includeTre=true){return AREAS.filter(a=>includeTre||a.conta)
@@ -1054,6 +1134,7 @@ const NAV=[
   {id:'calendario',ic:'▤',nome:'Calendário'},
   {id:'pendencias',ic:'◔',nome:'Pendências'},
   {id:'habitos',ic:'✓',nome:'Hábitos'},
+  {id:'financas',ic:'◎',nome:'Finanças'},
   {g:'Estudos'},
   {id:'diarios',ic:'✎',nome:'Diários de Bordo'},
   {id:'grade',ic:'▥',nome:'Grade Semanal'},
@@ -1077,7 +1158,7 @@ function toggleSidebar(force){
   sb.classList.toggle('open',openNow); ov.classList.toggle('show',openNow);
 }
 const VIEWS={dashboard:vDashboard,calendario:vCalendario,pendencias:vPendencias,
-  habitos:vHabitos,diarios:vDiarios,grade:vGrade,unitins:vUnitins,analytics:vAnalytics};
+  habitos:vHabitos,diarios:vDiarios,grade:vGrade,unitins:vUnitins,analytics:vAnalytics,financas:vFinancas};
 function renderCurrent(){ (VIEWS[current]||vDashboard)(); } // re-render sem scroll/side-effects
 function go(id){current=id;renderNav();toggleSidebar(false);
   window.scrollTo(0,0);(VIEWS[id]||vDashboard)();}
@@ -3979,7 +4060,7 @@ function mDiagnostico(){
       if(!authUser) return `<div style="padding:11px 13px;border-radius:10px;background:var(--amber-soft);color:var(--amber);font-size:12px;margin:14px 0">
         Você não está autenticado. Entre com o Google para ver o seu UID e a regra de segurança correspondente.</div>`;
       const uid=authUser.uid;
-      const regras=`{\n  "rules": {\n    "${ROOT}": {\n      ".read": "auth.uid === '${uid}'",\n      ".write": "auth.uid === '${uid}'"\n    }\n  }\n}`;
+      const regras=`{\n  "rules": {\n    "${ROOT}": {\n      ".read": "auth.uid === '${uid}'",\n      ".write": "auth.uid === '${uid}'"\n    },\n    "${FIN_ROOT}": {\n      ".read": "auth.uid === '${uid}'",\n      ".write": "auth.uid === '${uid}'"\n    }\n  }\n}`;
       return `<div style="border:1px solid var(--line);border-radius:11px;padding:13px;margin:14px 0">
         <div style="font-size:13px;font-weight:700;margin-bottom:4px">Regra de segurança para este projeto</div>
         <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:9px">
@@ -4043,6 +4124,911 @@ function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReade
     inp.value='';
   };
   r.readAsText(f);}
+
+/* ======================================================================
+   FINANÇAS
+   Nó PRÓPRIO no Firebase (meu_financeiro), fora do `store`. Motivo:
+   save() faz set() do store inteiro em meu_planner — um filho aninhado ali
+   seria sobrescrito a cada gravação de estudo, e cada gasto registrado
+   inflaria o payload do planner (que o Diagnóstico já vigia).
+   ====================================================================== */
+const FIN_ROOT='meu_financeiro';
+const FIN_LS='planner_fin_v1';
+const FIN_MEIOS={pix:'Pix',credito:'Crédito',debito:'Débito',dinheiro:'Dinheiro'};
+const FIN_CATS=[
+  {id:'alimentacao',nome:'Alimentação',cor:'#ba7517',kw:['ifood','restaurante','lanche','lanchonete','padaria','pizza','pizzaria','hamburguer','burger','acai','sorvete','cafe','almoco','janta','jantar','marmita','marmitex','comida','salgado','pastel','churrasco','delivery','espetinho','sushi','doce','bolo']},
+  {id:'mercado',nome:'Mercado',cor:'#1d9e75',kw:['mercado','supermercado','atacadao','assai','feira','hortifruti','acougue','verdurao','quitanda']},
+  {id:'transporte',nome:'Transporte',cor:'#378add',kw:['uber','taxi','onibus','gasolina','combustivel','posto','etanol','alcool','estacionamento','pedagio','passagem','mecanico','oficina','ipva','pneu','oleo','lava jato']},
+  {id:'saude',nome:'Saúde',cor:'#e24b4a',kw:['farmacia','remedio','remedios','drogaria','consulta','medico','dentista','exame','exames','academia','plano de saude','psicologo','terapia','suplemento','whey']},
+  {id:'educacao',nome:'Educação',cor:'#7c3aed',kw:['livro','livros','livraria','curso','faculdade','unitins','apostila','xerox','impressao','udemy','alura','busuu','kultivi','caderno']},
+  {id:'moradia',nome:'Casa',cor:'#6d6879',kw:['aluguel','condominio','luz','energia','agua','internet','gas','botijao','limpeza','reforma','moveis','utensilio','utensilios']},
+  {id:'lazer',nome:'Lazer',cor:'#db5c88',kw:['cinema','show','bar','cerveja','balada','viagem','hotel','ingresso','jogo','festa','passeio','boteco']},
+  {id:'assinaturas',nome:'Assinaturas',cor:'#0e8a9b',kw:['netflix','spotify','youtube','prime video','amazon prime','disney','chatgpt','claude','icloud','google one','assinatura','notion','deezer','globoplay','hbo']},
+  {id:'compras',nome:'Compras',cor:'#b3589a',kw:['roupa','roupas','sapato','tenis','shopee','amazon','mercado livre','shein','magalu','loja','presente','eletronico','celular','fone','notebook','computador','blusa','calca','vestido']},
+  {id:'cuidados',nome:'Cuidados pessoais',cor:'#8a6d3b',kw:['salao','cabelo','manicure','unha','unhas','barbeiro','cosmetico','cosmeticos','perfume','maquiagem','depilacao','skincare']},
+  {id:'pets',nome:'Pets',cor:'#5f8f3e',kw:['racao','veterinario','petshop','pet shop','areia']},
+  {id:'outros',nome:'Outros',cor:'#9b96a7',kw:[]},
+];
+// palavras-chave mais longas primeiro: "mercado livre" tem que vencer "mercado"
+const FIN_KW=FIN_CATS.flatMap(c=>c.kw.map(k=>[k,c.id])).sort((a,b)=>b[0].length-a[0].length);
+const finCatById=id=>FIN_CATS.find(c=>c.id===id);
+const finCat=id=>finCatById(id)||FIN_CATS[FIN_CATS.length-1];
+
+const fin={version:1,contas:[],modelos:[],gastos:[],cartoes:[],faturasPagas:{},faturasValor:{},aprendido:{},cfg:{diaVirada:10,vozConfirma:true,cartaoPadrao:''}};
+
+function finNormalize(){
+  // RTDB devolve array esparso como objeto e omite array vazio
+  ['contas','modelos','gastos','cartoes'].forEach(k=>{
+    if(!Array.isArray(fin[k])) fin[k]=isPlainObj(fin[k])?Object.values(fin[k]):[];
+    fin[k]=fin[k].filter(isPlainObj);
+  });
+  ['faturasPagas','faturasValor','aprendido'].forEach(k=>{ if(!isPlainObj(fin[k])) fin[k]={}; });
+  if(!isPlainObj(fin.cfg)) fin.cfg={};
+  const dv=parseInt(fin.cfg.diaVirada); fin.cfg.diaVirada=isFinite(dv)?Math.min(28,Math.max(0,dv)):10;
+  if(fin.cfg.vozConfirma===undefined) fin.cfg.vozConfirma=true;
+  if(!fin.cartoes.some(c=>c.id===fin.cfg.cartaoPadrao)) fin.cfg.cartaoPadrao='';
+  fin.contas.forEach(c=>{ if(!c.id)c.id=uid(); c.valor=r2(c.valor); c.ok=!!c.ok;
+    if(c.tipo!=='receita')c.tipo='despesa'; if(typeof c.venc!=='string')c.venc=''; if(!/^\d{4}-\d{2}$/.test(c.comp||''))c.comp=finCompDe(c.venc||todayISO()); });
+  fin.modelos.forEach(m=>{ if(!m.id)m.id=uid(); m.valor=r2(m.valor); m.dia=Math.min(31,Math.max(0,parseInt(m.dia)||0));
+    if(m.tipo!=='receita')m.tipo='despesa'; m.mesSeguinte=!!m.mesSeguinte; });
+  fin.gastos.forEach(g=>{ if(!g.id)g.id=uid(); g.valor=r2(g.valor); g.parc=Math.min(48,Math.max(1,parseInt(g.parc)||1));
+    if(!FIN_MEIOS[g.meio])g.meio='pix'; if(!finCatById(g.cat))g.cat='outros'; if(!g.data)g.data=todayISO();
+    if(g.meio!=='credito'){g.parc=1;g.cartao='';delete g.fatIni;} });
+  fin.cartoes.forEach(c=>{ if(!c.id)c.id=uid(); c.fecha=Math.min(31,Math.max(1,parseInt(c.fecha)||1));
+    c.vence=Math.min(31,Math.max(1,parseInt(c.vence)||10)); c.limite=r2(c.limite); });
+}
+function finMirror(){ try{ localStorage.setItem(FIN_LS,JSON.stringify(fin)); }catch(e){} }
+function finHydrate(){ try{ const raw=localStorage.getItem(FIN_LS); if(raw){ const d=JSON.parse(raw); if(isPlainObj(d)){Object.assign(fin,d);} } }catch(e){} finNormalize(); }
+function finTemDados(){ return fin.contas.length||fin.gastos.length||fin.cartoes.length||fin.modelos.length; }
+
+let finLastPushed='', finAttached=false;
+function finSave(){
+  finNormalize(); finMirror();
+  if(authReady){
+    finLastPushed=JSON.stringify(fin);
+    setSync('salvando');
+    db.ref(FIN_ROOT).set(JSON.parse(finLastPushed))
+      .then(()=>setSync('ok',''))
+      .catch(err=>{ syncErrHandler(err,'finSave falhou'); toast('Finanças: salvo só neste aparelho'); });
+  }else setSync('local','autenticação indisponível — nada sobe para a nuvem');
+}
+function attachFinSync(){
+  if(finAttached) return; finAttached=true;
+  db.ref(FIN_ROOT).on('value',snap=>{
+    const d=snap.val();
+    if(d==null){ if(finTemDados()) finSave(); return; }   // nuvem vazia: sobe o que existe local
+    if(!isPlainObj(d)) return;
+    const inc=JSON.stringify(d);
+    if(inc===finLastPushed||inc===JSON.stringify(fin)) return;
+    Object.assign(fin,d); finNormalize(); finMirror();
+    if(current==='financas'){ if(document.querySelector('.modal-bg')) pendingRerender=true; else vFinancas(); }
+  },err=>{
+    syncErrHandler(err,'Sync financeiro falhou');
+    if(String(err&&err.code||'').includes('permission')) toast('Finanças: atualize as regras do Firebase (Saúde dos dados)');
+  });
+}
+function detachFinSync(){ try{ db.ref(FIN_ROOT).off(); }catch(e){} finAttached=false; }
+
+/* ---------------- helpers de data/dinheiro ---------------- */
+const FIN_MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const FIN_MESES_L=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+function r2(v){return Math.round((+v||0)*100)/100;}
+function brl(v){return (+v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+function parseBRL(s){
+  s=String(s==null?'':s).replace(/[^\d.,-]/g,'');
+  if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s=s.replace(/\./g,'');       // 1.200,50
+  else if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s=s.replace(/,/g,'');    // 1,200.50
+  s=s.replace(',','.');
+  const v=parseFloat(s); return isFinite(v)?r2(v):0;
+}
+function ymAdd(ym,n){let[y,m]=ym.split('-').map(Number);m+=n;y+=Math.floor((m-1)/12);m=((m-1)%12+12)%12+1;return y+'-'+String(m).padStart(2,'0');}
+function ymDias(ym){const[y,m]=ym.split('-').map(Number);return new Date(y,m,0).getDate();}
+function ymDia(ym,d){return ym+'-'+String(Math.min(Math.max(1,d),ymDias(ym))).padStart(2,'0');}
+function ymLabel(ym,longo){const[y,m]=ym.split('-');return (longo?FIN_MESES_L:FIN_MESES)[+m-1]+(longo?' de ':'/')+y;}
+function ddmm(iso){return iso?iso.slice(8,10)+'/'+iso.slice(5,7):'—';}
+function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+function finNorm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+const finVal=id=>{const e=document.getElementById(id);return e?e.value:'';};
+
+/* Competência = o mês cujo salário paga a conta. Conta que vence até o
+   `diaVirada` do mês seguinte ainda pertence ao mês anterior. */
+function finCompDe(iso){const ym=iso.slice(0,7),d=+iso.slice(8,10);return d<=fin.cfg.diaVirada?ymAdd(ym,-1):ym;}
+
+/* ---------------- cartão: parcelas DERIVADAS, nunca armazenadas ----------------
+   A compra é 1 registro com `parc`. As parcelas são calculadas na leitura, então
+   editar valor/data/cartão da compra corrige todas as faturas de uma vez e não
+   existe parcela órfã. Fatura é identificada pelo MÊS DE VENCIMENTO. */
+function finFaturaDaCompra(cartao,dataISO){
+  const c=fin.cartoes.find(x=>x.id===cartao); const ym=dataISO.slice(0,7), d=+dataISO.slice(8,10);
+  if(!c) return ymAdd(ym,1);
+  const fechaYM=d>=c.fecha?ymAdd(ym,1):ym;          // comprou no dia do fechamento → próxima fatura
+  return c.vence>c.fecha?fechaYM:ymAdd(fechaYM,1);  // vencimento cai depois do fechamento
+}
+function finParcelas(g){
+  if(g.meio!=='credito') return [];
+  const n=g.parc||1, tot=Math.round(g.valor*100), base=Math.floor(tot/n), resto=tot-base*n;
+  const v0=g.fatIni||finFaturaDaCompra(g.cartao,g.data);
+  return Array.from({length:n},(_,k)=>({g,k:k+1,n,valor:(base+(k===0?resto:0))/100,fat:ymAdd(v0,k),cartao:g.cartao||''}));
+}
+function finTodasParcelas(){return fin.gastos.flatMap(finParcelas);}
+const finFatKey=(c,ym)=>c+'_'+ym;
+function finFaturasDaComp(M,ps){
+  ps=ps||finTodasParcelas(); const out=[];
+  fin.cartoes.forEach(c=>{
+    [M,ymAdd(M,1)].forEach(ym=>{
+      const venc=ymDia(ym,c.vence); if(finCompDe(venc)!==M) return;
+      const mine=ps.filter(p=>p.cartao===c.id&&p.fat===ym), k=finFatKey(c.id,ym);
+      const pago=!!fin.faturasPagas[k], inf=fin.faturasValor[k];
+      if(!mine.length&&!pago&&inf==null) return;
+      const calc=r2(mine.reduce((s,p)=>s+p.valor,0));
+      out.push({virtual:true,id:k,cartao:c,ym,venc,desc:'Fatura '+c.nome+' · '+ymLabel(ym),
+        valor:inf!=null?inf:calc,calc,informado:inf!=null,n:mine.length,ok:pago});
+    });
+  });
+  return out;
+}
+/* Ciclo de gasto à vista: do dia em que cai a 1ª receita da competência até a véspera
+   da 1ª receita da competência seguinte. Ancorado no dinheiro entrando, não no calendário. */
+function finCiclo(M){
+  const rec=m=>fin.contas.filter(c=>c.tipo==='receita'&&c.comp===m&&c.venc).map(c=>c.venc).sort()[0];
+  const ini=rec(M)||ymDia(M,ymDias(M));
+  const prox=rec(ymAdd(M,1));
+  let fim=prox?addDaysISO(prox,-1):addDaysISO(ymDia(ymAdd(ini.slice(0,7),1),+ini.slice(8,10)),-1);
+  if(fim<ini) fim=ini;
+  return {ini,fim};
+}
+function finFixosPendentes(M){return fin.modelos.filter(m=>!fin.contas.some(c=>c.modelo===m.id&&c.comp===M));}
+
+/* ---------------- parser de fala (pt-BR, local, sem API) ---------------- */
+const FIN_NUM={zero:0,um:1,uma:1,dois:2,duas:2,tres:3,quatro:4,cinco:5,seis:6,sete:7,oito:8,nove:9,dez:10,onze:11,doze:12,treze:13,
+  quatorze:14,catorze:14,quinze:15,dezesseis:16,dezessete:17,dezoito:18,dezenove:19,vinte:20,trinta:30,quarenta:40,cinquenta:50,
+  sessenta:60,setenta:70,oitenta:80,noventa:90,cem:100,cento:100,duzentos:200,duzentas:200,trezentos:300,trezentas:300,
+  quatrocentos:400,quinhentos:500,seiscentos:600,setecentos:700,oitocentos:800,novecentos:900};
+const FIN_CTX_NUM=new Set(['real','reais','mil','vez','vezes','parcela','parcelas','conto','contos','x']);
+const FIN_VERBOS=new Set(['gastei','gasto','paguei','pago','comprei','comprado','custou','deu','foi','fiz','tomei','pedi','abasteci']);
+const FIN_STOP=new Set(['com','no','na','nos','nas','em','de','do','da','dos','das','um','uma','o','a','os','as','pelo','pela','pra','pro','para','por',
+  'via','usando','pagamento','e','meu','minha','reais','real','centavos','centavo','conto','contos','rs','que','aqui','agora','tipo','cartao','valor']);
+function finWordsToNum(t){
+  const tk=t.split(/\s+/).filter(Boolean), out=[]; let i=0;
+  while(i<tk.length){
+    const w=tk[i];
+    if(FIN_NUM[w]!==undefined||w==='mil'){
+      let total=0,cur=0,j=i,last=i,usados=[];
+      while(j<tk.length){
+        const x=tk[j];
+        if(FIN_NUM[x]!==undefined){cur+=FIN_NUM[x];usados.push(x);last=j;j++;}
+        else if(x==='mil'){cur=(cur||1)*1000;total+=cur;cur=0;usados.push(x);last=j;j++;}
+        else if(x==='e'&&j+1<tk.length&&(FIN_NUM[tk[j+1]]!==undefined||tk[j+1]==='mil')&&usados.length){j++;}
+        else break;
+      }
+      // "um lanche": artigo, não número — só converte com contexto numérico
+      if(usados.length===1&&(usados[0]==='um'||usados[0]==='uma')&&!FIN_CTX_NUM.has(tk[last+1]||'')){out.push(w);i++;continue;}
+      out.push(String(total+cur)); i=last+1;
+    }else{out.push(w);i++;}
+  }
+  return out.join(' ');
+}
+function finCategorizar(descNorm){
+  const words=descNorm.split(/\s+/).map(w=>w.replace(/[^a-z0-9]/g,'')).filter(Boolean);
+  for(const w of words) if(fin.aprendido[w]&&finCatById(fin.aprendido[w])) return {cat:fin.aprendido[w],fonte:'aprendido'};
+  const pad=' '+words.join(' ')+' ';
+  for(const [k,c] of FIN_KW) if(pad.includes(' '+k+' ')) return {cat:c,fonte:'dicionario'};
+  return {cat:'outros',fonte:''};
+}
+function finAprender(desc,cat){
+  finNorm(desc).split(/\s+/).map(w=>w.replace(/[^a-z0-9]/g,''))
+    .filter(w=>w.length>=3&&!FIN_STOP.has(w)&&!FIN_VERBOS.has(w)&&!/^\d+$/.test(w))
+    .slice(0,3).forEach(w=>{fin.aprendido[w]=cat;});
+}
+function finParse(raw,origem){
+  const flags=[]; let m;
+  let t=finNorm(raw).replace(/r\s*\$/g,' rs ').replace(/(\d)\s*x\b/g,'$1 x')
+        .replace(/([^\d])[.,]/g,'$1 ').replace(/[.,](?!\d)/g,' ').replace(/[^a-z0-9\s.,]/g,' ');
+  t=' '+finWordsToNum(t)+' ';
+  const cut=re=>{const r=t.match(re); if(r) t=t.replace(r[0],' '); return r;};
+
+  // parcelas
+  let parc=1;
+  if(m=cut(/\s(?:em\s+|parcelad[oa]\s+em\s+)?(\d{1,2})\s+(?:x|vezes|parcelas?)\s/)) parc=Math.max(1,+m[1]);
+  if(cut(/\sa\s+vista\s/)) parc=1;
+  const falouParcelado=!!cut(/\sparcelad[oa]\s/);
+
+  // data
+  let data=todayISO();
+  if(cut(/\santeontem\s/)) data=addDaysISO(data,-2);
+  else if(cut(/\sontem\s/)) data=addDaysISO(data,-1);
+  else if(m=cut(/\s(?:no\s+)?dia\s+(\d{1,2})\s/)){
+    const ym=todayISO().slice(0,7); let iso=ymDia(ym,+m[1]);
+    if(iso>todayISO()) iso=ymDia(ymAdd(ym,-1),+m[1]); data=iso;
+  }
+  cut(/\shoje\s/);
+
+  // meio de pagamento
+  let meio=null;
+  if(cut(/\s(?:no\s+|via\s+|pelo\s+|de\s+)?pix\s/)) meio='pix';
+  else if(cut(/\s(?:no\s+|na\s+)?(?:cartao\s+(?:de\s+)?)?credito\s/)) meio='credito';
+  else if(cut(/\s(?:no\s+|na\s+)?(?:cartao\s+(?:de\s+)?)?debito\s/)) meio='debito';
+  else if(cut(/\s(?:em\s+|no\s+)?(?:dinheiro|especie)\s/)) meio='dinheiro';
+
+  // cartão pelo nome ("no nubank", "no inter")
+  let cartao='';
+  for(const c of fin.cartoes){
+    const n=finNorm(c.nome).replace(/[^a-z0-9\s]/g,' ').trim(); if(!n) continue;
+    if(cut(new RegExp('\\s(?:no\\s+|na\\s+|do\\s+|da\\s+|pelo\\s+)?(?:cartao\\s+(?:do\\s+|da\\s+)?)?'+escRe(n).replace(/\s+/g,'\\s+')+'\\s'))){cartao=c.id; if(!meio)meio='credito'; break;}
+  }
+  if(!meio&&cut(/\s(?:no\s+|na\s+)?cartao\s/)) meio='credito';
+  if(!meio&&(parc>1||falouParcelado)) meio='credito';
+  if(!meio){meio='pix'; flags.push('Não ouvi a forma de pagamento — assumi Pix.');}
+  if(meio==='credito'){
+    if(!cartao){
+      if(fin.cartoes.length===1) cartao=fin.cartoes[0].id;
+      else if(fin.cartoes.length>1){ cartao=fin.cfg.cartaoPadrao||fin.cartoes[0].id;
+        flags.push('Não ouvi qual cartão — usei '+(fin.cartoes.find(c=>c.id===cartao)||{}).nome+'.'); }
+      else flags.push('Nenhum cartão cadastrado — cadastre na aba Cartões para a fatura ser calculada.');
+    }
+  }else{ parc=1; cartao=''; }
+
+  // valor
+  let valor=0;
+  const cents=x=>x?(+x)/100:0;
+  if(m=cut(/\srs\s*([\d.,]*\d)(?:\s+e\s+(\d{1,2})\s+centavos?)?\s/)) valor=parseBRL(m[1])+cents(m[2]);
+  else if(m=cut(/\s([\d.,]*\d)\s+(?:reais|real|contos?|pilas?)(?:\s+e\s+(\d{1,2})(?:\s+centavos?)?)?\s/)) valor=parseBRL(m[1])+cents(m[2]);
+  else if(m=cut(/\s(\d+)\s+e\s+(\d{2})\s/)) valor=+m[1]+cents(m[2]);          // "dezoito e cinquenta"
+  else if(m=cut(/\s(\d{1,2})\s+centavos?\s/)) valor=cents(m[1]);
+  else if(m=cut(/\s([\d.,]*\d)\s/)) valor=parseBRL(m[1]);
+  valor=r2(valor);
+  if(!valor) flags.push('Não entendi o valor.');
+
+  // descrição: o que sobrou, com a grafia original ("iFood", "açaí")
+  const orig={}; String(raw).split(/\s+/).forEach(w=>{const clean=w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,'');
+    const k=finNorm(clean).replace(/[^a-z0-9]/g,''); if(k&&!orig[k]) orig[k]=clean;});
+  let words=t.trim().split(/\s+/).filter(w=>w&&!FIN_VERBOS.has(w)&&w!=='rs');
+  while(words.length&&FIN_STOP.has(words[0])) words.shift();
+  while(words.length&&FIN_STOP.has(words[words.length-1])) words.pop();
+  let desc=words.map(w=>orig[w]||w).join(' ').trim();
+  if(!desc){ desc='Gasto'; flags.push('Não identifiquei a descrição.'); }
+  else if(desc.split(' ')[0]===desc.split(' ')[0].toLowerCase()) desc=desc[0].toUpperCase()+desc.slice(1); // preserva “iFood”
+
+  const {cat,fonte}=finCategorizar(finNorm(desc));
+  if(cat==='outros') flags.push('Não reconheci a categoria — escolha abaixo e eu aprendo para as próximas.');
+  return {valor,desc,cat,catSug:cat,fonte,meio,cartao,parc,data,fala:String(raw).trim(),flags,origem:origem||'voz'};
+}
+
+/* ---------------- voz: reconhecimento + leitura em voz alta ---------------- */
+const FIN_SR=(typeof window!=='undefined')&&(window.SpeechRecognition||window.webkitSpeechRecognition);
+let finRec=null;
+const FIN_VOZ={p:null,editId:null,fat0:''};
+function finEscutar({onInterim,onFinal,onErro}){
+  if(!FIN_SR) return false;
+  finPararEscuta();
+  const r=new FIN_SR(); r.lang='pt-BR'; r.interimResults=true; r.continuous=false; r.maxAlternatives=1;
+  let final='';
+  r.onresult=e=>{let it='';for(let i=e.resultIndex;i<e.results.length;i++){const s=e.results[i][0].transcript;
+    if(e.results[i].isFinal) final+=s+' '; else it+=s;} onInterim&&onInterim((final+it).trim());};
+  r.onerror=e=>{ onErro&&onErro(e.error); };
+  r.onend=()=>{ if(finRec===r) finRec=null; onFinal&&onFinal(final.trim()); };
+  try{ r.start(); }catch(e){ return false; }
+  finRec=r; return true;
+}
+function finPararEscuta(){ if(finRec){const r=finRec; finRec=null; try{r.onend=null;r.onresult=null;r.abort();}catch(e){}} }
+function finFalar(txt,cb){
+  try{
+    if(!('speechSynthesis' in window)){cb&&cb();return;}
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(txt); u.lang='pt-BR'; u.rate=1.08;
+    const v=speechSynthesis.getVoices().find(v=>/pt[-_]BR/i.test(v.lang)); if(v) u.voice=v;
+    let done=false; const fim=()=>{if(!done){done=true;cb&&cb();}};
+    u.onend=fim; u.onerror=fim; setTimeout(fim,9000);   // alguns Androids nunca disparam onend
+    speechSynthesis.speak(u);
+  }catch(e){cb&&cb();}
+}
+function finFrase(p){
+  const r=Math.floor(p.valor), c=Math.round((p.valor-r)*100);
+  const v=(r?r+(r===1?' real':' reais'):'')+(c?(r?' e ':'')+c+' centavos':'');
+  const dia=p.data===todayISO()?'':p.data===addDaysISO(todayISO(),-1)?', ontem':', dia '+(+p.data.slice(8,10));
+  const cart=p.meio==='credito'&&p.cartao?' '+((fin.cartoes.find(x=>x.id===p.cartao)||{}).nome||''):'';
+  return `Entendi: ${v||'valor não identificado'}, ${p.desc}, ${finCat(p.cat).nome}, no ${FIN_MEIOS[p.meio]}${cart}${p.parc>1?' em '+p.parc+' vezes':''}${dia}. Confirma?`;
+}
+function finVozFechar(){ finPararEscuta(); try{speechSynthesis.cancel();}catch(e){} FIN_VOZ.p=null; FIN_VOZ.editId=null; closeModal(); }
+
+function finVozAbrir(){
+  finPararEscuta(); try{speechSynthesis.cancel();}catch(e){}
+  FIN_VOZ.p=null; FIN_VOZ.editId=null;
+  modal(`<h3>Registrar gasto</h3>
+    <div class="fin-mic-wrap">
+      <button class="fin-mic" id="finMic" onclick="finMicToggle()" aria-label="Microfone">🎙</button>
+      <div class="fin-live" id="finLive">${FIN_SR?'Toque e fale: <b>“32 reais no iFood no pix”</b>':'Este navegador não tem reconhecimento de voz. Use o microfone do teclado no campo abaixo — o resultado passa pelo mesmo interpretador.'}</div>
+    </div>
+    <div class="field"><label>Ou dite pelo teclado / digite</label>
+      <input id="finTxt" placeholder="Ex: 89,90 farmácia no crédito em 3x" onkeydown="if(event.key==='Enter')finProcessar(this.value,'texto')"></div>
+    <div class="fin-ex">“gastei 45 no mercado no débito” · “uber 18 e 50 no pix” · “tênis 600 reais no nubank em 4 vezes” · “ontem 30 de açaí no dinheiro”</div>
+    <div class="modal-actions"><button class="btn line" onclick="finVozFechar()">Cancelar</button>
+      <button class="btn line" onclick="finNovoManual()">Formulário</button>
+      <button class="btn" onclick="finProcessar(finVal('finTxt'),'texto')">Interpretar</button></div>`);
+  if(FIN_SR) finMicToggle();
+}
+function finMicToggle(){
+  const mic=document.getElementById('finMic'), live=document.getElementById('finLive');
+  if(finRec){ try{finRec.stop();}catch(e){} return; }   // stop → onend → processa o que ouviu
+  const ok=finEscutar({
+    onInterim:txt=>{ if(live) live.innerHTML='“'+h(txt)+'”'; },
+    onFinal:txt=>{ if(mic) mic.classList.remove('on');
+      if(!document.getElementById('finMic')) return;
+      if(txt) finProcessar(txt,'voz'); else if(live) live.innerHTML='Não ouvi nada — toque no microfone de novo.'; },
+    onErro:err=>{ if(!live) return;
+      live.innerHTML=err==='not-allowed'||err==='service-not-allowed'?'Permissão de microfone negada — libere nas configurações do site.'
+        :err==='network'?'O reconhecimento do Chrome precisa de internet. Use o campo abaixo.'
+        :err==='no-speech'?'Não ouvi nada — toque no microfone de novo.':'Falha no microfone ('+h(err)+').'; }
+  });
+  if(ok){ mic&&mic.classList.add('on'); live&&(live.innerHTML='Ouvindo…'); }
+}
+function finProcessar(txt,origem){
+  txt=String(txt||'').trim(); if(!txt){toast('Fale ou digite o gasto');return;}
+  finPararEscuta(); finConfirmar(finParse(txt,origem));
+}
+function finNovoManual(){
+  finPararEscuta();
+  finConfirmar({valor:0,desc:'',cat:'outros',catSug:'outros',meio:'pix',cartao:fin.cfg.cartaoPadrao||'',parc:1,data:todayISO(),fala:'',flags:[],origem:'manual'});
+}
+function finGastoEditar(id){
+  const g=fin.gastos.find(x=>x.id===id); if(!g) return;
+  finConfirmar({...g,catSug:g.cat,flags:[],origem:'edit',fala:g.fala||''},id);
+}
+function finMeioChange(){ const cr=document.getElementById('fgCred'); if(cr) cr.style.display=finVal('fgM')==='credito'?'':'none'; }
+
+function finConfirmar(p,editId){
+  FIN_VOZ.p=p; FIN_VOZ.editId=editId||null;
+  const cartaoSel=p.cartao||fin.cfg.cartaoPadrao||(fin.cartoes[0]||{}).id||'';
+  FIN_VOZ.fat0=cartaoSel?(p.fatIni||finFaturaDaCompra(cartaoSel,p.data)):'';
+  const dup=!editId&&p.valor&&fin.gastos.find(g=>g.data===p.data&&g.valor===p.valor&&finNorm(g.desc)===finNorm(p.desc));
+  const titulo=editId?'Editar gasto':p.origem==='manual'?'Novo gasto':'Confere?';
+  modal(`<h3>${titulo}</h3>
+    ${p.fala&&!editId?`<div class="fin-heard">Ouvi: “${h(p.fala)}”</div>`:''}
+    ${p.origem==='voz'||p.origem==='texto'?`<div class="fin-sum">${h(finFrase(p).replace(/ Confirma\?$/,''))}</div>`:''}
+    ${(p.flags||[]).map(f=>`<div class="fin-flag">⚠ ${h(f)}</div>`).join('')}
+    ${dup?`<div class="fin-flag">⚠ Já existe “${h(dup.desc)}” de ${brl(dup.valor)} nesta data — confira se não é duplicado.</div>`:''}
+    <div class="grid2">
+      <div class="field"><label>Valor (R$)</label><input id="fgV" inputmode="decimal" value="${p.valor?p.valor.toFixed(2).replace('.',','):''}"></div>
+      <div class="field"><label>Data da compra</label><input type="date" id="fgDt" value="${p.data}"></div>
+    </div>
+    <div class="field"><label>Descrição</label><input id="fgD" value="${h(p.desc)}" placeholder="Ex: iFood"></div>
+    <div class="grid2">
+      <div class="field"><label>Categoria ${p.fonte==='aprendido'?'<span class="pill green">aprendida</span>':''}</label>
+        <select id="fgC">${FIN_CATS.map(c=>`<option value="${c.id}" ${c.id===p.cat?'selected':''}>${c.nome}</option>`).join('')}</select></div>
+      <div class="field"><label>Pagamento</label>
+        <select id="fgM" onchange="finMeioChange()">${Object.entries(FIN_MEIOS).map(([k,v])=>`<option value="${k}" ${k===p.meio?'selected':''}>${v}</option>`).join('')}</select></div>
+    </div>
+    <div id="fgCred" style="${p.meio==='credito'?'':'display:none'}">
+      <div class="grid2">
+        <div class="field"><label>Cartão</label><select id="fgK">${fin.cartoes.length
+          ?fin.cartoes.map(c=>`<option value="${c.id}" ${c.id===cartaoSel?'selected':''}>${h(c.nome)}</option>`).join('')
+          :'<option value="">— cadastre um cartão —</option>'}</select></div>
+        <div class="field"><label>Parcelas</label><input type="number" id="fgP" min="1" max="48" value="${p.parc||1}"></div>
+      </div>
+      <div class="field"><label>1ª fatura (vencimento) — calculada pelo fechamento</label><input type="month" id="fgF" value="${FIN_VOZ.fat0}"></div>
+    </div>
+    <div class="fin-sn" id="finSN"></div>
+    <div class="modal-actions">
+      ${editId?`<button class="btn line" onclick="finVozFechar()">Cancelar</button>`
+              :`<button class="btn line" onclick="finVozAbrir()">🎙 De novo</button>`}
+      <button class="btn" onclick="finSalvarGasto()">${editId?'Salvar':'Confirmar'}</button></div>`);
+  if(p.origem==='voz'){
+    finFalar(finFrase(p),()=>{ if(fin.cfg.vozConfirma&&FIN_SR&&FIN_VOZ.p===p&&document.getElementById('finSN')) finOuvirSimNao(); });
+  }
+}
+function finOuvirSimNao(){
+  const el=document.getElementById('finSN'); if(!el) return;
+  el.innerHTML='🎙 Diga <b>“sim”</b> para salvar ou <b>“não”</b> para corrigir';
+  const ok=finEscutar({
+    onFinal:txt=>{
+      const box=document.getElementById('finSN'); if(!box) return;
+      const n=' '+finNorm(txt).replace(/[^a-z\s]/g,' ')+' ';
+      if(/\s(sim|confirma|confirmo|isso|pode|ok|okay|certo|correto|salva|salvar|beleza|perfeito)\s/.test(n)&&!/\snao\s/.test(n)) finSalvarGasto();
+      else if(/\s(nao|cancela|errado|corrige|corrigir)\s/.test(n)) box.innerHTML='Ok — corrija os campos e toque em Confirmar.';
+      else box.innerHTML=txt?`Não entendi “${h(txt)}” — toque em Confirmar ou corrija.`:'Sem resposta — toque em Confirmar quando estiver certo.';
+    },
+    onErro:()=>{ const box=document.getElementById('finSN'); if(box) box.innerHTML=''; }
+  });
+  if(!ok) el.innerHTML='';
+}
+function finSalvarGasto(){
+  finPararEscuta(); try{speechSynthesis.cancel();}catch(e){}
+  const v=parseBRL(finVal('fgV')); if(!(v>0)){toast('Informe o valor');return;}
+  const meio=finVal('fgM'); const cred=meio==='credito';
+  const cartao=cred?finVal('fgK'):'';
+  if(cred&&!cartao){toast('Cadastre um cartão na aba Cartões primeiro');return;}
+  const parc=cred?Math.min(48,Math.max(1,parseInt(finVal('fgP'))||1)):1;
+  const desc=finVal('fgD').trim()||'Gasto', cat=finVal('fgC'), data=finVal('fgDt')||todayISO();
+  const p=FIN_VOZ.p||{};
+  if(cat!==p.catSug) finAprender(desc,cat);
+  const dados={data,desc,valor:v,cat,meio,cartao,parc};
+  // 1ª fatura: só grava override se você mexeu no campo; senão segue a regra do fechamento
+  const fatCampo=cred?finVal('fgF'):'';
+  const fatIni=cred&&fatCampo&&fatCampo!==FIN_VOZ.fat0?fatCampo:(cred&&p.fatIni&&fatCampo===FIN_VOZ.fat0&&p.data===data&&p.cartao===cartao?p.fatIni:'');
+  let g;
+  if(FIN_VOZ.editId){ g=fin.gastos.find(x=>x.id===FIN_VOZ.editId); if(g){Object.assign(g,dados); if(fatIni)g.fatIni=fatIni; else delete g.fatIni;} }
+  else{ g={id:uid(),...dados,fala:p.fala||'',origem:p.origem||'manual',criado:Date.now()}; if(fatIni)g.fatIni=fatIni; fin.gastos.push(g); }
+  const edit=!!FIN_VOZ.editId;
+  FIN_VOZ.p=null; FIN_VOZ.editId=null;
+  finSave(); closeModal(); if(current==='financas') vFinancas();
+  toast(`${edit?'Atualizado':'Salvo'} · ${brl(v)} · ${finCat(cat).nome}${parc>1?' · '+parc+'x':''}`);
+}
+function finGastoDel(id){const g=fin.gastos.find(x=>x.id===id); if(!g)return;
+  if(!confirm(`Excluir “${g.desc}” (${brl(g.valor)})?${g.parc>1?'\nTodas as '+g.parc+' parcelas saem das faturas.':''}`))return;
+  fin.gastos=fin.gastos.filter(x=>x.id!==id); finSave(); vFinancas(); toast('Gasto excluído');}
+
+/* ---------------- VIEW ---------------- */
+const FIN_ST={aba:'mes',comp:null,mesG:null,meio:'all'};
+function finAba(a){FIN_ST.aba=a;vFinancas();}
+function finComp(n){FIN_ST.comp=n===0?finCompDe(todayISO()):ymAdd(FIN_ST.comp,n);vFinancas();}
+function finMesG(n){FIN_ST.mesG=n===0?todayISO().slice(0,7):ymAdd(FIN_ST.mesG,n);vFinancas();}
+function finMeioF(m){FIN_ST.meio=m;vFinancas();}
+
+function vFinancas(){
+  if(!FIN_ST.comp) FIN_ST.comp=finCompDe(todayISO());
+  if(!FIN_ST.mesG) FIN_ST.mesG=todayISO().slice(0,7);
+  const abas=[['mes','Mês'],['gastos','Gastos'],['cartoes','Cartões']];
+  const corpo=FIN_ST.aba==='gastos'?finVGastos():FIN_ST.aba==='cartoes'?finVCartoes():finVMes();
+  document.getElementById('view').innerHTML=`
+    <div class="page-title">finanças</div>
+    <div class="page-sub">Contas e receitas do mês com baixa manual, gastos do dia a dia registrados por voz e cartões com parcelas calculadas automaticamente. Nada daqui entra em horas de estudo.</div>
+    <div class="fin-top">
+      <div class="cal-switch">${abas.map(([k,n])=>`<button class="${FIN_ST.aba===k?'on':''}" onclick="finAba('${k}')">${n}</button>`).join('')}</div>
+      <div class="fin-top-r">
+        <button class="btn sm" onclick="finVozAbrir()">🎙 Registrar gasto</button>
+        <button class="btn sm line" onclick="finCfg()" title="Configurações">⚙</button>
+        <button class="btn sm line" onclick="finExport()" title="Backup das finanças">⭳</button>
+        <button class="btn sm line" onclick="document.getElementById('finImp').click()" title="Restaurar backup">⭱</button>
+        <input type="file" id="finImp" accept="application/json" style="display:none" onchange="finImport(this)">
+      </div>
+    </div>
+    ${corpo}`;
+}
+
+/* ---- aba Mês ---- */
+function finVMes(){
+  const M=FIN_ST.comp, hoje=todayISO(), ps=finTodasParcelas();
+  const doMes=fin.contas.filter(c=>c.comp===M);
+  const byVenc=(a,b)=>(a.venc||'9999').localeCompare(b.venc||'9999')||a.desc.localeCompare(b.desc);
+  const rec=doMes.filter(c=>c.tipo==='receita').sort(byVenc);
+  const desp=[...doMes.filter(c=>c.tipo==='despesa'),...finFaturasDaComp(M,ps)].sort(byVenc);
+  const soma=(a,f)=>r2(a.filter(f||(()=>true)).reduce((s,x)=>s+x.valor,0));
+  const recPrev=soma(rec), recOk=soma(rec,x=>x.ok), dPrev=soma(desp), dOk=soma(desp,x=>x.ok);
+  const ciclo=finCiclo(M);
+  const avistaG=fin.gastos.filter(g=>g.meio!=='credito'&&g.data>=ciclo.ini&&g.data<=ciclo.fim);
+  const avista=soma(avistaG);
+  const sobra=r2(recPrev-dPrev), livre=r2(sobra-avista), realizado=r2(recOk-dOk-avista);
+  const lim=addDaysISO(hoje,5);
+  const atras=desp.filter(d=>!d.ok&&d.venc&&d.venc<hoje), proximas=desp.filter(d=>!d.ok&&d.venc>=hoje&&d.venc<=lim);
+  const recAtras=rec.filter(r=>!r.ok&&r.venc&&r.venc<hoje);
+  const pend=finFixosPendentes(M);
+  const pct=(a,b)=>b>0?Math.min(100,Math.round(a/b*100)):0;
+  return `
+    <div class="fin-nav">
+      <button class="icon-btn" onclick="finComp(-1)">◀</button>
+      <div><b>${ymLabel(M,true)}</b><small>competência · tudo que o dinheiro deste mês paga, vença quando vencer</small></div>
+      <button class="icon-btn" onclick="finComp(1)">▶</button>
+      ${M!==finCompDe(hoje)?`<button class="btn sm line" onclick="finComp(0)">Atual</button>`:''}
+    </div>
+    <div class="stat-row" style="margin-bottom:18px">
+      <div class="stat"><b>${brl(recOk)}</b><span>recebido de ${brl(recPrev)}</span></div>
+      <div class="stat"><b>${brl(dOk)}</b><span>pago de ${brl(dPrev)}</span></div>
+      <div class="stat"><b style="${livre<0?'color:#ffd1d1':''}">${brl(livre)}</b><span>livre no ciclo · real ${brl(realizado)}</span></div>
+    </div>
+    ${pend.length?`<div class="fin-banner">
+      <span><b>${pend.length} fixo${pend.length>1?'s':''}</b> ainda não gerado${pend.length>1?'s':''} para ${ymLabel(M)}: ${pend.slice(0,4).map(m=>h(m.desc)).join(', ')}${pend.length>4?'…':''}</span>
+      <button class="btn sm" onclick="finGerarMes('${M}')">Gerar</button></div>`:''}
+    ${atras.length||recAtras.length?`<div class="alert-late fin-alert">⚠ ${atras.length?`${atras.length} conta${atras.length>1?'s':''} vencida${atras.length>1?'s':''} sem baixa (${brl(soma(atras))})`:''}${atras.length&&recAtras.length?' · ':''}${recAtras.length?`${recAtras.length} receita${recAtras.length>1?'s':''} atrasada${recAtras.length>1?'s':''}`:''}</div>`:''}
+    ${proximas.length?`<div class="fin-soon">Próximos 5 dias: ${proximas.map(d=>`<span class="pill amber">${ddmm(d.venc)} · ${h(d.desc)} · ${brl(d.valor)}</span>`).join(' ')}</div>`:''}
+    <div class="row">
+      <div class="card" style="flex:1;min-width:280px">
+        <div class="fin-card-h"><div><h3>Receitas</h3><div class="h-sub">${pct(recOk,recPrev)}% recebido</div></div>
+          <button class="btn sm ghost" onclick="finConta(null,'receita')">+ Receita</button></div>
+        ${rec.length?rec.map(finRowConta).join(''):`<div class="empty">Nenhuma receita em ${ymLabel(M)}.</div>`}
+      </div>
+      <div class="card" style="flex:1.3;min-width:300px">
+        <div class="fin-card-h"><div><h3>Contas</h3><div class="h-sub">${pct(dOk,dPrev)}% pago · faturas entram sozinhas</div></div>
+          <button class="btn sm ghost" onclick="finConta(null,'despesa')">+ Conta</button></div>
+        ${desp.length?desp.map(finRowConta).join(''):`<div class="empty">Nenhuma conta em ${ymLabel(M)}.</div>`}
+      </div>
+    </div>
+    <div class="card" style="margin-top:18px">
+      <div class="fin-card-h"><div><h3>Gasto à vista no ciclo</h3>
+        <div class="h-sub">${fmtBR(ciclo.ini)} → ${fmtBR(ciclo.fim)} · da 1ª receita deste mês até a véspera da próxima · crédito fica fora (já está na fatura)</div></div>
+        <div style="display:flex;gap:6px"><button class="btn sm line" onclick="finColar()">⇪ Colar da planilha</button><button class="btn sm line" onclick="finFixos()">Gerenciar fixos</button></div></div>
+      <div class="fin-eq">
+        <span>Receitas <b>${brl(recPrev)}</b></span><i>−</i><span>Contas + faturas <b>${brl(dPrev)}</b></span><i>−</i>
+        <span>À vista no ciclo <b>${brl(avista)}</b></span><i>=</i><span class="${livre<0?'neg':'pos'}">Livre <b>${brl(livre)}</b></span>
+      </div>
+    </div>`;
+}
+function finRowConta(c){
+  const hoje=todayISO(), late=!c.ok&&!!c.venc&&c.venc<hoje;
+  if(c.virtual){
+    return `<div class="list-item ${c.ok?'done':''}">
+      <div class="check-sq ${c.ok?'on':''}" onclick="finToggleFat('${c.cartao.id}','${c.ym}')">✓</div>
+      <div class="li-body" style="cursor:pointer" onclick="finAba('cartoes')"><div class="t">💳 ${h(c.desc)}</div>
+        <div class="m"><span class="pill ${late?'red':'gray'}">${late?'⚠ ':''}${ddmm(c.venc)}</span><span class="pill blue">${c.n} lançamento${c.n!==1?'s':''}</span>${c.informado?`<span class="pill amber" title="Valor da fatura real; lançados somam ${brl(c.calc)}">informado · lançado ${brl(c.calc)}</span>`:'<span>automática</span>'}</div></div>
+      <b class="fin-val">${brl(c.valor)}</b></div>`;
+  }
+  const rec=c.tipo==='receita';
+  return `<div class="list-item ${c.ok?'done':''}">
+    <div class="check-sq ${c.ok?'on':''}" onclick="finToggleConta('${c.id}')">✓</div>
+    <div class="li-body"><div class="t">${h(c.desc)}</div>
+      <div class="m"><span class="pill ${late?'red':'gray'}">${late?'⚠ ':''}${ddmm(c.venc)}</span>
+        ${c.modelo?'<span class="pill purple">fixo</span>':''}
+        ${!rec&&c.cat&&finCatById(c.cat)?`<span class="tag-dot" style="background:${finCat(c.cat).cor}"></span>${finCat(c.cat).nome}`:''}
+        ${c.ok&&c.okEm?`<span>${rec?'recebido':'pago'} ${ddmm(c.okEm)}</span>`:''}</div></div>
+    <b class="fin-val ${rec?'pos':''}">${brl(c.valor)}</b>
+    <button class="icon-btn" onclick="finConta('${c.id}')" title="Editar">✎</button>
+    <button class="icon-btn" onclick="finContaDel('${c.id}')" title="Excluir">✕</button></div>`;
+}
+function finToggleConta(id){const c=fin.contas.find(x=>x.id===id); if(!c)return; c.ok=!c.ok; c.okEm=c.ok?todayISO():''; finSave(); vFinancas();}
+function finToggleFat(cid,ym){const k=finFatKey(cid,ym); if(fin.faturasPagas[k]) delete fin.faturasPagas[k]; else fin.faturasPagas[k]=todayISO(); finSave(); vFinancas();}
+function finContaDel(id){const c=fin.contas.find(x=>x.id===id); if(!c)return;
+  if(!confirm(`Excluir “${c.desc}” de ${ymLabel(c.comp)}?${c.modelo?'\nO fixo continua existindo para os próximos meses.':''}`))return;
+  fin.contas=fin.contas.filter(x=>x.id!==id); finSave(); vFinancas();}
+function finGerarMes(M){
+  const pend=finFixosPendentes(M);
+  pend.forEach(m=>{ const ym=m.mesSeguinte?ymAdd(M,1):M;
+    fin.contas.push({id:uid(),tipo:m.tipo,desc:m.desc,valor:m.valor,venc:m.dia?ymDia(ym,m.dia):'',comp:M,ok:false,okEm:'',cat:m.cat||'',modelo:m.id}); });
+  finSave(); vFinancas(); toast(`${pend.length} lançamento${pend.length!==1?'s':''} gerado${pend.length!==1?'s':''} — edite o que variar`);
+}
+
+/* conta/receita avulsa ou de um fixo */
+function finConta(id,tipo){
+  const c=id?fin.contas.find(x=>x.id===id):null; tipo=c?c.tipo:(tipo||'despesa');
+  const rec=tipo==='receita', M=FIN_ST.comp;
+  const vencPad=c?c.venc:'';
+  const temModelo=c&&c.modelo&&fin.modelos.some(m=>m.id===c.modelo);
+  modal(`<h3>${c?'Editar':'Nova'} ${rec?'receita':'conta'}</h3>
+    <div class="field"><label>Descrição</label><input id="fcD" value="${c?h(c.desc):''}" placeholder="${rec?'Ex: Salário TRE':'Ex: Aluguel, Internet'}"></div>
+    <div class="grid2">
+      <div class="field"><label>Valor (R$)</label><input id="fcV" inputmode="decimal" value="${c?c.valor.toFixed(2).replace('.',','):''}"></div>
+      <div class="field"><label>${rec?'Data prevista':'Vencimento'}</label><input type="date" id="fcVe" value="${vencPad}"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Competência</label><input type="month" id="fcC" value="${c?c.comp:M}"></div>
+      ${rec?'<div></div>':`<div class="field"><label>Categoria</label><select id="fcCat"><option value="">—</option>${FIN_CATS.map(k=>`<option value="${k.id}" ${c&&c.cat===k.id?'selected':''}>${k.nome}</option>`).join('')}</select></div>`}
+    </div>
+    <label class="fin-chk"><input type="checkbox" id="fcOk" ${c&&c.ok?'checked':''}> ${rec?'Já recebido':'Já pago'}</label>
+    ${!c?`<label class="fin-chk"><input type="checkbox" id="fcFixo"> Repetir todo mês (vira um fixo editável)</label>`:''}
+    ${temModelo?`<label class="fin-chk"><input type="checkbox" id="fcProp"> Usar este valor e dia nos próximos meses</label>`:''}
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+      <button class="btn" onclick="finSalvarConta(${c?`'${c.id}'`:'null'},'${tipo}')">${c?'Salvar':'Adicionar'}</button></div>`);
+  setTimeout(()=>{const e=document.getElementById('fcD'); if(e&&!c)e.focus();},50);
+}
+function finSalvarConta(id,tipo){
+  const desc=finVal('fcD').trim(); if(!desc){toast('Informe a descrição');return;}
+  const valor=parseBRL(finVal('fcV')), venc=finVal('fcVe'), comp=finVal('fcC')||FIN_ST.comp;
+  const ok=document.getElementById('fcOk').checked, cat=tipo==='receita'?'':finVal('fcCat');
+  let c=id?fin.contas.find(x=>x.id===id):null;
+  if(c){ const eraOk=c.ok; Object.assign(c,{desc,valor,venc,comp,ok,cat}); if(ok&&!eraOk)c.okEm=todayISO(); if(!ok)c.okEm='';
+    const prop=document.getElementById('fcProp');
+    if(prop&&prop.checked){ const m=fin.modelos.find(x=>x.id===c.modelo); if(m){ m.valor=valor; m.dia=venc?+venc.slice(8,10):0; m.desc=desc; m.cat=cat;
+      m.mesSeguinte=!!venc&&venc.slice(0,7)!==comp; } }
+  }else{
+    c={id:uid(),tipo,desc,valor,venc,comp,ok,okEm:ok?todayISO():'',cat,modelo:''};
+    const fx=document.getElementById('fcFixo');
+    if(fx&&fx.checked){ const m={id:uid(),tipo,desc,valor,dia:venc?+venc.slice(8,10):0,mesSeguinte:!!venc&&venc.slice(0,7)!==comp,cat}; fin.modelos.push(m); c.modelo=m.id; }
+    fin.contas.push(c);
+  }
+  finSave(); closeModal(); vFinancas(); toast(id?'Atualizado':'Adicionado');
+}
+
+/* fixos (modelos que geram lançamentos todo mês) */
+function finFixos(){
+  const lin=m=>`<div class="list-item"><div class="li-body"><div class="t">${h(m.desc)}</div>
+      <div class="m"><span class="pill ${m.tipo==='receita'?'green':'gray'}">${m.tipo==='receita'?'receita':'conta'}</span>${m.dia?`dia ${m.dia}${m.mesSeguinte?' do mês seguinte':''}`:'sem data'}</div></div>
+      <b class="fin-val">${brl(m.valor)}</b>
+      <button class="icon-btn" onclick="finModelo('${m.id}')">✎</button><button class="icon-btn" onclick="finModeloDel('${m.id}')">✕</button></div>`;
+  const ord=[...fin.modelos].sort((a,b)=>(a.tipo>b.tipo?-1:a.tipo<b.tipo?1:0)||a.dia-b.dia);
+  modal(`<h3>Fixos do mês</h3>
+    <div class="h-sub" style="margin:-8px 0 12px">São modelos: “Gerar” cria uma cópia editável em cada competência. Mudar o modelo não altera meses já gerados.</div>
+    ${ord.length?ord.map(lin).join(''):'<div class="empty">Nenhum fixo ainda.</div>'}
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Fechar</button>
+      <button class="btn" onclick="finModelo(null)">+ Novo fixo</button></div>`);
+}
+function finModelo(id){
+  const m=id?fin.modelos.find(x=>x.id===id):null;
+  modal(`<h3>${m?'Editar':'Novo'} fixo</h3>
+    <div class="grid2">
+      <div class="field"><label>Tipo</label><select id="fmT"><option value="despesa" ${!m||m.tipo==='despesa'?'selected':''}>Conta</option><option value="receita" ${m&&m.tipo==='receita'?'selected':''}>Receita</option></select></div>
+      <div class="field"><label>Valor padrão (R$)</label><input id="fmV" inputmode="decimal" value="${m?m.valor.toFixed(2).replace('.',','):''}"></div>
+    </div>
+    <div class="field"><label>Descrição</label><input id="fmD" value="${m?h(m.desc):''}"></div>
+    <div class="grid2">
+      <div class="field"><label>Dia do vencimento (0 = sem data)</label><input type="number" id="fmDia" min="0" max="31" value="${m?m.dia:10}"></div>
+      <div class="field"><label>Categoria</label><select id="fmC"><option value="">—</option>${FIN_CATS.map(k=>`<option value="${k.id}" ${m&&m.cat===k.id?'selected':''}>${k.nome}</option>`).join('')}</select></div>
+    </div>
+    <label class="fin-chk"><input type="checkbox" id="fmS" ${m&&m.mesSeguinte?'checked':''}> Vence no início do mês seguinte à competência</label>
+    <div class="modal-actions"><button class="btn line" onclick="finFixos()">Voltar</button>
+      <button class="btn" onclick="finSalvarModelo(${m?`'${m.id}'`:'null'})">Salvar</button></div>`);
+}
+function finSalvarModelo(id){
+  const desc=finVal('fmD').trim(); if(!desc){toast('Informe a descrição');return;}
+  const d={tipo:finVal('fmT'),desc,valor:parseBRL(finVal('fmV')),dia:Math.min(31,Math.max(0,parseInt(finVal('fmDia'))||0)),
+    cat:finVal('fmC'),mesSeguinte:document.getElementById('fmS').checked};
+  if(id) Object.assign(fin.modelos.find(x=>x.id===id),d); else fin.modelos.push({id:uid(),...d});
+  finSave(); vFinancas(); finFixos();
+}
+function finModeloDel(id){if(!confirm('Excluir este fixo? Lançamentos já gerados continuam.'))return;
+  fin.modelos=fin.modelos.filter(x=>x.id!==id); fin.contas.forEach(c=>{if(c.modelo===id)c.modelo='';}); finSave(); vFinancas(); finFixos();}
+
+/* ---- aba Gastos ---- */
+function finVGastos(){
+  const ym=FIN_ST.mesG;
+  const gs=fin.gastos.filter(g=>g.data.slice(0,7)===ym);
+  const soma=a=>r2(a.reduce((s,g)=>s+g.valor,0));
+  const tot=soma(gs), cred=soma(gs.filter(g=>g.meio==='credito')), av=r2(tot-cred);
+  const porCat={}; gs.forEach(g=>{porCat[g.cat]=(porCat[g.cat]||0)+g.valor;});
+  const cats=Object.entries(porCat).sort((a,b)=>b[1]-a[1]); const max=cats.length?cats[0][1]:1;
+  const ant=soma(fin.gastos.filter(g=>g.data.slice(0,7)===ymAdd(ym,-1)));
+  const filt=(FIN_ST.meio==='all'?gs:gs.filter(g=>g.meio===FIN_ST.meio)).sort((a,b)=>b.data.localeCompare(a.data)||(b.criado||0)-(a.criado||0));
+  const dias=[...new Set(filt.map(g=>g.data))];
+  return `
+    <div class="fin-nav">
+      <button class="icon-btn" onclick="finMesG(-1)">◀</button>
+      <div><b>${ymLabel(ym,true)}</b><small>por data da compra · crédito aparece pelo valor total</small></div>
+      <button class="icon-btn" onclick="finMesG(1)">▶</button>
+      ${ym!==todayISO().slice(0,7)?`<button class="btn sm line" onclick="finMesG(0)">Atual</button>`:''}
+    </div>
+    <button class="fin-voice-cta" onclick="finVozAbrir()"><span class="fin-mic sm">🎙</span>
+      <span><b>Toque e fale o gasto</b><small>Ex.: “gastei 45 no mercado no débito” — eu repito o que entendi antes de salvar</small></span></button>
+    <div class="stat-row" style="margin:18px 0">
+      <div class="stat"><b>${brl(tot)}</b><span>${ant?`${tot>=ant?'▲':'▼'} ${Math.abs(Math.round((tot-ant)/ant*100))}% vs mês anterior`:'gasto no mês'}</span></div>
+      <div class="stat"><b>${brl(av)}</b><span>à vista (Pix/débito/dinheiro)</span></div>
+      <div class="stat"><b>${brl(cred)}</b><span>compras no crédito</span></div>
+    </div>
+    <div class="row">
+      <div class="card" style="flex:1;min-width:260px">
+        <h3>Por categoria</h3><div class="h-sub">${gs.length} lançamento${gs.length!==1?'s':''}</div>
+        ${cats.length?cats.map(([c,v])=>`<div class="bar-row"><div class="lbl">${finCat(c).nome}</div>
+          <div class="bar-track"><i style="width:${Math.round(v/max*100)}%;background:${finCat(c).cor}"></i></div>
+          <div class="val">${brl(v)}</div></div>`).join(''):'<div class="empty">Sem gastos neste mês.</div>'}
+      </div>
+      <div class="card" style="flex:1.5;min-width:300px">
+        <div class="fin-card-h"><h3>Lançamentos</h3>
+          <div class="hist-chips">${[['all','Todos'],...Object.entries(FIN_MEIOS)].map(([k,n])=>`<button class="chip ${FIN_ST.meio===k?'on':''}" onclick="finMeioF('${k}')" style="${FIN_ST.meio===k?'background:var(--ink);color:#fff':''}">${n}</button>`).join('')}</div></div>
+        ${dias.length?dias.map(d=>{const doDia=filt.filter(g=>g.data===d);
+          return `<div class="fin-day"><span>${fmtBR(d).slice(0,5)} · ${['dom','seg','ter','qua','qui','sex','sáb'][new Date(d+'T12:00').getDay()]}</span><b>${brl(soma(doDia))}</b></div>
+            ${doDia.map(finRowGasto).join('')}`;}).join(''):'<div class="empty">Nada aqui.</div>'}
+      </div>
+    </div>`;
+}
+function finRowGasto(g){
+  const c=finCat(g.cat), cart=g.meio==='credito'?(fin.cartoes.find(x=>x.id===g.cartao)||{}).nome:'';
+  return `<div class="list-item">
+    <span class="tag-dot" style="background:${c.cor}"></span>
+    <div class="li-body"><div class="t">${h(g.desc)}</div>
+      <div class="m"><span>${c.nome}</span><span class="pill ${g.meio==='credito'?'purple':g.meio==='pix'?'green':'gray'}">${FIN_MEIOS[g.meio]}${cart?' · '+h(cart):''}${g.parc>1?' · '+g.parc+'x':''}</span>
+        ${g.origem==='voz'?'<span title="'+h(g.fala||'')+'">🎙</span>':''}</div></div>
+    <b class="fin-val">${brl(g.valor)}</b>
+    <button class="icon-btn" onclick="finGastoEditar('${g.id}')" title="Editar">✎</button>
+    <button class="icon-btn" onclick="finGastoDel('${g.id}')" title="Excluir">✕</button></div>`;
+}
+
+/* ---- aba Cartões ---- */
+function finVCartoes(){
+  const hoje=todayISO(), ps=finTodasParcelas();
+  if(!fin.cartoes.length) return `<div class="card"><div class="empty">Nenhum cartão cadastrado.<br><br>
+    <button class="btn" onclick="finCartao(null)">+ Cadastrar cartão</button></div></div>`;
+  return `<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn sm ghost" onclick="finCartao(null)">+ Cartão</button></div>`+
+  fin.cartoes.map(c=>{
+    const mine=ps.filter(p=>p.cartao===c.id);
+    const aberta=finFaturaDaCompra(c.id,hoje);
+    const valFat=ym=>{const inf=fin.faturasValor[finFatKey(c.id,ym)]; return inf!=null?inf:r2(mine.filter(p=>p.fat===ym).reduce((s,p)=>s+p.valor,0));};
+    const mesesInf=Object.keys(fin.faturasValor).filter(k=>k.startsWith(c.id+'_')).map(k=>k.slice(c.id.length+1));
+    const todosMeses=[...new Set(mine.map(p=>p.fat).concat(mesesInf))];
+    const comprometido=r2(todosMeses.filter(ym=>!fin.faturasPagas[finFatKey(c.id,ym)]).reduce((s,ym)=>s+valFat(ym),0));
+    const pctL=c.limite?Math.min(100,Math.round(comprometido/c.limite*100)):0;
+    const meses=[...new Set(todosMeses.concat([aberta]))].filter(ym=>ym>=ymAdd(aberta,-2)).sort();
+    const proj=[0,1,2,3,4,5].map(k=>{const ym=ymAdd(aberta,k);return [ym,valFat(ym)];});
+    const pmax=Math.max(1,...proj.map(x=>x[1]));
+    return `<div class="card fin-cc" style="margin-bottom:18px">
+      <div class="fin-card-h"><div><h3>💳 ${h(c.nome)} ${fin.cfg.cartaoPadrao===c.id?'<span class="pill purple">padrão</span>':''}</h3>
+        <div class="h-sub">fecha dia ${c.fecha} · vence dia ${c.vence} · fatura aberta: ${ymLabel(aberta)}</div></div>
+        <div style="display:flex;gap:6px"><button class="btn sm line" onclick="finNovoCredito('${c.id}')">+ Compra</button>
+        <button class="icon-btn" onclick="finCartao('${c.id}')">✎</button></div></div>
+      ${c.limite?`<div class="bar-row"><div class="lbl">Limite</div><div class="bar-track"><i style="width:${pctL}%;background:${pctL>85?'var(--red)':pctL>60?'var(--amber)':'var(--purple)'}"></i></div>
+        <div class="val">${brl(comprometido)} / ${brl(c.limite)}</div></div>`:`<div class="h-sub">Comprometido (faturas não pagas): <b>${brl(comprometido)}</b></div>`}
+      <div class="fin-proj">${proj.map(([ym,v])=>`<div><i style="height:${Math.max(3,Math.round(v/pmax*56))}px"></i><b>${v?brl(v).replace('R$','').trim():'—'}</b><span>${FIN_MESES[+ym.slice(5)-1]}</span></div>`).join('')}</div>
+      ${meses.map(ym=>{
+        const it=mine.filter(p=>p.fat===ym).sort((a,b)=>a.g.data.localeCompare(b.g.data));
+        const calc=r2(it.reduce((s,p)=>s+p.valor,0)), inf=fin.faturasValor[finFatKey(c.id,ym)], tot=inf!=null?inf:calc, pago=!!fin.faturasPagas[finFatKey(c.id,ym)];
+        const venc=ymDia(ym,c.vence), late=!pago&&tot>0&&venc<hoje;
+        return `<details class="fin-fat" ${ym===aberta?'open':''}>
+          <summary><span class="fin-fat-t">${ymLabel(ym)}${ym===aberta?' <span class="pill blue">aberta</span>':''}</span>
+            <span class="pill ${late?'red':pago?'green':'gray'}">${pago?'paga':late?'⚠ vencida':'vence'} ${ddmm(venc)}</span>
+            <b>${brl(tot)}${inf!=null?`<small class="fin-inf">informado · lançado ${brl(calc)}</small>`:''}</b>
+            <button class="icon-btn" title="Informar valor real da fatura" onclick="event.preventDefault();finFatValor('${c.id}','${ym}')">✎</button>
+            <button class="btn sm ${pago?'line':'ghost'}" onclick="event.preventDefault();finToggleFat('${c.id}','${ym}')">${pago?'Desfazer':'Paguei'}</button></summary>
+          ${it.length?it.map(p=>`<div class="fin-parc"><span class="tag-dot" style="background:${finCat(p.g.cat).cor}"></span>
+            <span class="t">${h(p.g.desc)}</span><small>${ddmm(p.g.data)}${p.n>1?` · ${p.k}/${p.n}`:''}</small><b>${brl(p.valor)}</b>
+            <button class="icon-btn" onclick="finGastoEditar('${p.g.id}')">✎</button></div>`).join(''):'<div class="empty" style="padding:14px">Sem lançamentos.</div>'}
+        </details>`;}).join('')}
+    </div>`;}).join('');
+}
+function finNovoCredito(cid){
+  finConfirmar({valor:0,desc:'',cat:'outros',catSug:'outros',meio:'credito',cartao:cid,parc:1,data:todayISO(),fala:'',flags:[],origem:'manual'});
+}
+function finCartao(id){
+  const c=id?fin.cartoes.find(x=>x.id===id):null;
+  const usos=c?fin.gastos.filter(g=>g.cartao===c.id).length:0;
+  modal(`<h3>${c?'Editar':'Novo'} cartão</h3>
+    <div class="field"><label>Nome (é como você vai falar: “no Nubank”)</label><input id="kN" value="${c?h(c.nome):''}" placeholder="Nubank"></div>
+    <div class="grid2">
+      <div class="field"><label>Dia do fechamento</label><input type="number" id="kF" min="1" max="31" value="${c?c.fecha:28}"></div>
+      <div class="field"><label>Dia do vencimento</label><input type="number" id="kV" min="1" max="31" value="${c?c.vence:5}"></div>
+    </div>
+    <div class="field"><label>Limite (opcional)</label><input id="kL" inputmode="decimal" value="${c&&c.limite?c.limite.toFixed(2).replace('.',','):''}"></div>
+    <label class="fin-chk"><input type="checkbox" id="kP" ${c&&fin.cfg.cartaoPadrao===c.id?'checked':''}> Cartão padrão quando eu não disser qual</label>
+    <div class="modal-actions">
+      ${c?`<button class="btn line" style="color:var(--red)" onclick="finCartaoDel('${c.id}')" ${usos?`title="${usos} compras vinculadas"`:''}>Excluir</button>`:''}
+      <button class="btn line" onclick="closeModal()">Cancelar</button>
+      <button class="btn" onclick="finSalvarCartao(${c?`'${c.id}'`:'null'})">Salvar</button></div>`);
+}
+function finSalvarCartao(id){
+  const nome=finVal('kN').trim(); if(!nome){toast('Informe o nome');return;}
+  const d={nome,fecha:parseInt(finVal('kF'))||1,vence:parseInt(finVal('kV'))||10,limite:parseBRL(finVal('kL'))};
+  let c; if(id){c=fin.cartoes.find(x=>x.id===id);Object.assign(c,d);} else {c={id:uid(),...d};fin.cartoes.push(c);}
+  if(document.getElementById('kP').checked) fin.cfg.cartaoPadrao=c.id; else if(fin.cfg.cartaoPadrao===c.id) fin.cfg.cartaoPadrao='';
+  finSave(); closeModal(); vFinancas(); toast('Cartão salvo');
+}
+function finCartaoDel(id){
+  const n=fin.gastos.filter(g=>g.cartao===id).length;
+  if(n){toast(`${n} compra${n>1?'s':''} usam este cartão — mova ou exclua antes`);return;}
+  if(!confirm('Excluir cartão?'))return;
+  fin.cartoes=fin.cartoes.filter(x=>x.id!==id);
+  ['faturasPagas','faturasValor'].forEach(o=>Object.keys(fin[o]).forEach(k=>{if(k.startsWith(id+'_'))delete fin[o][k];}));
+  finSave(); closeModal(); vFinancas();
+}
+
+/* ---- valor real da fatura (enquanto o histórico do cartão não está todo lançado) ---- */
+function finFatValor(cid,ym){
+  const c=fin.cartoes.find(x=>x.id===cid); if(!c) return;
+  const k=finFatKey(cid,ym), inf=fin.faturasValor[k];
+  const calc=r2(finTodasParcelas().filter(p=>p.cartao===cid&&p.fat===ym).reduce((s,p)=>s+p.valor,0));
+  modal(`<h3>Fatura ${h(c.nome)} · ${ymLabel(ym)}</h3>
+    <div class="h-sub" style="margin:-8px 0 12px">Lançado no app: <b>${brl(calc)}</b>. Informe o valor do app do banco quando houver compras antigas que não foram lançadas aqui — ele passa a valer no saldo, e a diferença fica visível.</div>
+    <div class="field"><label>Valor real da fatura (vazio = usar o lançado)</label><input id="fvV" inputmode="decimal" value="${inf!=null?inf.toFixed(2).replace('.',','):''}"></div>
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+      <button class="btn" onclick="finSalvarFatValor('${cid}','${ym}')">Salvar</button></div>`);
+}
+function finSalvarFatValor(cid,ym){
+  const raw=finVal('fvV').trim(), k=finFatKey(cid,ym);
+  if(raw) fin.faturasValor[k]=parseBRL(raw); else delete fin.faturasValor[k];
+  finSave(); closeModal(); vFinancas(); toast(raw?'Valor da fatura informado':'Voltou a usar o valor lançado');
+}
+
+/* ---- colar da planilha (Excel/Sheets copia como TSV) ----
+   Layout reconhecido: descrição | data (25/set, 01/10) | valor | ok.
+   Linhas "Receitas"/"Despesas" trocam a seção; a linha do total é ignorada. */
+const FIN_IMP={rows:[],comp:''};
+const FIN_MES_IDX={jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
+function finImpData(cell,comp){
+  const m=finNorm(cell).trim().match(/^(\d{1,2})\s*[\/\-.]\s*([a-z]{3,}|\d{1,2})(?:\s*[\/\-.]\s*(\d{2,4}))?$/); if(!m) return null;
+  const mes=/^\d+$/.test(m[2])?+m[2]:FIN_MES_IDX[m[2].slice(0,3)]; if(!mes||mes>12) return null;
+  let y=+comp.slice(0,4); const cm=+comp.slice(5,7);
+  if(m[3]) y=+m[3]<100?2000+ +m[3]:+m[3];
+  else if(mes<cm-6) y++; else if(mes>cm+6) y--;
+  return ymDia(y+'-'+String(mes).padStart(2,'0'),+m[1]);
+}
+function finColar(){
+  modal(`<h3>Colar da planilha</h3>
+    <div class="h-sub" style="margin:-8px 0 12px">Selecione no Excel da linha “Receitas” até a última despesa (colunas descrição, data, valor, ok), copie e cole aqui.</div>
+    <div class="field"><label>Competência destes lançamentos</label><input type="month" id="fiC" value="${FIN_ST.comp}"></div>
+    <div class="field"><label>Conteúdo</label><textarea id="fiT" rows="9" placeholder="Receitas\t\t31868,38&#10;Salário Líquido\t\t11874\tok&#10;Despesas\t\t20238,07&#10;Terreno Taquaralto\t25/set\t791\tok"></textarea></div>
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+      <button class="btn" onclick="finColarAnalisar()">Analisar</button></div>`);
+}
+function finColarAnalisar(){
+  const comp=finVal('fiC')||FIN_ST.comp, txt=finVal('fiT'); FIN_IMP.comp=comp;
+  let secao='despesa'; const rows=[];
+  txt.split(/\r?\n/).forEach(l=>{
+    const cells=l.split('\t').map(x=>x.trim()); if(!cells.some(Boolean)) return;
+    // cabeçalho de seção = a célula inteira é só a palavra ("Despesas"), nunca "Conta de celular"
+    const first=finNorm(cells.find(Boolean)||'').trim();
+    if(/^receitas?$/.test(first)){secao='receita';return;}
+    if(/^(despesas?|contas?|gastos?|saidas?)$/.test(first)){secao='despesa';return;}
+    let desc='',venc='',valor=0,ok=false;
+    cells.forEach(cel=>{ if(!cel) return; const n=finNorm(cel);
+      if(/^(ok|pago|paga|recebido|x|✓|sim)$/.test(n)){ok=true;return;}
+      const d=finImpData(cel,comp); if(d&&!venc){venc=d;return;}
+      if(/^-?(r\$\s*)?[\d.,]+$/.test(n)){const v=parseBRL(cel); if(v)valor=v; return;}
+      if(!desc) desc=cel; });
+    if(!desc||!valor) return;
+    const r={desc,venc,valor,ok,tipo:secao,incluir:true,fixo:false,aviso:'',cartao:''};
+    const nd=finNorm(desc);
+    if(secao==='despesa'&&/cartao|fatura/.test(nd)){
+      const c=fin.cartoes.find(c=>nd.includes(finNorm(c.nome).trim()));
+      if(c){ r.cartao=c.id; r.aviso=`vira o valor informado da fatura ${c.nome} (não duplica com as compras lançadas)`;
+        if(r.venc&&fin.faturasValor[finFatKey(c.id,r.venc.slice(0,7))]!=null){ r.incluir=false; r.aviso=`fatura ${c.nome} de ${ymLabel(r.venc.slice(0,7))} já tem valor informado`; } }
+      else r.aviso='cadastre este cartão na aba Cartões antes — senão ele vira conta comum e duplica com as compras que você lançar';
+    }
+    if(fin.contas.some(c=>c.comp===comp&&finNorm(c.desc)===nd&&c.tipo===secao)){ r.incluir=false; r.aviso='já existe em '+ymLabel(comp); }
+    rows.push(r);
+  });
+  if(!rows.length){toast('Não reconheci nenhuma linha com descrição e valor');return;}
+  FIN_IMP.rows=rows; finColarPreview();
+}
+function finColarPreview(){
+  const rs=FIN_IMP.rows, sel=rs.filter(r=>r.incluir);
+  const tot=t=>r2(sel.filter(r=>r.tipo===t).reduce((s,r)=>s+r.valor,0));
+  modal(`<h3>Conferir importação</h3>
+    <div class="h-sub" style="margin:-8px 0 10px">${ymLabel(FIN_IMP.comp,true)} · receitas ${brl(tot('receita'))} · despesas ${brl(tot('despesa'))} · marque “fixo” só no que se repete todo mês</div>
+    <div class="table-wrap"><table class="fin-imp"><thead><tr><th></th><th>Lançamento</th><th>Venc.</th><th>Valor</th><th>Fixo</th></tr></thead><tbody>
+    ${rs.map((r,i)=>`<tr class="${r.incluir?'':'off'}">
+      <td><input type="checkbox" ${r.incluir?'checked':''} onchange="FIN_IMP.rows[${i}].incluir=this.checked;finColarPreview()"></td>
+      <td><span class="pill ${r.tipo==='receita'?'green':'gray'}">${r.tipo==='receita'?'rec':'desp'}</span> ${h(r.desc)}${r.ok?' <span class="pill green">ok</span>':''}
+        ${r.aviso?`<div class="fin-imp-av">${h(r.aviso)}</div>`:''}</td>
+      <td>${r.venc?ddmm(r.venc):'—'}</td><td class="fin-val">${brl(r.valor)}</td>
+      <td>${r.cartao?'':`<input type="checkbox" ${r.fixo?'checked':''} onchange="FIN_IMP.rows[${i}].fixo=this.checked">`}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="modal-actions"><button class="btn line" onclick="finColar()">Voltar</button>
+      <button class="btn" onclick="finColarImportar()">Importar ${sel.length}</button></div>`);
+  const m=document.querySelector('.modal'); if(m) m.style.maxWidth='640px';
+}
+function finColarImportar(){
+  const M=FIN_IMP.comp; let n=0,f=0;
+  FIN_IMP.rows.filter(r=>r.incluir).forEach(r=>{
+    if(r.cartao){ const c=fin.cartoes.find(x=>x.id===r.cartao);
+      const ym=r.venc?r.venc.slice(0,7):ymAdd(M,1), k=finFatKey(c.id,ym);
+      fin.faturasValor[k]=r.valor; if(r.ok) fin.faturasPagas[k]=todayISO(); f++; return; }
+    const c={id:uid(),tipo:r.tipo,desc:r.desc,valor:r.valor,venc:r.venc,comp:M,ok:r.ok,okEm:r.ok?todayISO():'',cat:r.tipo==='despesa'?finCategorizar(finNorm(r.desc)).cat:'',modelo:''};
+    if(c.cat==='outros') c.cat='';
+    if(r.fixo){ const m={id:uid(),tipo:r.tipo,desc:r.desc,valor:r.valor,dia:r.venc?+r.venc.slice(8,10):0,mesSeguinte:!!r.venc&&r.venc.slice(0,7)!==M,cat:c.cat}; fin.modelos.push(m); c.modelo=m.id; }
+    fin.contas.push(c); n++;
+  });
+  FIN_ST.comp=M; FIN_ST.aba='mes'; finSave(); closeModal(); vFinancas();
+  toast(`${n} lançamento${n!==1?'s':''} importado${n!==1?'s':''}${f?` · ${f} fatura informada`:''}`);
+}
+
+/* ---- configurações, backup, avisos ---- */
+function finCfg(){
+  const apr=Object.entries(fin.aprendido).sort((a,b)=>a[0].localeCompare(b[0]));
+  modal(`<h3>Finanças · ajustes</h3>
+    <div class="field"><label>Dia de virada das faturas</label><input type="number" id="cfV" min="0" max="28" value="${fin.cfg.diaVirada}">
+      <div class="h-sub" style="margin-top:5px">Fatura de cartão que vence até este dia do mês entra na competência anterior (ex.: Caixa vence 08/out → setembro). Contas comuns usam a competência que você escolher.</div></div>
+    <label class="fin-chk"><input type="checkbox" id="cfS" ${fin.cfg.vozConfirma?'checked':''}> Depois de ler em voz alta, ouvir “sim/não” para confirmar</label>
+    <div class="field" style="margin-top:14px"><label>Palavras que aprendi (${apr.length})</label>
+      <div class="fin-apr">${apr.length?apr.map(([w,c])=>`<span class="chip">${h(w)} → ${finCat(c).nome} <button class="icon-btn" onclick="finEsquecer('${w}')">✕</button></span>`).join(''):'<span class="h-sub">Nada ainda — corrija uma categoria no “Confere?” e eu memorizo.</span>'}</div></div>
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Fechar</button>
+      <button class="btn" onclick="finSalvarCfg()">Salvar</button></div>`);
+}
+function finEsquecer(w){delete fin.aprendido[w]; finSave(); finCfg();}
+function finSalvarCfg(){
+  fin.cfg.diaVirada=Math.min(28,Math.max(0,parseInt(finVal('cfV'))||0));
+  fin.cfg.vozConfirma=document.getElementById('cfS').checked;
+  finSave(); closeModal(); FIN_ST.comp=null; vFinancas(); toast('Ajustes salvos');
+}
+function finExport(){
+  const blob=new Blob([JSON.stringify(fin,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='financas-backup-'+todayISO()+'.json'; a.click(); toast('Backup das finanças exportado');
+}
+function finImport(inp){
+  const f=inp.files[0]; if(!f)return; const r=new FileReader();
+  r.onload=e=>{ let d; try{d=JSON.parse(e.target.result);}catch(err){toast('JSON inválido');inp.value='';return;}
+    if(!isPlainObj(d)||!('gastos' in d||'contas' in d||'cartoes' in d)){toast('Não é um backup de finanças');inp.value='';return;}
+    const n=k=>Array.isArray(d[k])?d[k].length:0;
+    if(!confirm(`Substituir as finanças atuais por:\n• ${n('contas')} contas/receitas\n• ${n('gastos')} gastos\n• ${n('cartoes')} cartões\n• ${n('modelos')} fixos\n\nContinuar?`)){inp.value='';return;}
+    Object.assign(fin,{contas:[],modelos:[],gastos:[],cartoes:[],faturasPagas:{},faturasValor:{},aprendido:{},cfg:{}},d);
+    finSave(); vFinancas(); toast('Finanças restauradas'); inp.value=''; };
+  r.readAsText(f);
+}
+function finAvisos(){
+  if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
+  const hoje=todayISO(), amanha=addDaysISO(hoje,1), key='planner_fin_notif_'+hoje;
+  let ja={}; try{ja=JSON.parse(localStorage.getItem(key)||'{}');}catch(e){}
+  const itens=[];
+  fin.contas.filter(c=>c.tipo==='despesa'&&!c.ok&&c.venc&&c.venc<=amanha&&c.venc>=addDaysISO(hoje,-3)).forEach(c=>itens.push({id:c.id,t:c.desc,v:c.valor,d:c.venc}));
+  [finCompDe(hoje),ymAdd(finCompDe(hoje),-1)].forEach(M=>finFaturasDaComp(M).filter(f=>!f.ok&&f.venc<=amanha&&f.venc>=addDaysISO(hoje,-3)).forEach(f=>itens.push({id:f.id,t:f.desc,v:f.valor,d:f.venc})));
+  itens.filter(i=>!ja[i.id]).slice(0,4).forEach(i=>{
+    try{ new Notification('💸 '+i.t,{body:`${brl(i.v)} · ${i.d<hoje?'VENCIDA em':i.d===hoje?'vence hoje':'vence amanhã'} ${i.d<hoje?fmtBR(i.d):''}`.trim()}); }catch(e){}
+    ja[i.id]=1; });
+  try{localStorage.setItem(key,JSON.stringify(ja));}catch(e){}
+}
 
 /* ---------------- Boot ---------------- */
 load();
