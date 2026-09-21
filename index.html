@@ -430,6 +430,13 @@ tr:last-child td{border-bottom:none}
 }
 .menu-btn{display:none;position:fixed;top:14px;left:14px;z-index:70;background:var(--sidebar);color:#fff;width:40px;height:40px;border-radius:10px;align-items:center;justify-content:center;font-size:18px}
 /* ---------------- Finanças ---------------- */
+.fin-sync{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-radius:11px;margin:-8px 0 16px;font-size:13px}
+.fin-sync b{display:block}.fin-sync small{font-size:11px;opacity:.85;word-break:break-all}
+.fin-sync.green{background:var(--green-soft);color:var(--green)}
+.fin-sync.gray{background:var(--track);color:var(--muted)}
+.fin-sync.amber{background:var(--amber-soft);color:var(--amber)}
+.fin-sync.red{background:var(--red-soft);color:var(--red)}
+
 .fin-inf{display:block;font-size:10px;font-weight:500;color:var(--amber);text-align:right}
 .fin-imp td{font-size:13px;vertical-align:top}
 .fin-imp tr.off td{opacity:.45}
@@ -4182,19 +4189,48 @@ function finHydrate(){ try{ const raw=localStorage.getItem(FIN_LS); if(raw){ con
 function finTemDados(){ return fin.contas.length||fin.gastos.length||fin.cartoes.length||fin.modelos.length; }
 
 let finLastPushed='', finAttached=false;
+const FIN_SYNC={estado:'conectando',erro:'',ultimo:0};
+function finSetSync(estado,erro){
+  FIN_SYNC.estado=estado; FIN_SYNC.erro=erro||''; if(estado==='ok') FIN_SYNC.ultimo=Date.now();
+  const el=document.getElementById('finSyncBox'); if(el) el.outerHTML=finSyncBox();
+}
+function finErrSync(err){
+  const code=String((err&&(err.code||err.message))||'erro desconhecido');
+  if(code.includes('permission')||code.includes('PERMISSION')) finSetSync('bloqueado',code);
+  else if(typeof navigator!=='undefined'&&navigator.onLine===false) finSetSync('offline','sem rede');
+  else finSetSync('erro',code);
+}
+function finSyncBox(){
+  const st=FIN_SYNC.estado, conta=authUser?(authUser.email||authUser.uid):'';
+  const map={
+    ok:['green','● Finanças sincronizadas',`conta ${conta}`],
+    conectando:['gray','○ Conectando finanças…',conta?`conta ${conta}`:''],
+    offline:['amber','▲ Sem rede','as mudanças sobem quando a conexão voltar'],
+    local:['amber','▲ Finanças só neste aparelho','você não está logada — entre com o Google para sincronizar'],
+    bloqueado:['red','■ Firebase bloqueando as finanças',`a regra do nó meu_financeiro não existe ou não tem o UID desta conta (${conta})`],
+    erro:['red','■ Falha ao sincronizar finanças',FIN_SYNC.erro],
+  };
+  const [cor,tit,det]=map[st]||map.conectando;
+  const acao=st==='bloqueado'?`<button class="btn sm" onclick="mDiagnostico()">Ver regra</button>`
+            :st==='erro'||st==='ok'?`<button class="btn sm line" onclick="finForcarEnvio()">Enviar agora</button>`:'';
+  return `<div id="finSyncBox" class="fin-sync ${cor}"><div><b>${tit}</b><small>${h(det)}</small></div>${acao}</div>`;
+}
+function finForcarEnvio(){ if(!authReady){toast('Entre com o Google primeiro');return;} finSave(); toast('Enviando finanças…'); }
 function finSave(){
   finNormalize(); finMirror();
   if(authReady){
     finLastPushed=JSON.stringify(fin);
     setSync('salvando');
     db.ref(FIN_ROOT).set(JSON.parse(finLastPushed))
-      .then(()=>setSync('ok',''))
-      .catch(err=>{ syncErrHandler(err,'finSave falhou'); toast('Finanças: salvo só neste aparelho'); });
-  }else setSync('local','autenticação indisponível — nada sobe para a nuvem');
+      .then(()=>{ setSync('ok',''); finSetSync('ok'); })
+      .catch(err=>{ syncErrHandler(err,'finSave falhou'); finErrSync(err); toast('Finanças: NÃO subiu para a nuvem — veja o aviso na aba'); });
+  }else{ setSync('local','autenticação indisponível — nada sobe para a nuvem'); finSetSync('local'); }
 }
 function attachFinSync(){
   if(finAttached) return; finAttached=true;
+  finSetSync('conectando');
   db.ref(FIN_ROOT).on('value',snap=>{
+    finSetSync('ok');
     const d=snap.val();
     if(d==null){ if(finTemDados()) finSave(); return; }   // nuvem vazia: sobe o que existe local
     if(!isPlainObj(d)) return;
@@ -4203,11 +4239,11 @@ function attachFinSync(){
     Object.assign(fin,d); finNormalize(); finMirror();
     if(current==='financas'){ if(document.querySelector('.modal-bg')) pendingRerender=true; else vFinancas(); }
   },err=>{
-    syncErrHandler(err,'Sync financeiro falhou');
+    syncErrHandler(err,'Sync financeiro falhou'); finErrSync(err); finAttached=false;
     if(String(err&&err.code||'').includes('permission')) toast('Finanças: atualize as regras do Firebase (Saúde dos dados)');
   });
 }
-function detachFinSync(){ try{ db.ref(FIN_ROOT).off(); }catch(e){} finAttached=false; }
+function detachFinSync(){ try{ db.ref(FIN_ROOT).off(); }catch(e){} finAttached=false; finSetSync('local'); }
 
 /* ---------------- helpers de data/dinheiro ---------------- */
 const FIN_MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -4572,6 +4608,7 @@ function vFinancas(){
   document.getElementById('view').innerHTML=`
     <div class="page-title">finanças</div>
     <div class="page-sub">Contas e receitas do mês com baixa manual, gastos do dia a dia registrados por voz e cartões com parcelas calculadas automaticamente. Nada daqui entra em horas de estudo.</div>
+    ${finSyncBox()}
     <div class="fin-top">
       <div class="cal-switch">${abas.map(([k,n])=>`<button class="${FIN_ST.aba===k?'on':''}" onclick="finAba('${k}')">${n}</button>`).join('')}</div>
       <div class="fin-top-r">
