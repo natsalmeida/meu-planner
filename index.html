@@ -298,6 +298,17 @@ tr:last-child td{border-bottom:none}
 
 .tag-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
 .hist-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+/* Validação de sessão: bloqueio (vermelho) impede salvar; aviso (âmbar) exige confirmação */
+.log-alert{border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.5;margin-top:4px}
+.log-alert+.log-alert{margin-top:8px}
+.log-alert b{display:block;font-size:12px;margin-bottom:3px}
+.log-alert ul{margin:0;padding-left:17px}
+.log-alert.bloq{background:var(--red-soft);color:var(--red)}
+.log-alert.aviso{background:var(--amber-soft);color:var(--amber)}
+.audit-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.audit-item:last-child{border-bottom:none}
+.audit-item .t{flex:1;min-width:0}
+.audit-item small{display:block;color:var(--faint);font-size:11px}
 .chip{background:var(--purple-soft);color:var(--purple);border-radius:16px;padding:5px 11px;font-size:12px;font-weight:500;transition:filter .12s}
 .chip:hover{filter:brightness(.96)}
 .st-select{padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:12px;font-weight:600}
@@ -1053,7 +1064,9 @@ function timerStop(){
   const data=start.getFullYear()+'-'+pad(start.getMonth()+1)+'-'+pad(start.getDate());
   const ini=pad(start.getHours())+':'+pad(start.getMinutes());
   const fim=pad(end.getHours())+':'+pad(end.getMinutes());
-  const prefill={area:timerState.area,atividade:timerState.atividade,data,ini,fim,origem:'timer'};
+  const longo=elapsed>=12*36e5; // 12h+ de cronômetro é esquecimento; >=24h daria volta no relógio e mentiria
+  const prefill={area:timerState.area,atividade:timerState.atividade,data,ini,fim:longo?'':fim,origem:'timer',
+    timerLongo:longo?elapsed/36e5:0};
   clearInterval(timerIntervalId);
   timerState={running:false,area:prefill.area,atividade:'',origStart:null,segStart:null,accumMs:0};
   saveTimerState(); timerPanelOpen=false; renderTimerWidget();
@@ -1129,6 +1142,81 @@ function fmtDur(horasDecimais){
 
 /* ---------------- Study hours (TRE excluded) ---------------- */
 function countableLogs(){return store.logs.filter(l=>areaById(l.area).conta);}
+/* ---- Validação de sessões ----
+   Toda sessão nova ou editada passa por validarLog: modal manual, cronômetro e "cumprir bloco".
+   BLOQUEIO = dado impossível ou que contaria em dobro (não salva de jeito nenhum).
+   AVISO    = plausível, mas raro o bastante para ser erro de digitação (salva com confirmação).
+   Intervalos em minutos absolutos: uma sessão 23:30→00:40 colide corretamente com o dia seguinte. */
+const LOG_REGRAS={toleranciaMin:2, maxMinEstudo:240, maxMinTrabalho:720};
+function logIntervalo(l){
+  const dia=Math.round(new Date(l.data+'T12:00').getTime()/864e5);
+  const ini=dia*1440+hmToMin(l.ini);
+  return {ini, fim:ini+durMin(l.ini,l.fim)};
+}
+function logRotulo(l){
+  return `${areaById(l.area).nome}${l.atividade?' ('+l.atividade+')':''} em ${fmtBR(l.data).slice(0,5)}, ${l.ini}–${l.fim}`;
+}
+function logsPorData(){ const m={}; store.logs.forEach(l=>{(m[l.data]=m[l.data]||[]).push(l);}); return m; }
+function validarLog(d,ignorarId=null,idx=null){
+  const bloq=[],avisos=[],conflitos=[];
+  if(!d.data) bloq.push('Informe a data.');
+  if(!d.ini||!d.fim) bloq.push('Preencha início e fim.');
+  if(bloq.length) return {bloq,avisos,conflitos};
+  const dur=durMin(d.ini,d.fim);
+  if(dur===0) bloq.push('Início e fim iguais: a sessão teria 0 min.');
+  const iv=logIntervalo(d);
+  const agora=logIntervalo({data:todayISO(),ini:nowHM(),fim:nowHM()}).ini;
+  if(d.data>todayISO()) bloq.push('A data está no futuro.');
+  else if(iv.fim>agora) bloq.push(`O horário de fim ainda não chegou (a sessão terminaria ${iv.fim-agora>=1440?'amanhã':'às '+d.fim}).`);
+  // só sessões do dia anterior, do mesmo dia e do seguinte podem colidir
+  idx=idx||logsPorData();
+  [addDaysISO(d.data,-1),d.data,addDaysISO(d.data,1)].forEach(dt=>(idx[dt]||[]).forEach(l=>{
+    if(l.id===ignorarId||!l.ini||!l.fim)return;
+    const o=logIntervalo(l);
+    const sob=Math.min(iv.fim,o.fim)-Math.max(iv.ini,o.ini);
+    if(sob>LOG_REGRAS.toleranciaMin){ conflitos.push(l); bloq.push(`Sobrepõe ${sob} min da sessão de ${logRotulo(l)}.`); }
+  }));
+  const trab=!areaById(d.area).conta;
+  const max=trab?LOG_REGRAS.maxMinTrabalho:LOG_REGRAS.maxMinEstudo;
+  if(dur>max) avisos.push(`Sessão de ${fmtDur(dur/60)}, acima do limite de ${max/60}h para ${trab?'trabalho':'estudo'}.`);
+  if(dur>0&&hmToMin(d.fim)<hmToMin(d.ini)) avisos.push(`Atravessa a meia-noite: ${fmtDur(dur/60)} contadas em ${fmtBR(d.data)}.`);
+  const ini0=store.periodos.map(p=>p.ini).filter(Boolean).sort()[0];
+  if(ini0&&d.data<ini0) avisos.push(`Data anterior ao primeiro período cadastrado (${fmtBR(ini0)}). Confira o ano.`);
+  return {bloq,avisos,conflitos};
+}
+function logAlertaHTML(r){
+  const lst=a=>`<ul>${a.map(x=>`<li>${h(x)}</li>`).join('')}</ul>`;
+  return (r.bloq.length?`<div class="log-alert bloq"><b>Não dá para salvar</b>${lst(r.bloq)}</div>`:'')
+    +(!r.bloq.length&&r.avisos.length?`<div class="log-alert aviso"><b>Confira antes de salvar</b>${lst(r.avisos)}</div>`:'');
+}
+/* Mostra o resultado no próprio modal. Qualquer edição nos campos derruba o alerta
+   e o "Salvar mesmo assim": a confirmação vale só para os valores que você viu. */
+function mostrarAlertaLog(r,editId){
+  const box=document.getElementById('logAlert'); if(!box)return;
+  box.innerHTML=logAlertaHTML(r);
+  const btn=document.getElementById('logSalvar');
+  if(btn){
+    btn.textContent=(!r.bloq.length&&r.avisos.length)?'Salvar mesmo assim':(editId?'Salvar':'Salvar sessão');
+    btn.onclick=()=>addLog(editId,!r.bloq.length&&r.avisos.length>0);
+  }
+  const m=document.querySelector('.modal');
+  if(m&&!m._logWatch){ m._logWatch=true;
+    const limpar=()=>{ box.innerHTML=''; if(btn){btn.textContent=editId?'Salvar':'Salvar sessão'; btn.onclick=()=>addLog(editId,false);} };
+    m.addEventListener('input',limpar); m.addEventListener('change',limpar); }
+  box.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+/* Auditoria do histórico: a validação só protege daqui para frente. */
+function auditarLogs(){
+  const idx=logsPorData(), vistos=new Set(), out=[];
+  store.logs.forEach(l=>{
+    const r=validarLog(l,l.id,idx);
+    const probs=[...r.bloq.filter(b=>!b.startsWith('Sobrepõe')),...r.avisos.filter(a=>!a.startsWith('Atravessa'))];
+    r.conflitos.forEach(c=>{ const k=[l.id,c.id].sort().join('|'); if(vistos.has(k))return; vistos.add(k);
+      probs.push(`Sobrepõe a sessão de ${logRotulo(c)}.`); });
+    if(probs.length) out.push({l,probs});
+  });
+  return out.sort((a,b)=>(b.l.data+b.l.ini).localeCompare(a.l.data+a.l.ini));
+}
 /* ---- Trabalho (TRE em casa): agregados paralelos, jamais somados ao estudo ---- */
 function workLogs(){return store.logs.filter(l=>!areaById(l.area).conta);}
 function workHoursRange(iniISO,fimISO){
@@ -1723,7 +1811,9 @@ function mNovaSessao(areaSel='',editId=null,prefill=null){
   const fimVal = ed?ed.fim:(prefill?prefill.fim:'');
   const obsVal = ed?(ed.obs||''):(prefill?(prefill.obs||''):'');
   modal(`<h3>${ed?'Editar sessão':(prefill&&prefill.origem==='timer')?'Salvar sessão do cronômetro':'Nova sessão de estudo'}</h3>
-  ${(prefill&&prefill.origem==='timer')?`<div class="pill purple" style="margin-bottom:14px">⏱ Tempo cronometrado: ${fmtDur(durH(iniVal,fimVal))}</div>`:''}
+  ${(prefill&&prefill.origem==='timer')?(prefill.timerLongo
+    ?`<div class="log-alert aviso" style="margin:0 0 14px"><b>Cronômetro ligado por ${fmtDur(prefill.timerLongo)}</b>Provavelmente ficou esquecido. Informe o horário real de fim.</div>`
+    :`<div class="pill purple" style="margin-bottom:14px">⏱ Tempo cronometrado: ${fmtDur(durH(iniVal,fimVal))}</div>`):''}
   <div class="field"><label>Área</label><select id="sa" onchange="refreshHistChips(this.value)">${areaOptions(areaEff)}</select></div>
   <div class="field"><label>Atividade</label><input id="sat" placeholder="Ex: Busuu, BBC, Aula 04 de Cálculo" value="${h(atividadeVal)}">
     ${rec.length?`<div style="font-size:11px;color:var(--faint);margin:7px 0 4px" id="histLabel">Últimas atividades desta área (toque para reaproveitar):</div>`:`<div style="font-size:11px;color:var(--faint);margin:7px 0 4px;display:none" id="histLabel">Últimas atividades desta área (toque para reaproveitar):</div>`}${chips||'<div class="hist-chips" id="histChips"></div>'}</div>
@@ -1733,17 +1823,19 @@ function mNovaSessao(areaSel='',editId=null,prefill=null){
     <div class="field"><label>Hora fim</label><input type="time" id="sf" value="${fimVal}"></div>
   </div>
   <div class="field"><label>Observações (opcional)</label><textarea id="so" rows="2">${h(obsVal)}</textarea></div>
+  <div id="logAlert"></div>
   <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
-  <button class="btn" onclick="addLog(${ed?`'${editId}'`:'null'})">${ed?'Salvar':'Salvar sessão'}</button></div>`);}
+  <button class="btn" id="logSalvar" onclick="addLog(${ed?`'${editId}'`:'null'})">${ed?'Salvar':'Salvar sessão'}</button></div>`);}
 function refreshHistChips(area){
   const rec=recentActivities(area);const box=document.getElementById('histChips');const lbl=document.getElementById('histLabel');if(!box)return;
   box.innerHTML=rec.map(a=>`<button type="button" class="chip" onclick="document.getElementById('sat').value=this.textContent">${h(a)}</button>`).join('');
   if(lbl)lbl.style.display=rec.length?'block':'none';
 }
-function addLog(editId=null){const area=document.getElementById('sa').value,ini=document.getElementById('si').value,fim=document.getElementById('sf').value;
-  if(!ini||!fim){toast('Preencha início e fim');return;}
+function addLog(editId=null,confirmado=false){const area=document.getElementById('sa').value,ini=document.getElementById('si').value,fim=document.getElementById('sf').value;
   const dados={area,atividade:document.getElementById('sat').value.trim(),
     data:document.getElementById('sd').value,ini,fim,obs:document.getElementById('so').value.trim()};
+  const r=validarLog(dados,editId);
+  if(r.bloq.length||(r.avisos.length&&!confirmado)){ mostrarAlertaLog(r,editId); return; }
   if(editId){Object.assign(store.logs.find(l=>l.id===editId),dados);}
   else{store.logs.push({id:uid(),...dados});}
   save();closeModal();
@@ -1952,7 +2044,10 @@ function cumprirBloco(id,iso){
   if(gradeFulfilledOn(g,iso)){toast('Este bloco já está coberto pelo Diário desse dia');return;}
   const t=parseGradeTime(g.horario);
   if(!t){ regFromGrade(id); return; }
-  store.logs.push({id:uid(),area:g.area,atividade:g.atividade,data:iso,ini:t.ini,fim:t.fim,obs:''});
+  const novo={area:g.area,atividade:g.atividade,data:iso,ini:t.ini,fim:t.fim,obs:''};
+  const r=validarLog(novo);
+  if(r.bloq.length||r.avisos.length){ mNovaSessao(g.area,null,novo); mostrarAlertaLog(r,null); return; }
+  store.logs.push({id:uid(),...novo});
   save(); _gaCache=null; vGrade();
   toast('✓ Registrado em '+fmtBR(iso)+' ('+fmtDur(durH(t.ini,t.fim))+')');
 }
@@ -4137,6 +4232,16 @@ function mDiagnostico(){
       ${d.partes.map(p=>`<tr><td>${h(p.nome)}</td><td>${p.n}</td><td><b>${fmtBytes(p.bytes)}</b></td></tr>`).join('')}
     </tbody></table></div>
 
+    ${(()=>{const a=auditarLogs();
+      if(!a.length) return `<div class="log-alert" style="background:var(--green-soft);color:var(--green);margin-top:14px"><b>Sessões consistentes</b>Nenhuma sobreposição, duração anormal ou data impossível no histórico.</div>`;
+      return `<div style="border:1px solid var(--line);border-radius:11px;padding:12px 13px;margin-top:14px">
+        <div style="font-size:13px;font-weight:700">${a.length} ${a.length===1?'sessão com problema':'sessões com problema'}</div>
+        <div style="font-size:11px;color:var(--muted);margin:2px 0 6px">Registradas antes da validação. Distorcem as horas do Analytics até serem corrigidas.</div>
+        <div style="max-height:240px;overflow-y:auto">${a.slice(0,50).map(x=>`<div class="audit-item"><div class="t">
+          <b>${h(logRotulo(x.l))}</b><small>${x.probs.map(h).join(' ')}</small></div>
+          <button class="btn sm line" onclick="mNovaSessao('','${x.l.id}')">Editar</button>
+          <button class="icon-btn" title="Excluir" onclick="if(confirm('Excluir esta sessão?')){delLog('${x.l.id}');mDiagnostico();}">✕</button></div>`).join('')}</div>
+        ${a.length>50?`<div style="font-size:11px;color:var(--faint);margin-top:6px">Mostrando as 50 mais recentes.</div>`:''}</div>`;})()}
     <div style="font-size:11px;color:var(--faint);margin-top:12px">
       Referência: <b>abaixo de 400 KB</b> nada precisa mudar. Entre 400 KB e 1 MB a sincronização começa a ficar perceptível em rede ruim.
       Acima de 1 MB vale trocar o <code>set</code> do objeto inteiro por gravação por caminho — o mesmo que o registro de hábitos já faz.
