@@ -8,7 +8,8 @@ App de página única (Firebase RTDB + login Google) para controle de estudos no
 |---|---|
 | `npm run dev` | Servidor local com recarga (`http://localhost:5173`) |
 | `npm run build` | Gera `dist/index.html`: **um único arquivo** com JS e CSS inline |
-| `npm run check` | Lint + e2e + diferencial contra o monólito. Rode antes de todo deploy |
+| `npm run check` | Lint + e2e. Rode antes de todo deploy (o GitHub Actions roda o mesmo) |
+| `npm run test:equiv` | Diferencial contra o monólito. Serviu para validar a modularização; telas que ganharam funcionalidade nova divergem de propósito |
 
 ## Deploy
 

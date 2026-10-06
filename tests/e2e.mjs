@@ -223,6 +223,35 @@ secao('Categorias de gasto personalizadas');
 }
 
 /* ---------------------------------------------------------------- */
+secao('Filtro de lançamentos por categoria');
+{
+  const ym = A.P.todayISO().slice(0, 7), d = A.P.todayISO();
+  A.P.fin.gastos.push(
+    { id: 'f1', desc: 'Mercado X', valor: 100, meio: 'pix', cat: 'mercado', data: d },
+    { id: 'f2', desc: 'Mercado Y', valor: 50, meio: 'credito', cat: 'mercado', data: d, cartao: '' },
+    { id: 'f3', desc: 'Uber', valor: 20, meio: 'pix', cat: 'transporte', data: d });
+  A.P.finSave(); A.P.FIN_ST.mesG = ym;
+  A.w.go('financas'); A.w.finAba('gastos'); await espera(30);
+  const linhas = () => [...A.d.querySelectorAll('#view .list-item')].map((x) => x.textContent);
+  const temDesc = (t) => linhas().some((l) => l.includes(t));
+  ok(A.d.getElementById('finFiltroCat'), 'seletor de categoria aparece nos lançamentos');
+  A.w.finCatF('mercado'); await espera(20);
+  ok(temDesc('Mercado X') && temDesc('Mercado Y') && !temDesc('Uber'), 'filtrar por Mercado mostra só Mercado');
+  ok(/R\$\s?150,00/.test(A.d.querySelector('.fin-filtro-tot').textContent), 'subtotal do filtro: R$ 150,00');
+  A.w.finMeioF('pix'); await espera(20);
+  ok(temDesc('Mercado X') && !temDesc('Mercado Y'), 'categoria + meio de pagamento combinam');
+  A.w.finMeioF('all'); A.w.finCatF('transporte', true); await espera(20);
+  ok(temDesc('Uber') && !temDesc('Mercado X'), 'clique na barra filtra a categoria');
+  A.w.finCatF('transporte', true); await espera(20);
+  ok(A.P.FIN_ST.cat === 'all' && temDesc('Mercado X'), 'segundo clique na mesma barra limpa o filtro');
+  A.w.finCatF('mercado'); A.w.finMesG(-1); await espera(20);
+  ok(A.P.FIN_ST.cat === 'mercado' && A.d.getElementById('finFiltroCat').value === 'mercado', 'filtro mantido ao trocar de mês');
+  A.P.FIN_ST.cat = 'nao_existe'; A.w.finMesG(0); await espera(20);
+  ok(A.P.FIN_ST.cat === 'all', 'categoria inexistente volta para "Todas"');
+  A.P.fin.gastos = A.P.fin.gastos.filter((g) => !['f1', 'f2', 'f3'].includes(g.id)); A.P.finSave();
+}
+
+/* ---------------------------------------------------------------- */
 secao('Erros de runtime acumulados');
 for (const x of [A, B2]) ok(x.erros.length === 0, `${x.nome}: ${x.erros.length} erro(s) ${x.erros.slice(0, 2).join(' | ')}`);
 

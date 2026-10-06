@@ -9,7 +9,7 @@
     "lint": "eslint src",
     "test": "vite build && node tests/e2e.mjs",
     "test:equiv": "vite build && node tests/equivalencia.mjs legacy/index.monolito.html dist/index.html",
-    "check": "npm run lint && npm test && npm run test:equiv"
+    "check": "npm run lint && npm test"
   },
   "keywords": [],
   "author": "",

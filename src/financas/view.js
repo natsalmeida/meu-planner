@@ -5,17 +5,19 @@ import { closeModal, h, modal, toast } from '../ui/base.js';
 import { renderCurrent } from '../ui/router.js';
 import { addDaysISO } from '../views/analytics/graficos.js';
 import { finCatOptions } from './categorias.js';
-import { FIN_MEIOS, fin, finCat, finCatById, finSave, finSyncBox } from './core.js';
+import { FIN_CATS, FIN_MEIOS, fin, finCat, finCatById, finSave, finSyncBox } from './core.js';
 import { FIN_MESES, brl, ddmm, finCiclo, finCompDe, finFatKey, finFaturaDaCompra, finFaturasDaComp, finFixosPendentes, finNorm, finParcelas, finTodasParcelas, finVal, parseBRL, r2, ymAdd, ymDia, ymLabel } from './util.js';
 import { finAprender, finCategorizar, finConfirmar } from './voz.js';
 import { finVAnalytics } from './analytics.js';
 
 /* ---------------- VIEW ---------------- */
-export const FIN_ST={aba:'mes',comp:null,mesG:null,meio:'all'};
+export const FIN_ST={aba:'mes',comp:null,mesG:null,meio:'all',cat:'all'};
 export function finAba(a){FIN_ST.aba=a;vFinancas();}
 export function finComp(n){FIN_ST.comp=n===0?finCompDe(todayISO()):ymAdd(FIN_ST.comp,n);vFinancas();}
 export function finMesG(n){FIN_ST.mesG=n===0?todayISO().slice(0,7):ymAdd(FIN_ST.mesG,n);vFinancas();}
 export function finMeioF(m){FIN_ST.meio=m;vFinancas();}
+/* clicar de novo na mesma categoria (barra do gráfico) desliga o filtro */
+export function finCatF(c,alternar=false){FIN_ST.cat=alternar&&FIN_ST.cat===c?'all':c;vFinancas();}
 
 export function vFinancas(){
   if(!FIN_ST.comp) FIN_ST.comp=finCompDe(todayISO());
@@ -288,7 +290,10 @@ export function finVGastos(){
   const porCat={}; gs.forEach(g=>{porCat[g.cat]=(porCat[g.cat]||0)+g.valor;});
   const cats=Object.entries(porCat).sort((a,b)=>b[1]-a[1]); const max=cats.length?cats[0][1]:1;
   const ant=soma(fin.gastos.filter(g=>g.data.slice(0,7)===ymAdd(ym,-1)));
-  const filt=(FIN_ST.meio==='all'?gs:gs.filter(g=>g.meio===FIN_ST.meio)).sort((a,b)=>b.data.localeCompare(a.data)||(b.criado||0)-(a.criado||0));
+  // filtro de categoria persiste entre meses; categoria excluída volta para "Todas"
+  if(FIN_ST.cat!=='all'&&!finCatById(FIN_ST.cat)) FIN_ST.cat='all';
+  const fc=FIN_ST.cat;
+  const filt=gs.filter(g=>(FIN_ST.meio==='all'||g.meio===FIN_ST.meio)&&(fc==='all'||g.cat===fc)).sort((a,b)=>b.data.localeCompare(a.data)||(b.criado||0)-(a.criado||0));
   const dias=[...new Set(filt.map(g=>g.data))];
   return `
     <div class="fin-nav">
@@ -307,13 +312,25 @@ export function finVGastos(){
     <div class="row">
       <div class="card" style="flex:1;min-width:260px">
         <h3>Por categoria</h3><div class="h-sub">${gs.length} lançamento${gs.length!==1?'s':''}</div>
-        ${cats.length?cats.map(([c,v])=>`<div class="bar-row"><div class="lbl">${finCat(c).nome}</div>
+        ${cats.length?cats.map(([c,v])=>`<div class="bar-row fin-bar-click ${fc===c?'on':''} ${fc!=='all'&&fc!==c?'dim':''}" onclick="finCatF('${c}',true)" title="Filtrar lançamentos por ${h(finCat(c).nome)}"><div class="lbl">${h(finCat(c).nome)}</div>
           <div class="bar-track"><i style="width:${Math.round(v/max*100)}%;background:${finCat(c).cor}"></i></div>
           <div class="val">${brl(v)}</div></div>`).join(''):'<div class="empty">Sem gastos neste mês.</div>'}
       </div>
       <div class="card" style="flex:1.5;min-width:300px">
         <div class="fin-card-h"><h3>Lançamentos</h3>
           <div class="hist-chips">${[['all','Todos'],...Object.entries(FIN_MEIOS)].map(([k,n])=>`<button class="chip ${FIN_ST.meio===k?'on':''}" onclick="finMeioF('${k}')" style="${FIN_ST.meio===k?'background:var(--ink);color:#fff':''}">${n}</button>`).join('')}</div></div>
+        <div class="fin-filtro-cat">
+          <select id="finFiltroCat" onchange="finCatF(this.value)" aria-label="Filtrar por categoria">
+            <option value="all">Todas as categorias</option>
+            ${(()=>{ // categorias com gasto no mês primeiro (com total), depois as demais
+              const com=cats.map(([c])=>c), sem=FIN_CATS.map(c=>c.id).filter(id=>!com.includes(id));
+              return com.map(c=>`<option value="${c}" ${fc===c?'selected':''}>${h(finCat(c).nome)} · ${brl(porCat[c])}</option>`).join('')
+                +(sem.length?`<optgroup label="Sem gastos neste mês">${sem.map(c=>`<option value="${c}" ${fc===c?'selected':''}>${h(finCat(c).nome)}</option>`).join('')}</optgroup>`:'');
+            })()}
+          </select>
+          ${fc!=='all'||FIN_ST.meio!=='all'?`<span class="fin-filtro-tot"><b>${brl(soma(filt))}</b> · ${filt.length} lançamento${filt.length!==1?'s':''}</span>
+            <button class="btn sm line" onclick="FIN_ST.cat='all';finMeioF('all')">Limpar filtros</button>`:''}
+        </div>
         ${dias.length?dias.map(d=>{const doDia=filt.filter(g=>g.data===d);
           return `<div class="fin-day"><span>${fmtBR(d).slice(0,5)} · ${['dom','seg','ter','qua','qui','sex','sáb'][new Date(d+'T12:00').getDay()]}</span><b>${brl(soma(doDia))}</b></div>
             ${doDia.map(finRowGasto).join('')}`;}).join(''):'<div class="empty">Nada aqui.</div>'}

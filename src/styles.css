@@ -562,3 +562,12 @@ tr:last-child td{border-bottom:none}
 .fin-cor{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
 .fin-cor.on{border-color:var(--text,#222);box-shadow:0 0 0 2px var(--card,#fff) inset}
 .fin-cores input[type=color]{width:32px;height:28px;border:none;background:none;padding:0;cursor:pointer}
+
+/* Finanças: filtro de lançamentos por categoria */
+.fin-filtro-cat{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:2px 0 10px}
+.fin-filtro-cat select{max-width:100%;min-width:200px}
+.fin-filtro-tot{font-size:12.5px;color:var(--muted)}
+.fin-bar-click{cursor:pointer;border-radius:6px;transition:opacity .15s}
+.fin-bar-click:hover{background:var(--card-2)}
+.fin-bar-click.on .lbl{font-weight:700}
+.fin-bar-click.dim{opacity:.4}
