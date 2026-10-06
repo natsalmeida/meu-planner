@@ -11,11 +11,31 @@ import { finAprender, finCategorizar, finConfirmar } from './voz.js';
 import { finVAnalytics } from './analytics.js';
 
 /* ---------------- VIEW ---------------- */
-export const FIN_ST={aba:'mes',comp:null,mesG:null,meio:'all',cat:'all'};
+export const FIN_ST={aba:'mes',comp:null,mesG:null,meio:'all',cat:'all',parcModo:'parcela'};
 export function finAba(a){FIN_ST.aba=a;vFinancas();}
 export function finComp(n){FIN_ST.comp=n===0?finCompDe(todayISO()):ymAdd(FIN_ST.comp,n);vFinancas();}
 export function finMesG(n){FIN_ST.mesG=n===0?todayISO().slice(0,7):ymAdd(FIN_ST.mesG,n);vFinancas();}
 export function finMeioF(m){FIN_ST.meio=m;vFinancas();}
+export function finParcModo(m){FIN_ST.parcModo=m;vFinancas();}
+/* Itens da aba Gastos num mês. Modo 'parcela': compra parcelada no crédito entra com
+   1 parcela por mês, a partir do MÊS DA COMPRA (parcela k → mês da compra + k−1), no
+   mesmo dia do mês. Assim a aba continua "por data da compra" e não duplica a aba Mês,
+   que já distribui pelas faturas. Parcelas anteriores a parcIni (pagas antes do app)
+   não entram. Modo 'compra': o valor total no dia da compra, como antes. */
+export function finItensGastos(ym,modo=FIN_ST.parcModo){
+  const out=[];
+  fin.gastos.forEach(g=>{
+    if(modo==='compra'||g.meio!=='credito'||!(g.parc>1)){
+      if(g.data.slice(0,7)===ym) out.push({g,valor:g.valor,data:g.data});
+      return;
+    }
+    finParcelas(g).forEach(p=>{
+      if(ymAdd(g.data.slice(0,7),p.k-1)!==ym) return;
+      out.push({g,valor:p.valor,data:p.k===1?g.data:ymDia(ym,+g.data.slice(8,10)),k:p.k,n:p.n});
+    });
+  });
+  return out;
+}
 /* clicar de novo na mesma categoria (barra do gráfico) desliga o filtro */
 export function finCatF(c,alternar=false){FIN_ST.cat=alternar&&FIN_ST.cat===c?'all':c;vFinancas();}
 
@@ -284,30 +304,32 @@ export function finModeloDel(id){if(!confirm('Excluir este fixo? Lançamentos j�
 /* ---- aba Gastos ---- */
 export function finVGastos(){
   const ym=FIN_ST.mesG;
-  const gs=fin.gastos.filter(g=>g.data.slice(0,7)===ym);
-  const soma=a=>r2(a.reduce((s,g)=>s+g.valor,0));
-  const tot=soma(gs), cred=soma(gs.filter(g=>g.meio==='credito')), av=r2(tot-cred);
-  const porCat={}; gs.forEach(g=>{porCat[g.cat]=(porCat[g.cat]||0)+g.valor;});
+  const gs=finItensGastos(ym), parcModo=FIN_ST.parcModo==='parcela';
+  const soma=a=>r2(a.reduce((s,it)=>s+it.valor,0));
+  const tot=soma(gs), cred=soma(gs.filter(it=>it.g.meio==='credito')), av=r2(tot-cred);
+  const porCat={}; gs.forEach(it=>{porCat[it.g.cat]=r2((porCat[it.g.cat]||0)+it.valor);});
   const cats=Object.entries(porCat).sort((a,b)=>b[1]-a[1]); const max=cats.length?cats[0][1]:1;
-  const ant=soma(fin.gastos.filter(g=>g.data.slice(0,7)===ymAdd(ym,-1)));
+  const ant=soma(finItensGastos(ymAdd(ym,-1)));
   // filtro de categoria persiste entre meses; categoria excluída volta para "Todas"
   if(FIN_ST.cat!=='all'&&!finCatById(FIN_ST.cat)) FIN_ST.cat='all';
   const fc=FIN_ST.cat;
-  const filt=gs.filter(g=>(FIN_ST.meio==='all'||g.meio===FIN_ST.meio)&&(fc==='all'||g.cat===fc)).sort((a,b)=>b.data.localeCompare(a.data)||(b.criado||0)-(a.criado||0));
+  const filt=gs.filter(it=>(FIN_ST.meio==='all'||it.g.meio===FIN_ST.meio)&&(fc==='all'||it.g.cat===fc)).sort((a,b)=>b.data.localeCompare(a.data)||(b.g.criado||0)-(a.g.criado||0));
   const dias=[...new Set(filt.map(g=>g.data))];
   return `
     <div class="fin-nav">
       <button class="icon-btn" onclick="finMesG(-1)">◀</button>
-      <div><b>${ymLabel(ym,true)}</b><small>por data da compra · crédito aparece pelo valor total</small></div>
+      <div><b>${ymLabel(ym,true)}</b><small>por data da compra · ${parcModo?'parcelado no crédito entra só com a parcela do mês':'crédito aparece pelo valor total da compra'}</small></div>
       <button class="icon-btn" onclick="finMesG(1)">▶</button>
       ${ym!==todayISO().slice(0,7)?`<button class="btn sm line" onclick="finMesG(0)">Atual</button>`:''}
+      <div class="hist-chips fin-parc-modo" title="Como contar compras parceladas no crédito">
+        ${[['parcela','Parcela do mês'],['compra','Valor da compra']].map(([k,n])=>`<button class="chip ${FIN_ST.parcModo===k?'on':''}" onclick="finParcModo('${k}')" style="${FIN_ST.parcModo===k?'background:var(--ink);color:#fff':''}">${n}</button>`).join('')}</div>
     </div>
     <button class="fin-voice-cta" onclick="finVozAbrir()"><span class="fin-mic sm">🎙</span>
       <span><b>Toque e fale o gasto</b><small>Ex.: “gastei 45 no mercado no débito” — eu repito o que entendi antes de salvar</small></span></button>
     <div class="stat-row" style="margin:18px 0">
       <div class="stat"><b>${brl(tot)}</b><span>${ant?`${tot>=ant?'▲':'▼'} ${Math.abs(Math.round((tot-ant)/ant*100))}% vs mês anterior`:'gasto no mês'}</span></div>
       <div class="stat"><b>${brl(av)}</b><span>à vista (Pix/débito/dinheiro)</span></div>
-      <div class="stat"><b>${brl(cred)}</b><span>compras no crédito</span></div>
+      <div class="stat"><b>${brl(cred)}</b><span>${parcModo?'no crédito (parcelas do mês)':'compras no crédito'}</span></div>
     </div>
     <div class="row">
       <div class="card" style="flex:1;min-width:260px">
@@ -333,18 +355,20 @@ export function finVGastos(){
         </div>
         ${dias.length?dias.map(d=>{const doDia=filt.filter(g=>g.data===d);
           return `<div class="fin-day"><span>${fmtBR(d).slice(0,5)} · ${['dom','seg','ter','qua','qui','sex','sáb'][new Date(d+'T12:00').getDay()]}</span><b>${brl(soma(doDia))}</b></div>
-            ${doDia.map(finRowGasto).join('')}`;}).join(''):'<div class="empty">Nada aqui.</div>'}
+            ${doDia.map(it=>finRowGasto(it.g,it)).join('')}`;}).join(''):'<div class="empty">Nada aqui.</div>'}
       </div>
     </div>`;
 }
-export function finRowGasto(g){
+export function finRowGasto(g,it){
   const c=finCat(g.cat), cart=g.meio==='credito'?(fin.cartoes.find(x=>x.id===g.cartao)||{}).nome:'';
+  const parcela=it&&it.k;
   return `<div class="list-item">
     <span class="tag-dot" style="background:${c.cor}"></span>
     <div class="li-body"><div class="t">${h(g.desc)}</div>
       <div class="m"><span>${c.nome}</span><span class="pill ${g.meio==='credito'?'purple':g.meio==='pix'?'green':'gray'}">${FIN_MEIOS[g.meio]}${cart?' · '+h(cart):''}${g.parc>1?' · '+g.parc+'x':''}</span>
-        ${g.origem==='voz'?'<span title="'+h(g.fala||'')+'">🎙</span>':g.origem==='fatura'?'<span title="Importado da fatura">🧾</span>':''}${g.parcIni>1?`<span class="pill gray">desde ${g.parcIni}/${g.parc}</span>`:''}</div></div>
-    <b class="fin-val">${brl(g.valor)}</b>
+        ${g.origem==='voz'?'<span title="'+h(g.fala||'')+'">🎙</span>':g.origem==='fatura'?'<span title="Importado da fatura">🧾</span>':''}${g.parcIni>1&&!parcela?`<span class="pill gray">desde ${g.parcIni}/${g.parc}</span>`:''}
+        ${parcela?`<span class="pill gray" title="Compra de ${fmtBR(g.data)} · total ${brl(g.valor)}">parcela ${it.k}/${it.n}${it.k>1?' · compra '+fmtBR(g.data).slice(0,5):''}</span>`:''}</div></div>
+    <b class="fin-val">${brl(it?it.valor:g.valor)}${parcela?`<small class="fin-val-tot">de ${brl(g.valor)}</small>`:''}</b>
     <button class="icon-btn" onclick="finGastoEditar('${g.id}')" title="Editar">✎</button>
     <button class="icon-btn" onclick="finGastoDel('${g.id}')" title="Excluir">✕</button></div>`;
 }

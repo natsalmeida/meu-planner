@@ -252,6 +252,28 @@ secao('Filtro de lançamentos por categoria');
 }
 
 /* ---------------------------------------------------------------- */
+secao('Compra parcelada na aba Gastos');
+{
+  A.P.fin.gastos.push(
+    { id: 'pL', desc: 'LATAM AIR', valor: 1334.24, meio: 'credito', parc: 4, cat: 'lazer', data: '2026-09-01', cartao: '' },
+    { id: 'pR', desc: 'Restante', valor: 100, meio: 'credito', parc: 3, cat: 'lazer', data: '2026-08-31', cartao: '' },
+    { id: 'pV', desc: 'Pix à vista', valor: 50, meio: 'pix', cat: 'lazer', data: '2026-09-10' });
+  A.P.finSave();
+  const val = (ym, id) => A.P.finItensGastos(ym, 'parcela').filter((i) => i.g.id === id).map((i) => i.valor);
+  ok(val('2026-09', 'pL').join() === '333.56', 'setembro: só a 1ª parcela da LATAM (R$ 333,56)');
+  ok(['2026-10', '2026-11', '2026-12'].every((m) => val(m, 'pL').join() === '333.56') && val('2027-01', 'pL').length === 0, 'parcelas 2–4 em out/nov/dez, nada em janeiro');
+  const soma3 = ['2026-08', '2026-09', '2026-10'].reduce((s, m) => s + val(m, 'pR').reduce((a, b) => a + b, 0), 0);
+  ok(Math.round(soma3 * 100) === 10000 && val('2026-08', 'pR')[0] === 33.34, 'centavos do arredondamento na 1ª parcela; soma fecha o total');
+  ok(A.P.finItensGastos('2026-09', 'parcela').find((i) => i.g.id === 'pR')?.data === '2026-09-30', 'parcela de compra no dia 31 cai no último dia de setembro');
+  ok(val('2026-09', 'pV').join() === '50', 'à vista não muda');
+  ok(A.P.finItensGastos('2026-09', 'compra').find((i) => i.g.id === 'pL').valor === 1334.24, 'modo "Valor da compra" mantém o total');
+  A.P.FIN_ST.mesG = '2026-10'; A.P.FIN_ST.cat = 'all'; A.P.FIN_ST.meio = 'all'; A.w.finParcModo('parcela'); await espera(20);
+  const linha = [...A.d.querySelectorAll('#view .list-item')].find((x) => x.textContent.includes('LATAM AIR'));
+  ok(linha && /parcela 2\/4/.test(linha.textContent) && /de R\$\s?1\.334,24/.test(linha.textContent), 'outubro mostra "parcela 2/4" com o total da compra');
+  A.P.fin.gastos = A.P.fin.gastos.filter((g) => !['pL', 'pR', 'pV'].includes(g.id)); A.P.finSave();
+}
+
+/* ---------------------------------------------------------------- */
 secao('Erros de runtime acumulados');
 for (const x of [A, B2]) ok(x.erros.length === 0, `${x.nome}: ${x.erros.length} erro(s) ${x.erros.slice(0, 2).join(' | ')}`);
 
