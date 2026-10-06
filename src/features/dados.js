@@ -8,7 +8,7 @@ import { auditarLogs, logRotulo } from './validacao.js';
 import { h, modal, toast } from '../ui/base.js';
 import { current, go } from '../ui/router.js';
 import { addDaysISO, anMonday } from '../views/analytics/graficos.js';
-import { FIN_ROOT } from '../financas/core.js';
+import { FIN_ROOT, FIN_SCHEMA } from '../financas/core.js';
 
 /* ---------------- Export / Import ---------------- */
 /* ---------------- Diagnóstico de volume ----------------
@@ -82,7 +82,7 @@ export function mDiagnostico(){
       if(!authUser) return `<div style="padding:11px 13px;border-radius:10px;background:var(--amber-soft);color:var(--amber);font-size:12px;margin:14px 0">
         Você não está autenticado. Entre com o Google para ver o seu UID e a regra de segurança correspondente.</div>`;
       const uid=authUser.uid;
-      const regras=`{\n  "rules": {\n    "${ROOT}": {\n      ".read": "auth.uid === '${uid}'",\n      ".write": "auth.uid === '${uid}'",\n      ".validate": "newData.child('_schema').val() === ${SYNC_SCHEMA}"\n    },\n    "${FIN_ROOT}": {\n      ".read": "auth.uid === '${uid}'",\n      ".write": "auth.uid === '${uid}'"\n    }\n  }\n}`;
+      const regras=`{\n  "rules": {\n    "${ROOT}": {\n      ".read": "auth.uid === '${uid}'",\n      ".write": "auth.uid === '${uid}'",\n      ".validate": "newData.child('_schema').val() === ${SYNC_SCHEMA}"\n    },\n    "${FIN_ROOT}": {\n      ".read": "auth.uid === '${uid}'",\n      ".write": "auth.uid === '${uid}'",\n      ".validate": "newData.child('_schema').val() === ${FIN_SCHEMA}"\n    }\n  }\n}`;
       return `<div style="border:1px solid var(--line);border-radius:11px;padding:13px;margin:14px 0">
         <div style="font-size:13px;font-weight:700;margin-bottom:4px">Regra de segurança para este projeto</div>
         <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:9px">

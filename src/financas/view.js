@@ -5,7 +5,7 @@ import { closeModal, h, modal, toast } from '../ui/base.js';
 import { renderCurrent } from '../ui/router.js';
 import { addDaysISO } from '../views/analytics/graficos.js';
 import { finCatOptions } from './categorias.js';
-import { FIN_CATS, FIN_MEIOS, fin, finCat, finCatById, finSave, finSyncBox } from './core.js';
+import { FIN_CATS, FIN_MEIOS, fin, finCat, finCatById, finCatEstorno, finSave, finSyncBox } from './core.js';
 import { FIN_MESES, brl, ddmm, finCiclo, finCompDe, finFatKey, finFaturaDaCompra, finFaturasDaComp, finFixosPendentes, finNorm, finParcelas, finTodasParcelas, finVal, parseBRL, r2, ymAdd, ymDia, ymLabel } from './util.js';
 import { finAprender, finCategorizar, finConfirmar } from './voz.js';
 import { finVAnalytics } from './analytics.js';
@@ -308,7 +308,12 @@ export function finVGastos(){
   const soma=a=>r2(a.reduce((s,it)=>s+it.valor,0));
   const tot=soma(gs), cred=soma(gs.filter(it=>it.g.meio==='credito')), av=r2(tot-cred);
   const porCat={}; gs.forEach(it=>{porCat[it.g.cat]=r2((porCat[it.g.cat]||0)+it.valor);});
-  const cats=Object.entries(porCat).sort((a,b)=>b[1]-a[1]); const max=cats.length?cats[0][1]:1;
+  // total LÍQUIDO por categoria (estorno abate a categoria da compra). Barra só para
+  // saldo positivo; saldo negativo = estorno de compra de outro mês, listado à parte.
+  const cats=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
+  const catsPos=cats.filter(([,v])=>v>0), catsNeg=cats.filter(([,v])=>v<0).sort((a,b)=>a[1]-b[1]);
+  const max=catsPos.length?catsPos[0][1]:1;
+  const estornos=soma(gs.filter(it=>it.valor<0));
   const ant=soma(finItensGastos(ymAdd(ym,-1)));
   // filtro de categoria persiste entre meses; categoria excluída volta para "Todas"
   if(FIN_ST.cat!=='all'&&!finCatById(FIN_ST.cat)) FIN_ST.cat='all';
@@ -334,9 +339,14 @@ export function finVGastos(){
     <div class="row">
       <div class="card" style="flex:1;min-width:260px">
         <h3>Por categoria</h3><div class="h-sub">${gs.length} lançamento${gs.length!==1?'s':''}</div>
-        ${cats.length?cats.map(([c,v])=>`<div class="bar-row fin-bar-click ${fc===c?'on':''} ${fc!=='all'&&fc!==c?'dim':''}" onclick="finCatF('${c}',true)" title="Filtrar lançamentos por ${h(finCat(c).nome)}"><div class="lbl">${h(finCat(c).nome)}</div>
+        ${catsPos.length?catsPos.map(([c,v])=>`<div class="bar-row fin-bar-click ${fc===c?'on':''} ${fc!=='all'&&fc!==c?'dim':''}" onclick="finCatF('${c}',true)" title="Filtrar lançamentos por ${h(finCat(c).nome)}"><div class="lbl">${h(finCat(c).nome)}</div>
           <div class="bar-track"><i style="width:${Math.round(v/max*100)}%;background:${finCat(c).cor}"></i></div>
           <div class="val">${brl(v)}</div></div>`).join(''):'<div class="empty">Sem gastos neste mês.</div>'}
+        ${estornos<0?`<div class="fin-estornos">
+          <div class="fin-estornos-h"><span>Estornos e créditos no mês</span><b>${brl(estornos)}</b></div>
+          <div class="h-sub">Já descontados das categorias acima${catsNeg.length?'. Sem compra neste mês para abater:':'.'}</div>
+          ${catsNeg.map(([c,v])=>`<div class="bar-row fin-bar-click ${fc===c?'on':''}" onclick="finCatF('${c}',true)"><div class="lbl">${h(finCat(c).nome)}</div>
+            <div class="bar-track"></div><div class="val fin-cred">${brl(v)}</div></div>`).join('')}</div>`:''}
       </div>
       <div class="card" style="flex:1.5;min-width:300px">
         <div class="fin-card-h"><h3>Lançamentos</h3>
@@ -367,8 +377,9 @@ export function finRowGasto(g,it){
     <div class="li-body"><div class="t">${h(g.desc)}</div>
       <div class="m"><span>${c.nome}</span><span class="pill ${g.meio==='credito'?'purple':g.meio==='pix'?'green':'gray'}">${FIN_MEIOS[g.meio]}${cart?' · '+h(cart):''}${g.parc>1?' · '+g.parc+'x':''}</span>
         ${g.origem==='voz'?'<span title="'+h(g.fala||'')+'">🎙</span>':g.origem==='fatura'?'<span title="Importado da fatura">🧾</span>':''}${g.parcIni>1&&!parcela?`<span class="pill gray">desde ${g.parcIni}/${g.parc}</span>`:''}
+        ${g.valor<0?'<span class="pill green" title="Estorno/crédito: abate o total da categoria">estorno</span>':''}
         ${parcela?`<span class="pill gray" title="Compra de ${fmtBR(g.data)} · total ${brl(g.valor)}">parcela ${it.k}/${it.n}${it.k>1?' · compra '+fmtBR(g.data).slice(0,5):''}</span>`:''}</div></div>
-    <b class="fin-val">${brl(it?it.valor:g.valor)}${parcela?`<small class="fin-val-tot">de ${brl(g.valor)}</small>`:''}</b>
+    <b class="fin-val ${(it?it.valor:g.valor)<0?'fin-cred':''}">${brl(it?it.valor:g.valor)}${parcela?`<small class="fin-val-tot">de ${brl(g.valor)}</small>`:''}</b>
     <button class="icon-btn" onclick="finGastoEditar('${g.id}')" title="Editar">✎</button>
     <button class="icon-btn" onclick="finGastoDel('${g.id}')" title="Excluir">✕</button></div>`;
 }
@@ -611,8 +622,9 @@ export function finImpFaturaAnalisar(cid){
     .flatMap(g=>finParcelas(g).filter(p=>p.fat===ym));
   const usados=new Set();
   rows.forEach(r=>{
-    const {cat}=finCategorizar(finNorm(r.desc).replace(/[^a-z0-9]+/g,' '));
-    Object.assign(r,{cat,catSug:cat,incluir:true,aviso:''});
+    let {cat}=finCategorizar(finNorm(r.desc).replace(/[^a-z0-9]+/g,' ')), aviso='';
+    if(r.valor<0){ const orig=finCatEstorno(r.desc,r.valor,r.data,cid); if(orig){ cat=orig.cat; aviso=`estorno de “${orig.desc}” (${ddmm(orig.data)}) — categoria herdada`; } }
+    Object.assign(r,{cat,catSug:cat,incluir:true,aviso});
     const dup=existentes.find(p=>!usados.has(p.g.id)&&Math.abs(p.valor-r.valor)<=0.02&&(
       r.n>1 ? (p.n===r.n&&p.k===r.k)
             : ((p.n===1||p.k===1)&&Math.abs((new Date(p.g.data)-new Date(r.data))/864e5)<=4)));   // 1ª parcela às vezes vem sem “01/04”

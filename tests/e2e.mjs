@@ -274,6 +274,70 @@ secao('Compra parcelada na aba Gastos');
 }
 
 /* ---------------------------------------------------------------- */
+secao('Sync granular das finanças');
+{
+  const T = () => server.tree.meu_financeiro;
+  ok(T()._schema === 2 && !Array.isArray(T().gastos ?? {}), 'nó de finanças no schema 2 (entidades por id)');
+  const n0 = server.log.length;
+  A.P.fin.gastos.push({ id: 'sg1', desc: 'Pão', valor: 8, meio: 'pix', cat: 'alimentacao', data: A.P.todayISO() }); A.P.finSave(); await espera(60);
+  const ws = server.log.slice(n0).filter((x) => x.startsWith('A:'));
+  ok(ws.length === 1 && ws[0] === 'A:update[gastos/sg1]', 'novo gasto envia só gastos/sg1: ' + ws.join(' '));
+  const F = aba('F'); await espera(300);
+  ok(F.P.fin.gastos.some((g) => g.id === 'sg1'), 'outra aba recebe o gasto');
+  A.P.fin.gastos.push({ id: 'sgA', desc: 'Do PC', valor: 10, meio: 'pix', cat: 'outros', data: A.P.todayISO() }); A.P.finSave();
+  F.P.fin.cartoes.push({ id: 'ccF', nome: 'Nubank', fecha: 3, vence: 10 }); F.P.finSave();
+  await espera(120);
+  ok(T().gastos.sgA && T().cartoes.ccF, 'edições simultâneas em dois aparelhos: as duas ficam (antes a última apagava a outra)');
+  ok(A.P.fin.cartoes.some((c) => c.id === 'ccF') && F.P.fin.gastos.some((g) => g.id === 'sgA'), 'os dois aparelhos convergem');
+  // chave proibida pelo Firebase numa palavra aprendida
+  A.P.fin.aprendido['g.p/s'] = 'transporte'; A.P.finSave(); await espera(80);
+  ok(T().aprendido['g%2Ep%2Fs'] === 'transporte' && F.P.fin.aprendido['g.p/s'] === 'transporte', 'palavra com "." e "/" vai e volta intacta');
+  // F fecha; lança offline; A segue editando; F reabre
+  const lsF = {}; for (let i = 0; i < F.w.localStorage.length; i++) { const k = F.w.localStorage.key(i); lsF[k] = F.w.localStorage.getItem(k); }
+  F.fechar();
+  const FL = A.P.FIN_LS, off = JSON.parse(lsF[FL]);
+  off.gastos.push({ id: 'sgOff', desc: 'Sem sinal', valor: 15, meio: 'dinheiro', cat: 'outros', data: A.P.todayISO() });
+  off.gastos = off.gastos.filter((g) => g.id !== 'sg1');
+  lsF[FL] = JSON.stringify(off);
+  A.P.fin.gastos.push({ id: 'sgA2', desc: 'Depois', valor: 5, meio: 'pix', cat: 'outros', data: A.P.todayISO() }); A.P.finSave(); await espera(80);
+  const F2 = aba('F2', { ls: lsF }); await espera(350);
+  ok(T().gastos.sgOff && T().gastos.sgA2, 'gasto lançado offline sobe sem apagar o que o outro aparelho fez');
+  ok(!T().gastos.sg1 && !A.P.fin.gastos.some((g) => g.id === 'sg1'), 'exclusão feita offline também chega');
+  F2.fechar();
+  // aba com o código antigo grava o objeto inteiro (formato legado)
+  const leg = JSON.parse(JSON.stringify(A.P.fin)); leg.gastos.push({ id: 'sgV', desc: 'App velho', valor: 1, meio: 'pix', cat: 'outros', data: A.P.todayISO() });
+  server.rules = false; server.tree.meu_financeiro = norm(leg); emitir('meu_financeiro'); await espera(250);
+  ok(T()._schema === 2 && T().gastos.sgV && A.P.fin.gastos.some((g) => g.id === 'sgV'), 'gravação legada absorvida e reconvertida para o schema 2');
+  A.P.fin.gastos = A.P.fin.gastos.filter((g) => !g.id.startsWith('sg')); delete A.P.fin.aprendido['g.p/s']; A.P.finSave(); await espera(60);
+}
+
+/* ---------------------------------------------------------------- */
+secao('Estornos');
+{
+  const d = A.P.todayISO();
+  A.P.fin.gastos.push(
+    { id: 'eH', desc: 'HOTEL IBIS PALMAS', valor: 400, meio: 'credito', parc: 1, cat: 'lazer', data: A.P.addDaysISO(d, -5), cartao: '' },
+    { id: 'eE', desc: 'ESTORNO HOTEL IBIS', valor: -400, meio: 'credito', parc: 1, cat: 'outros', data: d, cartao: '' },
+    { id: 'eX', desc: 'CREDITO DESCONHECIDO XYZ', valor: -30, meio: 'credito', parc: 1, cat: 'outros', data: d, cartao: '' },
+    { id: 'eM', desc: 'Mercado', valor: 100, meio: 'pix', cat: 'mercado', data: d },
+    { id: 'eP', desc: 'Devolução petshop', valor: -20, meio: 'pix', cat: 'pets', data: d });
+  A.P.fin.cfg.migEstornos = 0; A.P.finSave(); await espera(40);
+  const g = (id) => A.P.fin.gastos.find((x) => x.id === id);
+  ok(g('eE').cat === 'lazer', 'migração: estorno antigo herda a categoria da compra (Lazer)');
+  ok(g('eX').cat === 'outros', 'sem compra correspondente, continua em Outros');
+  ok(A.P.finCatEstorno('EST HOTEL IBIS PALMAS', -400, d, '')?.id === 'eH', 'importação reconhece a compra original');
+  A.P.FIN_ST.mesG = d.slice(0, 7); A.P.FIN_ST.cat = 'all'; A.P.FIN_ST.meio = 'all';
+  A.w.go('financas'); A.w.finAba('gastos'); await espera(30);
+  const barras = [...A.d.querySelectorAll('#view .card .bar-row')].filter((b) => !b.closest('.fin-estornos'));
+  ok(!barras.some((b) => b.querySelector('.val').textContent.includes('-')), 'nenhuma barra com valor negativo');
+  const est = A.d.querySelector('.fin-estornos');
+  ok(est && /450,00/.test(est.querySelector('.fin-estornos-h').textContent), 'bloco de estornos soma todos os créditos do mês (R$ 450,00)');
+  ok(/Pets/.test(est.textContent) && est.querySelector('.fin-cred') && /20,00/.test(est.textContent), 'estorno sem compra no mês aparece à parte, em verde');
+  ok(!barras.some((b) => /Lazer/.test(b.textContent)), 'compra estornada no mesmo mês zera a categoria (Lazer some das barras)');
+  A.P.fin.gastos = A.P.fin.gastos.filter((x) => !['eH', 'eE', 'eX', 'eM', 'eP'].includes(x.id)); A.P.finSave();
+}
+
+/* ---------------------------------------------------------------- */
 secao('Erros de runtime acumulados');
 for (const x of [A, B2]) ok(x.erros.length === 0, `${x.nome}: ${x.erros.length} erro(s) ${x.erros.slice(0, 2).join(' | ')}`);
 
