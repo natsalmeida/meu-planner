@@ -185,6 +185,44 @@ const V = { set: (v) => (server.rules && !(v && v._schema === 5) ? 'recusado' : 
 ok(V.set(legado) === 'recusado' && server.tree.meu_planner === antes, 'com a regra .validate, set() legado é recusado');
 
 /* ---------------------------------------------------------------- */
+secao('Categorias de gasto personalizadas');
+{
+  A.w.finCfg(); await espera(30);
+  ok(/Categorias de gasto/.test(A.d.getElementById('modalRoot').textContent), 'seção de categorias nos ajustes');
+  A.w.finCatModal(); await espera(80);
+  A.d.getElementById('fcnN').value = 'Viagens'; A.d.getElementById('fcnK').value = 'Airbnb, hotel';
+  A.w.finCatSalvar(null); await espera(60);
+  const cat = A.P.fin.catsExtra.find((c) => c.nome === 'Viagens');
+  ok(cat && cat.kw.join() === 'airbnb,hotel', 'categoria criada com palavras-chave normalizadas');
+  ok(Object.values(server.tree.meu_financeiro?.catsExtra || {}).some((c) => c.nome === 'Viagens'), 'categoria sincronizada no Firebase');
+  ok(A.P.FIN_CATS.at(-1).id === 'outros' && A.P.FIN_CATS.some((c) => c.id === cat.id), '"Outros" continua por último');
+  ok(A.P.finCategorizar(A.P.finNorm('reserva airbnb floripa')).cat === cat.id, 'palavra-chave categoriza automaticamente');
+  A.d.getElementById('fcnN')?.remove(); A.w.finCatModal(); await espera(80);
+  A.d.getElementById('fcnN').value = 'viagens'; const n0 = A.P.fin.catsExtra.length; A.w.finCatSalvar(null); await espera(30);
+  ok(A.P.fin.catsExtra.length === n0, 'nome duplicado é recusado');
+  // gasto da categoria nova sobrevive a normalização e recarga
+  A.P.fin.gastos.push({ id: 'gV', desc: 'Hotel', valor: 300, meio: 'pix', cat: cat.id, data: A.P.todayISO() });
+  A.P.finSave(); A.P.finNormalize();
+  ok(A.P.fin.gastos.find((g) => g.id === 'gV').cat === cat.id, 'gasto da categoria nova não vira "Outros" ao normalizar');
+  const C = aba('C'); await espera(300);
+  ok(C.P.fin.gastos.find((g) => g.id === 'gV')?.cat === cat.id && C.P.finCatById(cat.id)?.nome === 'Viagens', 'outra aba carrega categoria e gasto');
+  C.fechar();
+  // criação rápida pelo seletor, sem fechar o formulário
+  A.w.finNovoManual(); await espera(80);
+  const sel = A.d.getElementById('fgC'); A.d.getElementById('fgD').value = 'texto digitado';
+  A.w.prompt = () => 'Presentes'; sel.value = '__nova'; A.w.finCatSelect(sel);
+  const nova = A.P.fin.catsExtra.find((c) => c.nome === 'Presentes');
+  ok(nova && sel.value === nova.id && A.d.getElementById('fgD').value === 'texto digitado', 'criação rápida no seletor mantém o formulário preenchido');
+  A.w.prompt = () => null; sel.value = '__nova'; A.w.finCatSelect(sel);
+  ok(sel.value === nova.id, 'cancelar o prompt volta à seleção anterior');
+  A.w.closeModal();
+  // excluir move lançamentos para Outros
+  A.w.finCatExcluir(cat.id); await espera(40);
+  ok(!A.P.finCatById(cat.id) && A.P.fin.gastos.find((g) => g.id === 'gV').cat === 'outros', 'excluir categoria move os gastos para "Outros"');
+  A.w.closeModal(); A.w.go('financas'); await espera(30);
+}
+
+/* ---------------------------------------------------------------- */
 secao('Erros de runtime acumulados');
 for (const x of [A, B2]) ok(x.erros.length === 0, `${x.nome}: ${x.erros.length} erro(s) ${x.erros.slice(0, 2).join(' | ')}`);
 

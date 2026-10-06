@@ -4,6 +4,7 @@ import { fmtBR, todayISO } from '../core/datas.js';
 import { closeModal, h, modal, toast } from '../ui/base.js';
 import { addDaysISO } from '../views/analytics/graficos.js';
 import { fin, finCat, finSave } from './core.js';
+import { finCatListaHTML } from './categorias.js';
 import { brl, finCompDe, finFaturasDaComp, finVal, ymAdd } from './util.js';
 import { FIN_ST, vFinancas } from './view.js';
 
@@ -14,6 +15,9 @@ export function finCfg(){
     <div class="field"><label>Dia de virada das faturas</label><input type="number" id="cfV" min="0" max="28" value="${fin.cfg.diaVirada}">
       <div class="h-sub" style="margin-top:5px">Fatura de cartão que vence até este dia do mês entra na competência anterior (ex.: Caixa vence 08/out → setembro). Contas comuns usam a competência que você escolher.</div></div>
     <label class="fin-chk"><input type="checkbox" id="cfS" ${fin.cfg.vozConfirma?'checked':''}> Depois de ler em voz alta, ouvir “sim/não” para confirmar</label>
+    <div class="field" style="margin-top:14px"><label style="display:flex;align-items:center">Categorias de gasto
+        <button class="btn sm" style="margin-left:auto" onclick="finCatModal()">＋ Nova categoria</button></label>
+      <div class="fin-cat-lista">${finCatListaHTML()}</div></div>
     <div class="field" style="margin-top:14px"><label>Palavras que aprendi (${apr.length})</label>
       <div class="fin-apr">${apr.length?apr.map(([w,c])=>`<span class="chip">${h(w)} → ${finCat(c).nome} <button class="icon-btn" onclick="finEsquecer('${w}')">✕</button></span>`).join(''):'<span class="h-sub">Nada ainda — corrija uma categoria no “Confere?” e eu memorizo.</span>'}</div></div>
     <div class="modal-actions"><button class="btn line" onclick="closeModal()">Fechar</button>
@@ -36,7 +40,7 @@ export function finImport(inp){
     if(!isPlainObj(d)||!('gastos' in d||'contas' in d||'cartoes' in d)){toast('Não é um backup de finanças');inp.value='';return;}
     const n=k=>Array.isArray(d[k])?d[k].length:0;
     if(!confirm(`Substituir as finanças atuais por:\n• ${n('contas')} contas/receitas\n• ${n('gastos')} gastos\n• ${n('cartoes')} cartões\n• ${n('modelos')} fixos\n\nContinuar?`)){inp.value='';return;}
-    Object.assign(fin,{contas:[],modelos:[],gastos:[],cartoes:[],faturasPagas:{},faturasValor:{},aprendido:{},cfg:{}},d);
+    Object.assign(fin,{contas:[],modelos:[],gastos:[],cartoes:[],faturasPagas:{},faturasValor:{},aprendido:{},catsExtra:[],cfg:{}},d);
     finSave(); vFinancas(); toast('Finanças restauradas'); inp.value=''; };
   r.readAsText(f);
 }

@@ -4,7 +4,8 @@ import { fmtBR, todayISO } from '../core/datas.js';
 import { closeModal, h, modal, toast } from '../ui/base.js';
 import { renderCurrent } from '../ui/router.js';
 import { addDaysISO } from '../views/analytics/graficos.js';
-import { FIN_CATS, FIN_MEIOS, fin, finCat, finCatById, finSave, finSyncBox } from './core.js';
+import { finCatOptions } from './categorias.js';
+import { FIN_MEIOS, fin, finCat, finCatById, finSave, finSyncBox } from './core.js';
 import { FIN_MESES, brl, ddmm, finCiclo, finCompDe, finFatKey, finFaturaDaCompra, finFaturasDaComp, finFixosPendentes, finNorm, finParcelas, finTodasParcelas, finVal, parseBRL, r2, ymAdd, ymDia, ymLabel } from './util.js';
 import { finAprender, finCategorizar, finConfirmar } from './voz.js';
 import { finVAnalytics } from './analytics.js';
@@ -206,7 +207,7 @@ export function finConta(id,tipo,pre){
     </div>
     <div class="grid2">
       <div class="field"><label>Competência</label><input type="month" id="fcC" value="${comp}"></div>
-      ${rec||apo?'<div></div>':`<div class="field"><label>Categoria</label><select id="fcCat"><option value="">—</option>${FIN_CATS.map(k=>`<option value="${k.id}" ${c&&c.cat===k.id?'selected':''}>${k.nome}</option>`).join('')}</select></div>`}
+      ${rec||apo?'<div></div>':`<div class="field"><label>Categoria</label><select id="fcCat" data-fincat data-prev="${c&&c.cat||''}" onchange="finCatSelect(this)">${finCatOptions(c&&c.cat,true)}</select></div>`}
     </div>
     <label class="fin-chk"><input type="checkbox" id="fcOk" ${ok?'checked':''} onchange="document.getElementById('fcPgW').style.display=this.checked?'':'none'"> ${rec?'Já recebido':apo?'Já guardado':'Já pago'}</label>
     ${rec?'<input type="hidden" id="fcPg" value="">':`<div class="field" id="fcPgW" style="${ok?'':'display:none'};margin-top:6px"><label>Pago com o dinheiro de</label><input type="month" id="fcPg" value="${pago}">
@@ -262,7 +263,7 @@ export function finModelo(id){
     <div class="field"><label>Descrição</label><input id="fmD" value="${m?h(m.desc):''}"></div>
     <div class="grid2">
       <div class="field"><label>Dia do vencimento (0 = sem data)</label><input type="number" id="fmDia" min="0" max="31" value="${m?m.dia:10}"></div>
-      <div class="field"><label>Categoria</label><select id="fmC"><option value="">—</option>${FIN_CATS.map(k=>`<option value="${k.id}" ${m&&m.cat===k.id?'selected':''}>${k.nome}</option>`).join('')}</select></div>
+      <div class="field"><label>Categoria</label><select id="fmC" data-fincat data-prev="${m&&m.cat||''}" onchange="finCatSelect(this)">${finCatOptions(m&&m.cat,true)}</select></div>
     </div>
     <label class="fin-chk"><input type="checkbox" id="fmS" ${m&&m.mesSeguinte?'checked':''}> Vence no início do mês seguinte à competência</label>
     <div class="modal-actions"><button class="btn line" onclick="finFixos()">Voltar</button>
@@ -601,7 +602,7 @@ export function finImpFaturaPreview(){
       <td>${ddmm(r.data)}</td>
       <td>${h(r.desc)}${r.n>1?` <span class="pill purple">${r.k}/${r.n}</span>`:''}${r.valor<0?' <span class="pill green">crédito</span>':''}
         ${r.aviso?`<div class="fin-imp-av">${h(r.aviso)}</div>`:''}</td>
-      <td><select onchange="FIN_FAT.rows[${i}].cat=this.value">${FIN_CATS.map(k=>`<option value="${k.id}" ${k.id===r.cat?'selected':''}>${k.nome}</option>`).join('')}</select></td>
+      <td><select data-fincat data-prev="${r.cat}" onchange="finCatSelect(this);FIN_FAT.rows[${i}].cat=this.value">${finCatOptions(r.cat)}</select></td>
       <td class="fin-val">${brl(r.valor)}</td></tr>`).join('')}
     </tbody></table></div>
     ${inf!=null?`<label class="fin-chk"><input type="checkbox" id="ffInf" checked> Remover o valor informado (${brl(inf)}) — a fatura passa a ser a soma dos lançamentos</label>`:''}

@@ -4,7 +4,8 @@ import { todayISO } from '../core/datas.js';
 import { closeModal, h, modal, toast } from '../ui/base.js';
 import { current } from '../ui/router.js';
 import { addDaysISO } from '../views/analytics/graficos.js';
-import { FIN_CATS, FIN_KW, FIN_MEIOS, fin, finCat, finCatById, finSave } from './core.js';
+import { finCatOptions } from './categorias.js';
+import { FIN_KW, FIN_MEIOS, fin, finCat, finCatById, finSave } from './core.js';
 import { brl, escRe, finFaturaDaCompra, finNorm, finVal, parseBRL, r2, ymAdd, ymDia } from './util.js';
 import { vFinancas } from './view.js';
 
@@ -224,7 +225,7 @@ export function finConfirmar(p,editId){
     <div class="field"><label>Descrição</label><input id="fgD" value="${h(p.desc)}" placeholder="Ex: iFood"></div>
     <div class="grid2">
       <div class="field"><label>Categoria ${p.fonte==='aprendido'?'<span class="pill green">aprendida</span>':''}</label>
-        <select id="fgC">${FIN_CATS.map(c=>`<option value="${c.id}" ${c.id===p.cat?'selected':''}>${c.nome}</option>`).join('')}</select></div>
+        <select id="fgC" data-fincat data-prev="${p.cat}" onchange="finCatSelect(this)">${finCatOptions(p.cat)}</select></div>
       <div class="field"><label>Pagamento</label>
         <select id="fgM" onchange="finMeioChange()">${Object.entries(FIN_MEIOS).map(([k,v])=>`<option value="${k}" ${k===p.meio?'selected':''}>${v}</option>`).join('')}</select></div>
     </div>
