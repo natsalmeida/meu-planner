@@ -12,6 +12,11 @@ export default [
       'no-redeclare': 'error',
       'no-dupe-keys': 'error',
       'no-unreachable': 'warn',
+      // regra 6: chave de dia nunca via toISOString (UTC vira o dia seguinte após 21h em UTC-3).
+      // 'warn' até varrer os usos restantes; uso legítimo (timestamp completo) leva
+      // eslint-disable-next-line com justificativa. Depois disso, subir para 'error'.
+      'no-restricted-properties': ['warn', { property: 'toISOString',
+        message: 'Chave de dia: use todayISO/localISO/weekKey (fuso America/Sao_Paulo).' }],
     },
   },
 ];

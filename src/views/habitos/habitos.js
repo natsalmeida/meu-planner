@@ -79,6 +79,9 @@ export function semanaDias(monISO){const out=[];for(let i=0;i<7;i++)out.push(add
 export function hbFeitosNaSemana(hb,monISO){
   return semanaDias(monISO).filter(iso=>iso<=todayISO()&&habitDone(hb.id,iso)).length;
 }
+/* Progresso REAL da semana, sem teto: 4/3 é informação. O teto existe só em hbTaxa,
+   de propósito (semana cheia não compensa semana zerada) — não remover lá. */
+export function hbProgTxt(hb,monISO){ return hbFeitosNaSemana(hb,monISO)+'/'+hbAlvoSemana(hb); }
 export function ultimasSemanasCompletas(n){
   const out=[];for(let i=n;i>=1;i--)out.push(localISO(anMonday(-i)));return out;
 }
@@ -211,13 +214,13 @@ export function hbMesFiltro(){
 export function hbMiniMes(hb,ano,mes){
   const hoje=todayISO();
   const first=new Date(ano,mes,1), off=(first.getDay()+6)%7, ndias=new Date(ano,mes+1,0).getDate();
-  let feitos=0, esperados=0, cells='';
+  let feitos=0, esperados=0, passados=0, cells='';
   for(let i=0;i<off;i++)cells+='<div class="mm-d pad"></div>';
   for(let d=1;d<=ndias;d++){
     const iso=`${ano}-${String(mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     if(iso>hoje){cells+=`<div class="mm-d fut">${d}</div>`;continue;}
     const on=habitDone(hb.id,iso), esp=hbDiaEsperado(hb,iso);
-    if(on)feitos++; if(esp!==false)esperados++;
+    if(on)feitos++; if(esp!==false)esperados++; passados++;
     let cls='mm-d', st='';
     if(on){cls+=' on';st=`background:${hb.cor};border-color:${hb.cor}`;}
     else if(esp===true)cls+=' miss';
@@ -227,9 +230,12 @@ export function hbMiniMes(hb,ano,mes){
     const tip=`${fmtBR(iso)} · ${on?'feito':esp===false?'folga programada':'não feito'}${hb.auto?' (automático)':''}`;
     cells+=`<div class="${cls}" style="${st}" title="${h(tip)}" ${hb.auto?'':`onclick="toggleHabito('${hb.id}','${iso}')"`}>${d}</div>`;
   }
-  const pct=esperados?Math.round(feitos/esperados*100):0;
+  // semanal não tem dia esperado (esp===null): sem isto o denominador eram todos os dias do
+  // mês e "3× por semana cumprido" aparecia como ~40%. Esperado = alvo proporcional aos dias.
+  if(hbFreq(hb)==='semanal') esperados=passados?Math.max(1,Math.round(hbAlvoSemana(hb)*passados/7)):0;
+  const pct=esperados?Math.round(feitos/esperados*100):0;   // sem teto: acima de 100% é informação
   return `<div class="mm">
-    <div class="mm-h"><span>${MESES_ABR[mes]}</span><small title="${feitos} de ${esperados} dias esperados">${feitos}/${esperados} · ${pct}%</small></div>
+    <div class="mm-h"><span>${MESES_ABR[mes]}</span><small title="${feitos} de ${esperados} esperados">${feitos}/${esperados} · ${pct}%</small></div>
     <div class="mm-g">${['S','T','Q','Q','S','S','D'].map(x=>`<div class="mm-wd">${x}</div>`).join('')}</div>
     <div class="mm-g" style="margin-top:3px">${cells}</div>
   </div>`;
@@ -333,7 +339,7 @@ export function dashHabitChips(){
   const t=todayISO(), mon=localISO(anMonday(0));
   return `<div class="hist-chips">`+store.habitos.map(hb=>{const on=habitDone(hb.id,t);
     const f=hbFreq(hb);
-    const prog=(f==='semanal'||f==='dias')?` ${Math.min(hbAlvoSemana(hb),hbFeitosNaSemana(hb,mon))}/${hbAlvoSemana(hb)}`:'';
+    const prog=(f==='semanal'||f==='dias')?' '+hbProgTxt(hb,mon):'';
     return `<button class="chip" onclick="toggleHabito('${hb.id}')" title="${h(hb.nome+' · '+hbLabelFreq(hb)+(hb.auto?' · automático':''))}"
       style="${on?`background:${hb.cor}22;color:${hb.cor}`:'background:var(--card-2);color:var(--muted);border:1px solid var(--line)'}">
       ${hb.icon||''} ${h(hb.nome)}${prog} ${on?'✓':''}</button>`;}).join('')+`</div>`;
@@ -367,7 +373,7 @@ export function vHabitos(){
     const f=hbFreq(hb), alvo=hbAlvoSemana(hb), feitos=hbFeitosNaSemana(hb,mon);
     const esperadoHoje=hbDiaEsperado(hb,hoje);
     const sub=hb.auto?`automático · Diário de Bordo${hb.minMin>1?` · mín. ${hb.minMin}min/dia`:''}`
-      :(f==='diario'?'todo dia':`${hbLabelFreq(hb)} · ${Math.min(alvo,feitos)}/${alvo} esta semana`);
+      :(f==='diario'?'todo dia':`${hbLabelFreq(hb)} · ${feitos}/${alvo} esta semana`);
     return `<div class="habit-toggle ${hb.auto?'auto':''}" ${hb.auto?'':`onclick="toggleHabito('${hb.id}')"`}
       style="${on?`background:${hb.cor}18;border-color:${hb.cor}55`:''}">
       <div class="habit-ic" style="background:${hb.cor}22;color:${hb.cor}">${hb.icon||'•'}</div>
@@ -379,7 +385,7 @@ export function vHabitos(){
     const tx=hbTaxa(hb), st=hbStreak(hb);
     const yc=habitYearCount(hb.id,ano), ybs=hbMelhorSequencia(hb,ano);
     const rColor=tx.pct>=80?'green':tx.pct>=50?'amber':'red';
-    const alvo=hbAlvoSemana(hb), feitos=Math.min(alvo,hbFeitosNaSemana(hb,mon));
+    const alvo=hbAlvoSemana(hb), feitos=hbFeitosNaSemana(hb,mon);
     const semanal=hbFreq(hb)!=='diario';
     const imp=hb.auto?null:hbImpacto(hb);
     return `<div class="habit-stat">

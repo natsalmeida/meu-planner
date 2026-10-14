@@ -18,6 +18,58 @@ export const FIN_CTX_NUM=new Set(['real','reais','mil','vez','vezes','parcela','
 export const FIN_VERBOS=new Set(['gastei','gasto','paguei','pago','comprei','comprado','custou','deu','foi','fiz','tomei','pedi','abasteci']);
 export const FIN_STOP=new Set(['com','no','na','nos','nas','em','de','do','da','dos','das','um','uma','o','a','os','as','pelo','pela','pra','pro','para','por',
   'via','usando','pagamento','e','meu','minha','reais','real','centavos','centavo','conto','contos','rs','que','aqui','agora','tipo','cartao','valor']);
+
+/* ---- Sugestão de categoria pelo HISTÓRICO de gastos ----
+   Índice derivado (nunca persistido nem sincronizado). Reconstrói quando fin.gastos muda de
+   identidade (snapshot remoto → finAplicar troca o array) ou de tamanho (novo/excluído).
+   Editar a categoria no lugar não muda nenhum dos dois → finSalvarGasto invalida à mão. */
+const finTok=s=>finNorm(s).replace(/[^a-z0-9]+/g,' ').split(' ')
+  .filter(t=>t.length>=3&&!/^\d+$/.test(t)&&!FIN_STOP.has(t)&&!FIN_VERBOS.has(t));
+let _hIdx=null, _hArr=null, _hLen=-1;
+export function finHistInvalidar(){ _hIdx=null; }
+function finHistIdx(){
+  if(_hIdx&&_hArr===fin.gastos&&_hLen===fin.gastos.length) return _hIdx;
+  const exato=new Map(), tok=new Map();
+  const add=(m,k,cat,t)=>{ let e=m.get(k); if(!e){e={n:0,c:{}};m.set(k,e);} e.n++;
+    const x=e.c[cat]||(e.c[cat]={n:0,t:0}); x.n++; if(t>x.t)x.t=t; };
+  fin.gastos.forEach(g=>{
+    if(!(g.valor>0)||!g.cat||g.cat==='outros') return;   // estorno herda categoria; "outros" = não decidido
+    const tk=finTok(g.desc); if(!tk.length) return;
+    const t=g.criado||Date.parse(g.data)||0;
+    add(exato,tk.join(' '),g.cat,t);
+    new Set(tk).forEach(w=>add(tok,w,g.cat,t));
+  });
+  _hIdx={exato,tok}; _hArr=fin.gastos; _hLen=fin.gastos.length; return _hIdx;
+}
+function finHistMelhor(c){   // ignora categoria excluída sem precisar invalidar o índice
+  let b=null;
+  for(const cat in c){ if(!finCatById(cat)) continue; const x=c[cat];
+    if(!b||x.n>b.n||(x.n===b.n&&x.t>b.t)) b={cat,n:x.n,t:x.t}; }
+  return b;
+}
+/* parcial=true: a última palavra ainda está sendo digitada → casa por prefixo ("merc" → mercado). */
+export function finSugerirHist(desc,parcial){
+  const tk=finTok(desc); if(!tk.length) return null;
+  const {exato,tok}=finHistIdx();
+  const ex=exato.get(tk.join(' '));
+  if(ex){ const b=finHistMelhor(ex.c); if(b) return {cat:b.cat,exato:true}; }
+  const placar={}, uniq=[...new Set(tk)];
+  uniq.forEach((w,i)=>{
+    let e=tok.get(w);
+    if(!e&&parcial&&i===uniq.length-1){
+      e={n:0,c:{}};
+      for(const [k,v] of tok) if(k.startsWith(w)){ e.n+=v.n;
+        for(const cat in v.c){ const x=e.c[cat]||(e.c[cat]={n:0,t:0}); x.n+=v.c[cat].n; x.t=Math.max(x.t,v.c[cat].t); } }
+    }
+    if(!e||e.n<2) return;
+    const b=finHistMelhor(e.c); if(!b) return;
+    const pureza=b.n/e.n; if(pureza<0.6) return;               // "palmas", "loja": espalhados → não votam
+    placar[b.cat]=(placar[b.cat]||0)+pureza*Math.log2(1+b.n);
+  });
+  const r=Object.entries(placar).sort((a,b)=>b[1]-a[1])[0];
+  return r&&r[1]>=1?{cat:r[0],exato:false}:null;
+}
+
 export function finWordsToNum(t){
   const tk=t.split(/\s+/).filter(Boolean), out=[]; let i=0;
   while(i<tk.length){
@@ -38,9 +90,13 @@ export function finWordsToNum(t){
   }
   return out.join(' ');
 }
-export function finCategorizar(descNorm){
+/* Ordem: descrição idêntica já usada > palavra aprendida > votação do histórico > dicionário. */
+export function finCategorizar(descNorm,parcial){
+  const hist=finSugerirHist(descNorm,parcial);
+  if(hist&&hist.exato) return {cat:hist.cat,fonte:'historico'};
   const words=descNorm.split(/\s+/).map(w=>w.replace(/[^a-z0-9]/g,'')).filter(Boolean);
   for(const w of words) if(fin.aprendido[w]&&finCatById(fin.aprendido[w])) return {cat:fin.aprendido[w],fonte:'aprendido'};
+  if(hist) return {cat:hist.cat,fonte:'historico'};
   const pad=' '+words.join(' ')+' ';
   for(const [k,c] of FIN_KW) if(pad.includes(' '+k+' ')) return {cat:c,fonte:'dicionario'};
   return {cat:'outros',fonte:''};
@@ -206,6 +262,24 @@ export function finGastoEditar(id){
 }
 export function finMeioChange(){ const cr=document.getElementById('fgCred'); if(cr) cr.style.display=finVal('fgM')==='credito'?'':'none'; }
 
+const finSugPill=f=>f==='historico'?'<span class="pill green">pelo histórico</span>'
+  :f==='aprendido'?'<span class="pill green">aprendida</span>':f==='dicionario'?'<span class="pill gray">sugerida</span>':'';
+/* Sugestão ao digitar a descrição. addEventListener (não on* inline): nada entra na ponte de
+   main.js. Depois que você escolhe a categoria à mão, a sugestão para de mexer no campo. */
+function finLigarSugestao(){
+  const inp=document.getElementById('fgD'), sel=document.getElementById('fgC'), lbl=document.getElementById('fgCsug');
+  if(!inp||!sel) return;
+  sel.addEventListener('change',()=>{ sel.dataset.manual='1'; if(lbl) lbl.innerHTML=''; });
+  let t=0;
+  inp.addEventListener('input',()=>{ clearTimeout(t); t=setTimeout(()=>{
+    if(sel.dataset.manual||!FIN_VOZ.p||!document.body.contains(sel)) return;
+    const r=finCategorizar(finNorm(inp.value),true);
+    sel.value=r.cat; sel.dataset.prev=r.cat;
+    FIN_VOZ.p.catSug=r.cat; FIN_VOZ.p.fonte=r.fonte; // finSalvarGasto só aprende se você contrariar a sugestão
+    if(lbl) lbl.innerHTML=finSugPill(r.fonte);
+  },200); });
+}
+
 export function finConfirmar(p,editId){
   FIN_VOZ.p=p; FIN_VOZ.editId=editId||null;
   const cartaoSel=p.cartao||fin.cfg.cartaoPadrao||(fin.cartoes[0]||{}).id||'';
@@ -222,9 +296,9 @@ export function finConfirmar(p,editId){
       <div class="field"><label>Valor (R$)</label><input id="fgV" inputmode="decimal" value="${p.valor?p.valor.toFixed(2).replace('.',','):''}"></div>
       <div class="field"><label>Data da compra</label><input type="date" id="fgDt" value="${p.data}"></div>
     </div>
-    <div class="field"><label>Descrição</label><input id="fgD" value="${h(p.desc)}" placeholder="Ex: iFood"></div>
+    <div class="field"><label>Descrição</label><input id="fgD" value="${h(p.desc)}" placeholder="Ex: iFood" autocomplete="off"></div>
     <div class="grid2">
-      <div class="field"><label>Categoria ${p.fonte==='aprendido'?'<span class="pill green">aprendida</span>':''}</label>
+      <div class="field"><label>Categoria <span id="fgCsug">${editId?'':finSugPill(p.fonte)}</span></label>
         <select id="fgC" data-fincat data-prev="${p.cat}" onchange="finCatSelect(this)">${finCatOptions(p.cat)}</select></div>
       <div class="field"><label>Pagamento</label>
         <select id="fgM" onchange="finMeioChange()">${Object.entries(FIN_MEIOS).map(([k,v])=>`<option value="${k}" ${k===p.meio?'selected':''}>${v}</option>`).join('')}</select></div>
@@ -243,6 +317,7 @@ export function finConfirmar(p,editId){
       ${editId?`<button class="btn line" onclick="finVozFechar()">Cancelar</button>`
               :`<button class="btn line" onclick="finVozAbrir()">🎙 De novo</button>`}
       <button class="btn" onclick="finSalvarGasto()">${editId?'Salvar':'Confirmar'}</button></div>`);
+  if(!editId) finLigarSugestao();   // na edição, mudar a descrição não mexe na categoria já escolhida
   if(p.origem==='voz'){
     finFalar(finFrase(p),()=>{ if(fin.cfg.vozConfirma&&FIN_SR&&FIN_VOZ.p===p&&document.getElementById('finSN')) finOuvirSimNao(); });
   }
@@ -279,6 +354,7 @@ export function finSalvarGasto(){
   let g;
   if(FIN_VOZ.editId){ g=fin.gastos.find(x=>x.id===FIN_VOZ.editId); if(g){Object.assign(g,dados); if(fatIni)g.fatIni=fatIni; else delete g.fatIni;} }
   else{ g={id:uid(),...dados,fala:p.fala||'',origem:p.origem||'manual',criado:Date.now()}; if(fatIni)g.fatIni=fatIni; fin.gastos.push(g); }
+  finHistInvalidar();   // edição muda a categoria no lugar: identidade e tamanho de fin.gastos não mudam
   const edit=!!FIN_VOZ.editId;
   FIN_VOZ.p=null; FIN_VOZ.editId=null;
   finSave(); closeModal(); if(current==='financas') vFinancas();

@@ -3,7 +3,7 @@ import { AREAS, areaById } from '../core/constantes.js';
 import { store } from '../core/store.js';
 import { save } from '../core/sync.js';
 import { durH, fmtBR, fmtDur, todayISO, weekKey } from '../core/datas.js';
-import { hoursThisWeek, hoursThisWeekByArea, inicioSemanaISO, isAtrasado, studyStreak, workHoursMonth, workHoursOnDay, workHoursWeek, workHoursYear, workLogs } from '../core/horas.js';
+import { countableLogs, hoursThisWeek, hoursThisWeekByArea, inicioSemanaISO, isAtrasado, studyStreak, workHoursMonth, workHoursOnDay, workHoursWeek, workHoursYear, workLogs } from '../core/horas.js';
 import { labelPrazo, upcomingDeadlines } from '../features/prazos.js';
 import { areaPill, closeModal, h, modal, toast } from '../ui/base.js';
 import { dashSincronasCard } from './unitins/sincronas.js';
@@ -110,8 +110,9 @@ export function trabalhoCard(){
 }
 export function vDashboard(){
   const hoje=todayISO();
-  const logsHoje=store.logs.filter(l=>l.data===hoje);
-  const hEstHoje=logsHoje.filter(l=>areaById(l.area).conta).reduce((s,l)=>s+durH(l.ini,l.fim),0);
+  const logsHoje=store.logs.filter(l=>l.data===hoje);   // lista de sessões (estudo E trabalho) — não é métrica
+  // métrica de estudo SEMPRE via countableLogs() (regra 1)
+  const hEstHoje=countableLogs().filter(l=>l.data===hoje).reduce((s,l)=>s+durH(l.ini,l.fim),0);
   const pendAbertas=store.pendencias.filter(p=>!p.done).length;
   const streak=studyStreak();
   const hr=new Date().getHours();

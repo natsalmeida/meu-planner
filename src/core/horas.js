@@ -31,9 +31,11 @@ export function studyStreak(){
   const dias=new Set(countableLogs().map(l=>l.data));
   if(!dias.size)return 0;
   let streak=0; const d=new Date();
-  // se não estudou hoje ainda, começa a contar de ontem para não zerar durante o dia
-  if(!dias.has(d.toISOString().slice(0,10))) d.setDate(d.getDate()-1);
-  while(dias.has(d.toISOString().slice(0,10))){streak++; d.setDate(d.getDate()-1);}
+  // se não estudou hoje ainda, começa a contar de ontem para não zerar durante o dia.
+  // localISO, não toISOString: em UTC-3, das 21h à meia-noite a chave UTC já é o dia
+  // seguinte e o streak aparecia zerado para quem ainda não tinha estudado no dia.
+  if(!dias.has(localISO(d))) d.setDate(d.getDate()-1);
+  while(dias.has(localISO(d))){streak++; d.setDate(d.getDate()-1);}
   return streak;
 }
 export function isAtrasado(prazo,done){if(!prazo||done)return false;return prazo<todayISO();}
