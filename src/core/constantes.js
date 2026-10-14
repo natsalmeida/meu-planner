@@ -42,8 +42,8 @@ export const DEFAULT_GRADE = [
 export const DIAS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
 
 export const DEFAULT_HABITOS = [
-  {id:'h_aerobico',   nome:'Aeróbico',   cor:'#378add', icon:'🏃', freq:'semanal', alvo:3},
-  {id:'h_musculacao', nome:'Musculação', cor:'#db5c88', icon:'🏋️', freq:'semanal', alvo:3},
+  {id:'h_aerobico',   nome:'Aeróbico',   cor:'#378add', icon:'🏃', freq:'semanal', alvo:3, exercicio:true},
+  {id:'h_musculacao', nome:'Musculação', cor:'#db5c88', icon:'🏋️', freq:'semanal', alvo:3, exercicio:true},
   {id:'h_leitura',    nome:'Leitura',    cor:'#ba7517', icon:'📖', freq:'diario', livros:true},
   {id:'h_estudo',     nome:'Estudo',     cor:'#7c3aed', icon:'📚', auto:true, freq:'diario', minMin:60,
     excluir:['Inglês Busuu','Espanhol Busuu','Espanhol Drops']}, // microdrills não contam para o limiar

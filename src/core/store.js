@@ -17,7 +17,7 @@ export const store = {
   habitos: DEFAULT_HABITOS.map(x=>({...x})),
   habitLog: {}, // { 'YYYY-MM-DD': { habitId: true } } — grava só o que foi feito
   metaSemanal: 20,
-  metasArea: {}, 
+  metasArea: {},
   tema: 'claro',
 };
 export const SCHEMA_VERSION = 4;
@@ -59,6 +59,14 @@ export function normalizeStore(){
   // seed único: se o "Estudo" já existe sem exclusões definidas, aplica os microdrills padrão
   const est=Array.isArray(store.habitos)?store.habitos.find(x=>x.id==='h_estudo'):null;
   if(est&&est.auto&&est.excluir===undefined) est.excluir=['Inglês Busuu','Espanhol Busuu','Espanhol Drops'];
+  /* Semeadura única: marca como atividade física os hábitos de exercício que já existem.
+     Fica em store.seeds para que desmarcar à mão seja respeitado (sem a marca, a flag
+     voltaria a cada carregamento). Roda ANTES da normalização da flag logo abaixo. */
+  if(!store.seeds.exercicio){
+    const RX=/muscula|aer[oó]bic|treino|corrida|caminhada|academia|pilates|nata[çc][aã]o|funcional|crossfit/i;
+    store.habitos.forEach(hb=>{ if(hb.id==='h_aerobico'||hb.id==='h_musculacao'||RX.test(hb.nome||'')) hb.exercicio=true; });
+    store.seeds.exercicio=true;
+  }
   // migração de hábitos: frequência-alvo e limiar do automático
   store.habitos.forEach(hb=>{
     if(!hb.freq) hb.freq='diario';                       // preserva o comportamento anterior
@@ -71,6 +79,8 @@ export function normalizeStore(){
     // ou excluído, os livros não viram órfãos e qualquer outro hábito pode adotá-los.
     if(hb.id==='h_leitura'&&hb.livros===undefined) hb.livros=true;
     hb.livros=!!hb.livros;
+    // atividade física: só existe quando true — ausente = false, para não gerar diff em todo hábito
+    if(hb.exercicio) hb.exercicio=true; else delete hb.exercicio;
   });
   store.livros.forEach(lv=>{ if(!lv.id)lv.id=uid(); lv.paginas=Math.max(0,+lv.paginas||0);
     if(!/^\d{4}-\d{2}$/.test(String(lv.mes||''))) lv.mes=todayISO().slice(0,7); });
