@@ -7,6 +7,7 @@ import { countableLogs, hoursThisWeek, hoursThisWeekByArea, inicioSemanaISO, isA
 import { labelPrazo, upcomingDeadlines } from '../features/prazos.js';
 import { areaPill, closeModal, h, modal, toast } from '../ui/base.js';
 import { dashSincronasCard } from './unitins/sincronas.js';
+import { periodoAvisoCard } from './unitins/hub.js';
 import { urgPill } from './unitins/entregaveis.js';
 import { addDaysISO } from './analytics/graficos.js';
 import { dashHabitChips, dashHabitRiscos } from './habitos/habitos.js';
@@ -130,6 +131,7 @@ export function vDashboard(){
     <div class="page-title">${saud}!</div>
     <div class="page-sub">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</div>
     ${dashSincronasCard()}
+    ${periodoAvisoCard()}
     ${atrasados.length?`<div class="card alert-late" style="margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <span style="font-size:18px">⚠️</span><h3 style="color:var(--red)">Atrasados (${atrasados.length})</h3></div>
