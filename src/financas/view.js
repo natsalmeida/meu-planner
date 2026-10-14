@@ -386,12 +386,85 @@ export function finRowGasto(g,it){
     <button class="icon-btn" onclick="finGastoDel('${g.id}')" title="Excluir">✕</button></div>`;
 }
 
+/* ---- identidade de compra parcelada ----
+   Uma compra parcelada aparece em N faturas como k/n. O que a identifica é: cartão + n +
+   1ª fatura (onde caiu a parcela 1) + valor da parcela, confirmado por data da compra
+   próxima OU palavra em comum na descrição. parcIni NÃO entra: ele só diz de onde o app
+   começou a acompanhar, e é justamente o que difere entre duas importações da mesma compra. */
+export function finFat1(g){ return g.fatIni||finFaturaDaCompra(g.cartao,g.data); }
+const finTokCompra=s=>finNorm(s).replace(/[^a-z0-9]+/g,' ').split(' ').filter(t=>t.length>=3&&!/^\d+$/.test(t)&&t!=='parc'&&t!=='parcela');
+export function finMesmaCompra(g,{cartao,n,fat1,vParc,data,desc}){
+  if(g.meio!=='credito'||g.cartao!==cartao||(g.parc||1)!==n||!(g.valor>0)||finFat1(g)!==fat1) return false;
+  if(Math.abs(r2(g.valor/n)-Math.abs(vParc))>0.05) return false;           // centavos do resto da divisão
+  if(data&&g.data&&Math.abs((new Date(g.data+'T12:00')-new Date(data+'T12:00'))/864e5)<=4) return true;
+  const a=new Set(finTokCompra(g.desc)); return finTokCompra(desc).some(t=>a.has(t));
+}
+
+/* ---- limpeza das cópias já criadas pelo bug da importação fora de ordem ----
+   Agrupa compras parceladas que são a mesma compra. Duas compras idênticas LEGÍTIMAS
+   (comprou 2 iguais no mesmo dia) vêm na MESMA importação, com `criado` a milissegundos
+   uma da outra — por isso só agrupa cópias criadas com mais de 1 minuto de diferença.
+   Nada é apagado sem você confirmar no modal. */
+export function finDupGrupos(){
+  const cred=fin.gastos.filter(g=>g.meio==='credito'&&(g.parc||1)>1&&g.valor>0);
+  const visto=new Set(), grupos=[];
+  cred.forEach(g=>{
+    if(visto.has(g.id)) return;
+    const n=g.parc, fat1=finFat1(g), vParc=r2(g.valor/n);
+    const copias=cred.filter(x=>x!==g&&!visto.has(x.id)
+      &&finMesmaCompra(x,{cartao:g.cartao,n,fat1,vParc,data:g.data,desc:g.desc})
+      &&(!x.criado||!g.criado||Math.abs(x.criado-g.criado)>60000));
+    if(!copias.length) return;
+    const todos=[g,...copias]; todos.forEach(x=>visto.add(x.id));
+    // fica a que cobre mais parcelas (menor parcIni); empate → a mais antiga
+    todos.sort((a,b)=>((parseInt(a.parcIni)||1)-(parseInt(b.parcIni)||1))||((a.criado||0)-(b.criado||0)));
+    grupos.push({fica:todos[0],sai:todos.slice(1),ini:Math.min(...todos.map(x=>parseInt(x.parcIni)||1))});
+  });
+  return grupos;
+}
+export function finDupModal(){
+  const gr=finDupGrupos();
+  if(!gr.length){ toast('Nenhuma compra parcelada duplicada'); return; }
+  const cartao=id=>(fin.cartoes.find(c=>c.id===id)||{}).nome||'—';
+  const orig=g=>g.origem==='fatura'?'🧾 fatura':g.origem==='voz'?'🎙 voz':'manual';
+  modal(`<h3>Compras parceladas duplicadas</h3>
+    <div class="h-sub" style="margin:-8px 0 12px">Cada grupo é a mesma compra lançada mais de uma vez (normalmente por importar uma fatura antiga depois de uma mais nova). Mesclar mantém <b>uma</b> compra cobrindo da primeira parcela importada em diante e apaga as cópias — as faturas passadas continuam com a parcela, as futuras deixam de repetir.</div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow:auto">
+    ${gr.map((x,i)=>`<label class="list-item" style="cursor:pointer;align-items:flex-start">
+      <input type="checkbox" data-dup="${i}" checked style="width:auto;margin-top:4px">
+      <div class="li-body"><div class="t">${h(x.fica.desc)} · ${x.fica.parc}x de ${brl(r2(x.fica.valor/x.fica.parc))}</div>
+        <div class="m"><span class="pill purple">${h(cartao(x.fica.cartao))}</span><span>compra ${fmtBR(x.fica.data)}</span>
+          <span class="pill green">fica: desde ${x.ini}/${x.fica.parc} · ${orig(x.fica)}</span>
+          ${x.sai.map(s=>`<span class="pill red">sai: desde ${parseInt(s.parcIni)||1}/${s.parc} · ${orig(s)}</span>`).join('')}</div></div>
+    </label>`).join('')}</div>
+    <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
+      <button class="btn" onclick="finDupMesclar()">Mesclar selecionadas</button></div>`);
+  const m=document.querySelector('.modal'); if(m) m.style.maxWidth='640px';
+}
+export function finDupMesclar(){
+  const gr=finDupGrupos(), sel=new Set([...document.querySelectorAll('[data-dup]')].filter(e=>e.checked).map(e=>+e.dataset.dup));
+  let apagadas=0; const sai=new Set();
+  gr.forEach((x,i)=>{
+    if(!sel.has(i)) return;
+    if(!x.fica.fatIni) x.fica.fatIni=finFat1(x.fica);              // congela a 1ª fatura antes de mexer
+    if(x.ini>1) x.fica.parcIni=x.ini; else delete x.fica.parcIni;
+    x.sai.forEach(s=>{ sai.add(s.id); apagadas++; });
+  });
+  if(!apagadas){ closeModal(); return; }
+  fin.gastos=fin.gastos.filter(g=>!sai.has(g.id));
+  finSave(); closeModal(); vFinancas();
+  toast(`${apagadas} cópia${apagadas>1?'s':''} removida${apagadas>1?'s':''} — cada compra ficou uma vez só`);
+}
+
 /* ---- aba Cartões ---- */
 export function finVCartoes(){
   const hoje=todayISO(), ps=finTodasParcelas();
   if(!fin.cartoes.length) return `<div class="card"><div class="empty">Nenhum cartão cadastrado.<br><br>
     <button class="btn" onclick="finCartao(null)">+ Cadastrar cartão</button></div></div>`;
-  return `<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn sm ghost" onclick="finCartao(null)">+ Cartão</button></div>`+
+  const dups=finDupGrupos();
+  return (dups.length?`<div class="fin-banner"><span>⚠ <b>${dups.length} compra${dups.length>1?'s':''} parcelada${dups.length>1?'s':''}</b> aparece${dups.length>1?'m':''} duplicada${dups.length>1?'s':''} nas faturas — por isso as parcelas se repetem nos meses seguintes.</span>
+    <button class="btn sm" onclick="finDupModal()">Revisar e mesclar</button></div>`:'')+
+  `<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn sm ghost" onclick="finCartao(null)">+ Cartão</button></div>`+
   fin.cartoes.map(c=>{
     const mine=ps.filter(p=>p.cartao===c.id);
     const aberta=finFaturaDaCompra(c.id,hoje);
@@ -619,7 +692,7 @@ export function finImpFaturaAnalisar(cid){
   const ignoradas=[]; const rows=[];
   finVal('ffT').split(/\r?\n/).forEach(l=>{ const r=finFatLinha(l,c,ym); if(!r) return; if(r.ignorar){ignoradas.push(r);return;} rows.push(r); });
   if(!rows.length){toast('Não reconheci nenhuma linha com valor');return;}
-  // candidatos a duplicado: parcelas JÁ existentes que caem nesta fatura
+  // candidatos a duplicado de compra À VISTA (1x): parcelas já existentes que caem nesta fatura
   const existentes=fin.gastos.filter(g=>g.meio==='credito'&&g.cartao===cid)
     .flatMap(g=>finParcelas(g).filter(p=>p.fat===ym));
   const usados=new Set();
@@ -627,11 +700,26 @@ export function finImpFaturaAnalisar(cid){
     let {cat}=finCategorizar(finNorm(r.desc).replace(/[^a-z0-9]+/g,' ')), aviso='';
     if(r.valor<0){ const orig=finCatEstorno(r.desc,r.valor,r.data,cid); if(orig){ cat=orig.cat; aviso=`estorno de “${orig.desc}” (${ddmm(orig.data)}) — categoria herdada`; } }
     Object.assign(r,{cat,catSug:cat,incluir:true,aviso});
-    const dup=existentes.find(p=>!usados.has(p.g.id)&&Math.abs(p.valor-r.valor)<=0.02&&(
-      r.n>1 ? (p.n===r.n&&p.k===r.k)
-            : ((p.n===1||p.k===1)&&Math.abs((new Date(p.g.data)-new Date(r.data))/864e5)<=4)));   // 1ª parcela às vezes vem sem “01/04”
-    if(dup){ usados.add(dup.g.id); r.incluir=false;
-      r.aviso=`já está no app: “${dup.g.desc}”${dup.n>1?` ${dup.k}/${dup.n}`:''}${dup.g.origem==='voz'?' (por voz)':dup.g.origem==='fatura'?' (fatura anterior)':''}`; }
+    if(r.n>1){
+      /* Parcelada: procura a MESMA COMPRA, não "uma parcela que já cai nesta fatura". A versão
+         anterior só olhava as parcelas existentes desta fatura; como a cópia criada por uma fatura
+         mais nova começa em parcIni>k, importar a fatura antiga depois criava uma 2ª compra e as
+         duas projetavam parcelas em todas as faturas seguintes. */
+      const fat1=ymAdd(ym,-(r.k-1));
+      const g=fin.gastos.find(x=>!usados.has(x.id)&&finMesmaCompra(x,{cartao:cid,n:r.n,fat1,vParc:r.valor,data:r.semData?'':r.data,desc:r.desc}));
+      if(g){
+        usados.add(g.id);
+        const ini=Math.max(1,parseInt(g.parcIni)||1);
+        if(r.k>=ini){ r.incluir=false; r.aviso=`já está no app: “${g.desc}” ${r.k}/${r.n}${g.origem==='voz'?' (por voz)':g.origem==='fatura'?' (outra fatura)':''}`; }
+        else { r.estender=g.id; r.cat=r.catSug=g.cat;
+          r.aviso=`mesma compra que “${g.desc}”, lançada a partir da ${ini}/${r.n} — vou só incluir a${ini-r.k>1?'s':''} parcela${ini-r.k>1?'s':''} ${r.k}${ini-r.k>1?'–'+(ini-1):''} nela, sem criar outra`; }
+      }
+    }else{
+      const dup=existentes.find(p=>!usados.has(p.g.id)&&Math.abs(p.valor-r.valor)<=0.02&&
+        (p.n===1||p.k===1)&&Math.abs((new Date(p.g.data)-new Date(r.data))/864e5)<=4);   // 1ª parcela às vezes vem sem “01/04”
+      if(dup){ usados.add(dup.g.id); r.incluir=false;
+        r.aviso=`já está no app: “${dup.g.desc}”${dup.n>1?` ${dup.k}/${dup.n}`:''}${dup.g.origem==='voz'?' (por voz)':dup.g.origem==='fatura'?' (fatura anterior)':''}`; }
+    }
     if(r.semData) r.aviso=(r.aviso?r.aviso+' · ':'')+'sem data na linha — usei o fechamento';
   });
   FIN_FAT.rows=rows; FIN_FAT.ignoradas=ignoradas;
@@ -668,6 +756,12 @@ export function finImpFaturaPreview(){
 export function finImpFaturaImportar(){
   const cid=FIN_FAT.cid, ym=FIN_FAT.ym; let n=0;
   FIN_FAT.rows.filter(r=>r.incluir).forEach(r=>{
+    if(r.estender){   // fatura mais antiga da mesma compra: só antecipa o início, não cria outra
+      const g=fin.gastos.find(x=>x.id===r.estender);
+      if(g){ if(!g.fatIni) g.fatIni=ymAdd(ym,-(r.k-1));
+        const ini=Math.max(1,parseInt(g.parcIni)||1); if(r.k<ini){ if(r.k>1) g.parcIni=r.k; else delete g.parcIni; }
+        n++; return; }
+    }
     if(r.cat!==r.catSug) finAprender(r.desc.replace(/[^\p{L}\p{N}]+/gu,' '),r.cat);
     const g={id:uid(),data:r.data,desc:r.desc,cat:r.cat,meio:'credito',cartao:cid,origem:'fatura',criado:Date.now()+n};
     if(r.n>1){ Object.assign(g,{valor:r2(r.valor*r.n),parc:r.n,parcIni:r.k,fatIni:ymAdd(ym,-(r.k-1))}); }
