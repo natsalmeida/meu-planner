@@ -9,6 +9,7 @@ import { FIN_CATS, FIN_MEIOS, fin, finCat, finCatById, finCatEstorno, finSave, f
 import { FIN_MESES, brl, ddmm, finCiclo, finCompDe, finFatKey, finFaturaDaCompra, finFaturasDaComp, finFixosPendentes, finNorm, finParcelas, finTodasParcelas, finVal, parseBRL, r2, ymAdd, ymDia, ymLabel } from './util.js';
 import { finAprender, finCategorizar, finConfirmar } from './voz.js';
 import { finVAnalytics } from './analytics.js';
+import { finOrcCard } from './orcamento.js';
 
 /* ---------------- VIEW ---------------- */
 export const FIN_ST={aba:'mes',comp:null,mesG:null,meio:'all',cat:'all',parcModo:'parcela'};
@@ -336,6 +337,7 @@ export function finVGastos(){
       <div class="stat"><b>${brl(av)}</b><span>à vista (Pix/débito/dinheiro)</span></div>
       <div class="stat"><b>${brl(cred)}</b><span>${parcModo?'no crédito (parcelas do mês)':'compras no crédito'}</span></div>
     </div>
+    ${finOrcCard(ym)}
     <div class="row">
       <div class="card" style="flex:1;min-width:260px">
         <h3>Por categoria</h3><div class="h-sub">${gs.length} lançamento${gs.length!==1?'s':''}</div>

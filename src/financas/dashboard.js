@@ -5,9 +5,10 @@ import { renderCurrent } from '../ui/router.js';
 import { addDaysISO } from '../views/analytics/graficos.js';
 import { fin, finSave, finTemDados } from './core.js';
 import { brl, ddmm, finCompDe, finFaturasDaComp, finTodasParcelas, r2, ymAdd } from './util.js';
+import { finOrcDashCard } from './orcamento.js';
 
 /* ======================================================================
-   DASHBOARD: contas a vencer
+   DASHBOARD: alertas de orçamento + contas a vencer
    ====================================================================== */
 export function finAVencer(dias){
   const hoje=todayISO(), lim=addDaysISO(hoje,dias);
@@ -21,6 +22,10 @@ export function finAVencer(dias){
 }
 export function finDashCard(){
   if(!finTemDados()) return '';
+  // orçamento vem antes: é o único aviso que ainda dá tempo de mudar o comportamento no mês
+  return finOrcDashCard(!!fin.cfg.ocultarDash)+finContasCard();
+}
+function finContasCard(){
   const hoje=todayISO(), itens=finAVencer(7); if(!itens.length) return '';
   const oc=!!fin.cfg.ocultarDash, v=x=>oc?'R$ •••':brl(x);
   const atras=itens.filter(i=>i.venc<hoje), tot=r2(itens.reduce((s,i)=>s+i.valor,0));

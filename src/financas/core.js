@@ -97,6 +97,13 @@ export function finNormalize(){
   const dv=parseInt(fin.cfg.diaVirada); fin.cfg.diaVirada=isFinite(dv)?Math.min(28,Math.max(0,dv)):10;
   if(fin.cfg.vozConfirma===undefined) fin.cfg.vozConfirma=true;
   if(!fin.cartoes.some(c=>c.id===fin.cfg.cartaoPadrao)) fin.cfg.cartaoPadrao='';
+  /* Orçamento por categoria (financas/orcamento.js). Fica em cfg de propósito — ver o
+     comentário lá. Depois de finRebuildCats: categoria excluída perde o teto sozinha. */
+  if(fin.cfg.orcamentos!==undefined){
+    const o=isPlainObj(fin.cfg.orcamentos)?fin.cfg.orcamentos:{}, lim={};
+    Object.keys(o).forEach(k=>{ const v=r2(o[k]); if(finCatById(k)&&v>0) lim[k]=v; });
+    if(Object.keys(lim).length) fin.cfg.orcamentos=lim; else delete fin.cfg.orcamentos;
+  }
   fin.contas.forEach(c=>{ if(!c.id)c.id=uid(); c.valor=r2(c.valor); c.ok=!!c.ok;
     if(!FIN_TIPOS[c.tipo])c.tipo='despesa'; if(typeof c.venc!=='string')c.venc='';
     if(!c.ok||c.tipo==='receita'||!/^\d{4}-\d{2}$/.test(c.pagoComp||'')||c.pagoComp>=c.comp) delete c.pagoComp; if(!/^\d{4}-\d{2}$/.test(c.comp||''))c.comp=finCompDe(c.venc||todayISO()); });
