@@ -279,6 +279,43 @@ export function diasAtivosAno(ano){
   cand.forEach(iso=>{ if(store.habitos.some(hb=>habitDone(hb.id,iso))) n++; });
   return n;}
 
+/* ---- Atividade física no ano (união dos hábitos com `exercicio:true`) ----
+   Por flag, não por id/nome: hábito renomeado ou criado depois (pilates, corrida) entra
+   marcando a caixa, sem tocar aqui. Dia com musculação + aeróbico = 1 dia e 2 sessões. */
+export function hbExercicioAno(ano){
+  const y=String(ano), hbs=store.habitos.filter(hb=>hb.exercicio);
+  if(!hbs.length) return null;
+  const porDia={};
+  hbs.forEach(hb=>hbDiasFeitos(hb).forEach(iso=>{ if(iso.startsWith(y)) porDia[iso]=(porDia[iso]||0)+1; }));
+  const qtd=Object.values(porDia);
+  const hoje=todayISO(), fim=y===hoje.slice(0,4)?hoje:y+'-12-31';
+  const decorridos=Math.max(1,Math.round((new Date(fim+'T12:00')-new Date(y+'-01-01T12:00'))/864e5)+1);
+  return {
+    hbs, decorridos,
+    dias:qtd.length,                                   // dias distintos com qualquer atividade física
+    sessoes:qtd.reduce((s,n)=>s+n,0),                  // soma das marcações de todos os hábitos de exercício
+    combinados:qtd.filter(n=>n>1).length,              // dias com 2+ atividades (ex.: musculação + aeróbico)
+    mediaSem:qtd.length/(decorridos/7),
+    porHabito:hbs.map(hb=>({hb,n:hbDiasFeitos(hb).filter(iso=>iso.startsWith(y)).length})),
+  };
+}
+export function hbExercicioCard(ano){
+  const ex=hbExercicioAno(ano); if(!ex) return '';
+  const pct=Math.round(ex.dias/ex.decorridos*100);
+  return `<div class="card" style="margin-bottom:20px">
+    <h3>🏋️ Atividade física · ${ano}</h3>
+    <div class="h-sub">Soma ${ex.hbs.map(hb=>h(hb.nome)).join(' + ')}. Um dia com mais de uma atividade conta como 1 dia e várias sessões.</div>
+    <div class="stat-row" style="margin:12px 0 10px">
+      <div class="stat" title="${ex.dias} de ${ex.decorridos} dias ${ano===anoAtual()?'decorridos':'do ano'}"><b>${ex.dias}</b><span>dias com exercício · ${pct}%</span></div>
+      <div class="stat"><b>${ex.sessoes}</b><span>sessões no total</span></div>
+      <div class="stat"><b>${ex.combinados}</b><span>dias combinados</span></div>
+      <div class="stat"><b>${ex.mediaSem.toFixed(1).replace('.',',')}</b><span>dias por semana (média)</span></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${ex.porHabito.map(x=>
+      `<span class="pill" style="background:${x.hb.cor}22;color:${x.hb.cor}">${x.hb.icon||''} ${h(x.hb.nome)}: ${x.n}×</span>`).join('')}</div>
+  </div>`;
+}
+
 /* ---- risco de quebra (alimenta o Dashboard) ---- */
 export function hbRiscos(){
   const out=[], hoje=todayISO(), hora=new Date().getHours();
@@ -430,6 +467,7 @@ export function vHabitos(){
       <div class="stat" title="Dias em que ao menos um hábito contou como feito — mesma regra da tela, incluindo o limiar de minutos do hábito automático"><b>${ativosAno}</b><span>dias com hábito em ${ano}</span></div>
       <div class="stat"><b>🔥 ${ehAtual?melhor.n+(melhor.un==='sem'?' sem':''):'—'}</b><span>${ehAtual?'maior sequência atual':'ano encerrado'}</span></div>
     </div>
+    ${hbExercicioCard(ano)}
     ${ehAtual?`<div style="display:flex;align-items:center;margin-bottom:14px">
       <h3 style="font-size:16px">Marcar</h3>
       <button class="btn sm" style="margin-left:auto" onclick="mHabito()">+ Novo hábito</button>
@@ -512,6 +550,10 @@ export function mHabito(id=null){
       <input type="checkbox" id="hblv" ${hb&&hb.livros?'checked':''} style="width:auto">
       📚 Estante — registrar os livros lidos (título, autor, páginas e mês) dentro deste hábito
     </label>
+    <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);cursor:pointer;margin-bottom:10px">
+      <input type="checkbox" id="hbex" ${hb&&hb.exercicio?'checked':''} style="width:auto">
+      🏋️ Atividade física — entra no total de dias de exercício do ano
+    </label>
     <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);cursor:pointer;margin-bottom:4px">
       <input type="checkbox" id="hba" ${hb&&hb.auto?'checked':''} style="width:auto"
         onchange="document.getElementById('mhAutoWrap').style.display=this.checked?'block':'none'">
@@ -540,8 +582,11 @@ export function saveHabito(id){
     minMin:auto?Math.max(1,+document.getElementById('hbmin').value||60):0,
     freq, alvo:freq==='semanal'?+document.getElementById('hbalvo').value||3:0,
     dias:freq==='dias'?_mhDias.slice().sort():[],
-    livros:document.getElementById('hblv').checked};
-  if(id){Object.assign(store.habitos.find(x=>x.id===id),dados);}
+    livros:document.getElementById('hblv').checked,
+    exercicio:document.getElementById('hbex').checked};
+  if(!dados.exercicio) delete dados.exercicio;   // ausente = false (não gera diff em todo hábito)
+  if(id){const alvoHb=store.habitos.find(x=>x.id===id); Object.assign(alvoHb,dados);
+    if(!dados.exercicio) delete alvoHb.exercicio;}       // Object.assign não apaga a flag ao desmarcar
   else{store.habitos.push({id:uid(),...dados});}
   save();closeModal();vHabitos();toast(id?'Hábito atualizado':'Hábito adicionado');
 }
