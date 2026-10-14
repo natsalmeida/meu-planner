@@ -18,21 +18,27 @@ export function finComp(n){FIN_ST.comp=n===0?finCompDe(todayISO()):ymAdd(FIN_ST.
 export function finMesG(n){FIN_ST.mesG=n===0?todayISO().slice(0,7):ymAdd(FIN_ST.mesG,n);vFinancas();}
 export function finMeioF(m){FIN_ST.meio=m;vFinancas();}
 export function finParcModo(m){FIN_ST.parcModo=m;vFinancas();}
-/* Itens da aba Gastos num mês. Modo 'parcela': compra parcelada no crédito entra com
-   1 parcela por mês, a partir do MÊS DA COMPRA (parcela k → mês da compra + k−1), no
-   mesmo dia do mês. Assim a aba continua "por data da compra" e não duplica a aba Mês,
-   que já distribui pelas faturas. Parcelas anteriores a parcIni (pagas antes do app)
-   não entram. Modo 'compra': o valor total no dia da compra, como antes. */
+/* Itens da aba Gastos num mês.
+   Modo 'parcela': à vista pela data da compra; CRÉDITO (1x ou parcelado) pelo CICLO DA FATURA —
+   cada parcela entra no mês anterior ao vencimento da fatura que a cobra (fatura de 08/09 → agosto).
+   Antes a parcela k ia para "mês da compra + k−1", o que deslocava em um mês toda compra feita
+   depois do fechamento e toda compra que o banco começou a cobrar mais tarde (Airbnb, BlOtica,
+   TikTok 30/07…): o número da parcela não batia com a fatura e o total do mês também não.
+   Agora o mês vem de finParcelas → fat, que usa o fatIni gravado pela importação da fatura real.
+   Resultado: crédito de um mês aqui = compras da fatura que vence no mês seguinte.
+   Modo 'compra': o valor total no dia da compra, como antes. */
 export function finItensGastos(ym,modo=FIN_ST.parcModo){
   const out=[];
   fin.gastos.forEach(g=>{
-    if(modo==='compra'||g.meio!=='credito'||!(g.parc>1)){
+    if(modo==='compra'||g.meio!=='credito'){
       if(g.data.slice(0,7)===ym) out.push({g,valor:g.valor,data:g.data});
       return;
     }
     finParcelas(g).forEach(p=>{
-      if(ymAdd(g.data.slice(0,7),p.k-1)!==ym) return;
-      out.push({g,valor:p.valor,data:p.k===1?g.data:ymDia(ym,+g.data.slice(8,10)),k:p.k,n:p.n});
+      if(ymAdd(p.fat,-1)!==ym) return;
+      const it={g,valor:p.valor,data:p.k===1?g.data:ymDia(ym,+g.data.slice(8,10))};
+      if(p.n>1){ it.k=p.k; it.n=p.n; }
+      out.push(it);
     });
   });
   return out;
@@ -324,7 +330,7 @@ export function finVGastos(){
   return `
     <div class="fin-nav">
       <button class="icon-btn" onclick="finMesG(-1)">◀</button>
-      <div><b>${ymLabel(ym,true)}</b><small>por data da compra · ${parcModo?'parcelado no crédito entra só com a parcela do mês':'crédito aparece pelo valor total da compra'}</small></div>
+      <div><b>${ymLabel(ym,true)}</b><small>${parcModo?'à vista pela data da compra · crédito pelo ciclo da fatura (a que vence no mês seguinte)':'por data da compra · crédito pelo valor total da compra'}</small></div>
       <button class="icon-btn" onclick="finMesG(1)">▶</button>
       ${ym!==todayISO().slice(0,7)?`<button class="btn sm line" onclick="finMesG(0)">Atual</button>`:''}
       <div class="hist-chips fin-parc-modo" title="Como contar compras parceladas no crédito">
@@ -682,7 +688,10 @@ export function finFatLinha(l,c,ym){
   const desc=t.replace(/\s{2,}/g,' ').replace(/[-–·|]+$/,'').trim();
   if(!desc) return null;
   const nd=finNorm(desc);
-  if(/^(pagamento|pgto|pag\.? ?fat|saldo|total|subtotal|credito de pagamento|pagto)/.test(nd)) return {ignorar:true,desc,valor};
+  /* Linhas que não são compra. Caixa: "OBRIGADO PELO PAGAMENTO" (virava estorno de −R$ 3.000) e
+     "AJUSTE CRED PARC…"/"AJUSTE CREDITO PARC. LOJISTA" (centavos de arredondamento das parcelas).
+     Juros, anuidade e cashback NÃO entram aqui: são dinheiro real da fatura. */
+  if(/^(obrigado pelo pagamento|pagamento|pgto|pag\.? ?fat|saldo|total|subtotal|credito de pagamento|pagto|ajuste cred)/.test(nd)) return {ignorar:true,desc,valor};
   return {desc,data:data||ymDia(ymAdd(ym,-1),c.fecha),semData:!data,valor:r2(valor),k,n};
 }
 export function finImpFaturaAnalisar(cid){
