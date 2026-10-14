@@ -1,5 +1,5 @@
 // views/unitins/hub.js — gerado a partir do monólito; edite aqui a partir de agora.
-import { periodoAtivo, periodoById, periodoEncerrado, periodoLabel } from '../../core/periodos.js';
+import { periodoAtivo, periodoAviso, periodoById, periodoEncerrado, periodoLabel } from '../../core/periodos.js';
 import { store } from '../../core/store.js';
 import { save } from '../../core/sync.js';
 import { uid } from '../../core/app.js';
@@ -10,6 +10,28 @@ import { DIARIO_ST, diarioPanel } from '../diario.js';
 import { uniAulas } from './aulas.js';
 import { uniSincronas } from './sincronas.js';
 import { entregState, entregaveisDaMateria, uniEntregaveis } from './entregaveis.js';
+
+/* Card de virada de período (Dashboard + Hub). A regra está em periodoAviso(); aqui só a
+   apresentação. O botão abre mPeriodo(), que já sugere início = dia seguinte ao fim do último. */
+export function periodoAvisoCard(){
+  const a=periodoAviso(); if(!a) return '';
+  const nome=h(a.p.nome), enc=a.tipo==='encerrado', s=n=>n===1?'':'s';
+  const titulo=enc?`${nome} encerrou há ${a.dias} dia${s(a.dias)}`
+    :a.dias===0?`${nome} termina hoje`:`${nome} termina em ${a.dias} dia${s(a.dias)} (${fmtBR(a.p.fim)})`;
+  const texto=enc
+    ?`Ainda não há próximo período cadastrado, então tudo o que você criar agora (matérias e blocos de grade) entra em <b>${nome}</b> e some do Hub quando o período certo for criado. Cadastre o próximo antes de lançar o semestre novo.`
+    :`Ainda não há próximo período cadastrado. Cadastre agora: depois do fim, matérias e blocos novos cairiam em <b>${nome}</b>.`;
+  const cor=enc?'var(--red)':'var(--amber)', fundo=enc?'var(--red-soft)':'var(--amber-soft)';
+  return `<div class="card" style="margin-bottom:20px;border:1px solid ${cor};background:${fundo}">
+    <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:240px">
+        <h3 style="color:${cor}">🎓 ${titulo}</h3>
+        <div class="h-sub" style="margin:6px 0 0">${texto} Depois, use <b>Grade → Copiar grade</b> para trazer os blocos que se repetem.</div>
+      </div>
+      <button class="btn sm" onclick="mPeriodo()">+ Cadastrar próximo período</button>
+    </div>
+  </div>`;
+}
 
 export function materiaStatusAuto(id){
   const aulas=store.aulas.filter(a=>a.materia===id);
@@ -80,6 +102,7 @@ export function vUnitins(){
   document.getElementById('view').innerHTML=`
     <div class="page-title">hub unitins</div>
     <div class="page-sub">Aulas gravadas agrupadas por matéria, aulas síncronas com data e hora (avisam no Dashboard no dia), entregáveis com prazo e o diário de bordo da área. O status da matéria se atualiza sozinho conforme você marca as aulas.</div>
+    ${periodoAvisoCard()}
     <div class="card" style="margin-bottom:16px;padding:14px 16px">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div class="field" style="margin:0;flex:1;min-width:200px">
