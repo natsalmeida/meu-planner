@@ -10,6 +10,7 @@ import { FIN_MESES, brl, ddmm, finCiclo, finCompDe, finFatKey, finFaturaDaCompra
 import { finAprender, finCategorizar, finConfirmar } from './voz.js';
 import { finVAnalytics } from './analytics.js';
 import { finOrcCard } from './orcamento.js';
+import { finPdfExtrair } from './pdf-fatura.js';
 
 /* ---------------- VIEW ---------------- */
 export const FIN_ST={aba:'mes',comp:null,mesG:null,meio:'all',cat:'all',parcModo:'parcela'};
@@ -656,12 +657,40 @@ export function finFatAbertaParaImportar(c){
 export function finImpFatura(cid){
   const c=fin.cartoes.find(x=>x.id===cid); if(!c) return;
   const ym=FIN_FAT.cid===cid&&FIN_FAT.ym?FIN_FAT.ym:finFatAbertaParaImportar(c);
+  FIN_FAT.pdf=null;
   modal(`<h3>Importar fatura · ${h(c.nome)}</h3>
-    <div class="h-sub" style="margin:-8px 0 12px">No app ou no PDF da fatura, selecione as linhas de lançamentos (data, descrição, valor), copie e cole. Pagamentos da fatura anterior são ignorados sozinhos.</div>
+    <label class="fin-voice-cta" style="cursor:pointer;margin:-4px 0 14px">
+      <input type="file" accept="application/pdf,.pdf" style="display:none" onchange="finImpFaturaPdf(this,'${cid}')">
+      <span class="fin-mic sm">📄</span>
+      <span><b id="ffPdfTit">Anexar o PDF da fatura</b><small id="ffPdfSub">Eu leio todos os lançamentos, descubro o vencimento e confiro a soma com o total impresso. Nada é salvo antes da conferência.</small></span>
+    </label>
+    <details style="margin-bottom:6px"><summary class="h-sub" style="cursor:pointer">Ou copiar e colar as linhas (quando não houver PDF)</summary>
+      <div class="h-sub" style="margin:8px 0">No app do banco, selecione as linhas de lançamentos (data, descrição, valor), copie e cole. Pagamentos da fatura anterior são ignorados sozinhos.</div>
+      <div class="field"><label>Lançamentos</label><textarea id="ffT" rows="10" placeholder="12/09 IFD*IFOOD PALMAS 45,90&#10;15/09 UBER *TRIP 18,50&#10;10/07 MAGAZINE LUIZA PARC 03/10 250,00&#10;20/09 ESTORNO LOJA X -30,00"></textarea></div>
+    </details>
     <div class="field"><label>Fatura com vencimento em</label><input type="month" id="ffM" value="${ym}"></div>
-    <div class="field"><label>Lançamentos</label><textarea id="ffT" rows="10" placeholder="12/09 IFD*IFOOD PALMAS 45,90&#10;15/09 UBER *TRIP 18,50&#10;10/07 MAGAZINE LUIZA PARC 03/10 250,00&#10;20/09 ESTORNO LOJA X -30,00"></textarea></div>
     <div class="modal-actions"><button class="btn line" onclick="closeModal()">Cancelar</button>
-      <button class="btn" onclick="finImpFaturaAnalisar('${cid}')">Analisar</button></div>`);
+      <button class="btn" onclick="FIN_FAT.pdf=null;finImpFaturaAnalisar('${cid}')">Analisar texto colado</button></div>`);
+}
+/* PDF → mesmas linhas que o colar produziria → mesmo analisador (duplicatas, parcelas, estornos).
+   O vencimento impresso escolhe a fatura; o total impresso vira a conferência do preview. */
+export async function finImpFaturaPdf(inp,cid){
+  const f=inp.files&&inp.files[0]; inp.value=''; if(!f) return;
+  const tit=document.getElementById('ffPdfTit'), sub=document.getElementById('ffPdfSub');
+  if(tit) tit.textContent='Lendo '+f.name+'…'; if(sub) sub.textContent='na primeira vez baixa o leitor de PDF (~1 MB)';
+  try{
+    const r=await finPdfExtrair(f);
+    if(!r.linhas.length) throw new Error('Não encontrei lançamentos neste PDF — é mesmo a fatura do cartão?');
+    if(!document.getElementById('ffT')) return;                       // modal fechado durante a leitura
+    document.getElementById('ffT').value=r.linhas.join('\n');
+    if(r.venc) document.getElementById('ffM').value=r.venc.slice(0,7);
+    FIN_FAT.pdf={nome:f.name,total:r.total,venc:r.venc};
+    finImpFaturaAnalisar(cid);
+  }catch(e){
+    if(tit) tit.textContent='Anexar o PDF da fatura';
+    if(sub) sub.textContent='';
+    toast(String(e&&e.message||e));
+  }
 }
 export function finFatLinha(l,c,ym){
   let t=l.replace(/\t+/g,' ').replace(/\s+/g,' ').trim(); if(!t) return null;
@@ -740,14 +769,25 @@ export function finImpFaturaPreview(){
   const totLinhas=r2(rs.reduce((s,r)=>s+r.valor,0)), novos=rs.filter(r=>r.incluir);
   const jaNoApp=r2(finTodasParcelas().filter(p=>p.cartao===c.id&&p.fat===ym).reduce((s,p)=>s+p.valor,0));
   const aposImport=r2(jaNoApp+novos.reduce((s,r)=>s+r.valor,0));
+  /* Conferência da extração do PDF: lançamentos + linhas que não são compra (saldo anterior,
+     pagamentos, ajustes de centavos) tem que dar o total impresso. Se não der, faltou ou sobrou
+     linha na leitura — e isso aparece AQUI, antes de salvar, e não no fim do mês. */
+  const ign=FIN_FAT.ignoradas||[], somaIgn=r2(ign.reduce((s,i)=>s+i.valor,0));
+  const pdf=FIN_FAT.pdf, confere=pdf&&pdf.total!=null?Math.abs(r2(totLinhas+somaIgn)-pdf.total)<=0.02:null;
   modal(`<h3>Conferir fatura · ${ymLabel(ym)}</h3>
+    ${pdf?`<div class="fin-flag" style="${confere?'background:var(--green-soft,#e7f6ee);color:var(--green)':''}">
+      ${confere===null?`📄 ${h(pdf.nome)} · não achei o total impresso para conferir a leitura`
+        :confere?`📄 Leitura completa: ${rs.length} lançamentos (${brl(totLinhas)}) + ${ign.length} linhas que não são compra (${brl(somaIgn)}) = ${brl(pdf.total)}, o total impresso na fatura.`
+        :`⚠ A leitura do PDF não fechou: lançamentos ${brl(totLinhas)} + não-compras ${brl(somaIgn)} = ${brl(r2(totLinhas+somaIgn))}, mas a fatura diz ${brl(pdf.total)} (diferença ${brl(r2(pdf.total-totLinhas-somaIgn))}). Confira antes de importar.`}
+      ${pdf.venc&&pdf.venc.slice(0,7)!==ym?`<br>⚠ O PDF vence em ${fmtBR(pdf.venc)}, mas a fatura escolhida é ${ymLabel(ym)}.`:''}</div>`:''}
     <div class="fin-fat-res">
       <span>Linhas coladas <b>${brl(totLinhas)}</b></span>
       <span>Fatura no app após importar <b class="${Math.abs(aposImport-totLinhas)<=0.05?'pos':'neg'}">${brl(aposImport)}</b></span>
       ${inf!=null?`<span>Valor informado antes <b>${brl(inf)}</b></span>`:''}
     </div>
     ${Math.abs(aposImport-totLinhas)>0.05?`<div class="fin-flag">⚠ A fatura no app não vai bater com as linhas coladas (${brl(r2(aposImport-totLinhas))}). Geralmente é um lançamento marcado como “já está no app” que na verdade é outro — confira os desmarcados.</div>`:''}
-    ${(FIN_FAT.ignoradas||[]).length?`<div class="h-sub">Ignoradas: ${FIN_FAT.ignoradas.map(i=>h(i.desc)+' '+brl(i.valor)).join(' · ')}</div>`:''}
+    ${ign.length?`<details class="h-sub" style="margin:6px 0"><summary style="cursor:pointer">${ign.length} linha${ign.length>1?'s':''} ignorada${ign.length>1?'s':''} (pagamentos, saldo anterior, ajustes de centavos) · ${brl(somaIgn)}</summary>
+      ${ign.map(i=>h(i.desc)+' '+brl(i.valor)).join(' · ')}</details>`:''}
     <div class="table-wrap"><table class="fin-imp"><thead><tr><th></th><th>Data</th><th>Lançamento</th><th>Categoria</th><th>Valor</th></tr></thead><tbody>
     ${rs.map((r,i)=>`<tr class="${r.incluir?'':'off'}">
       <td><input type="checkbox" ${r.incluir?'checked':''} onchange="FIN_FAT.rows[${i}].incluir=this.checked;finImpFaturaPreview()"></td>
