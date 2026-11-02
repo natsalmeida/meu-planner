@@ -734,7 +734,21 @@ export function finImpFaturaAnalisar(cid){
   const existentes=fin.gastos.filter(g=>g.meio==='credito'&&g.cartao===cid)
     .flatMap(g=>finParcelas(g).filter(p=>p.fat===ym));
   const usados=new Set();
+  /* Parcelas ANTECIPADAS: a mesma compra (data, descrição, n, valor da parcela) aparece com
+     VÁRIOS k na mesma fatura — o banco cobrou de uma vez as parcelas restantes (compra cancelada
+     ou quitada antes; o estorno costuma vir junto). Vira UMA compra com quitadaEm = esta fatura.
+     k iguais repetidos não entram aqui: são compras iguais distintas (duas MAFIT 2/2). */
+  const grupos={};
+  rows.forEach(r=>{ if(r.n>1&&r.valor>0){ const ch=[r.data,finNorm(r.desc).replace(/[^a-z0-9]+/g,' ').trim(),r.n,r2(r.valor)].join('|');
+    (grupos[ch]||(grupos[ch]=[])).push(r); } });
+  Object.values(grupos).forEach(gr=>{
+    if(new Set(gr.map(r=>r.k)).size<2) return;
+    gr.sort((a,b)=>a.k-b.k); const rep=gr[0]; rep.antec=gr.length;
+    gr.slice(1).forEach(r=>{ r.antecDe=rep; });
+  });
   rows.forEach(r=>{
+    if(r.antecDe){ Object.assign(r,{cat:'',catSug:'',incluir:false,
+      aviso:`parcela antecipada da mesma compra — entra junto com a ${r.antecDe.k}/${r.n}, sem criar outra`}); return; }
     let {cat}=finCategorizar(finNorm(r.desc).replace(/[^a-z0-9]+/g,' ')), aviso='';
     if(r.valor<0){ const orig=finCatEstorno(r.desc,r.valor,r.data,cid); if(orig){ cat=orig.cat; aviso=`estorno de “${orig.desc}” (${ddmm(orig.data)}) — categoria herdada`; } }
     Object.assign(r,{cat,catSug:cat,incluir:true,aviso});
@@ -748,7 +762,7 @@ export function finImpFaturaAnalisar(cid){
       if(g){
         usados.add(g.id);
         const ini=Math.max(1,parseInt(g.parcIni)||1);
-        if(r.k>=ini){ r.incluir=false; r.aviso=`já está no app: “${g.desc}” ${r.k}/${r.n}${g.origem==='voz'?' (por voz)':g.origem==='fatura'?' (outra fatura)':''}`; }
+        if(r.k>=ini){ r.incluir=false; r.match=g.id; r.aviso=`já está no app: “${g.desc}” ${r.k}/${r.n}${g.origem==='voz'?' (por voz)':g.origem==='fatura'?' (outra fatura)':''}`; }
         else { r.estender=g.id; r.cat=r.catSug=g.cat;
           r.aviso=`mesma compra que “${g.desc}”, lançada a partir da ${ini}/${r.n} — vou só incluir a${ini-r.k>1?'s':''} parcela${ini-r.k>1?'s':''} ${r.k}${ini-r.k>1?'–'+(ini-1):''} nela, sem criar outra`; }
       }else{
@@ -767,6 +781,12 @@ export function finImpFaturaAnalisar(cid){
       if(dup){ usados.add(dup.g.id); r.incluir=false;
         r.aviso=`já está no app: “${dup.g.desc}”${dup.n>1?` ${dup.k}/${dup.n}`:''}${dup.g.origem==='voz'?' (por voz)':dup.g.origem==='fatura'?' (fatura anterior)':''}`; }
     }
+    if(r.antec){
+      const gid=r.estender||r.realinhar;
+      const ja=!r.incluir&&r.match&&fin.gastos.find(x=>x.id===r.match);
+      if(ja&&ja.quitadaEm!==ym){ r.incluir=true; r.quitar=ja.id; r.aviso=`compra já no app (“${ja.desc}”)`; }
+      if(r.incluir||gid) r.aviso=(r.aviso?r.aviso+' · ':'')+`${r.antec} parcelas antecipadas (${r.k}–${r.k+r.antec-1}/${r.n}) — caem todas nesta fatura e a compra para de projetar parcelas`;
+    }
     if(r.semData) r.aviso=(r.aviso?r.aviso+' · ':'')+'sem data na linha — usei o fechamento';
   });
   /* O que está NESTA fatura no app e nenhuma linha explica. Só é exibido quando o PDF fechou
@@ -777,7 +797,14 @@ export function finImpFaturaAnalisar(cid){
   const sobra=existentes.filter(p=>!usados.has(p.g.id));
   FIN_FAT.sobrando=sobra.map(p=>{
     let acao='excluir';
-    if(p.n>1) acao=fin.gastos.some(y=>y.id!==p.g.id&&finMesmaCompra(y,{cartao:cid,n:p.n,fat1:finFat1(p.g),vParc:r2(p.g.valor/p.n),data:p.g.data,desc:p.g.desc}))?'copia':'mover';
+    if(p.n>1){
+      const tk=new Set(finNorm(p.g.desc).replace(/[^a-z0-9]+/g,' ').split(' ').filter(t=>t.length>=3));
+      // mesma data, mesmo total, mesmo n, mas OUTRO cronograma = pedaço de compra antecipada importado linha a linha
+      const fragmento=fin.gastos.some(y=>y.id!==p.g.id&&y.cartao===cid&&y.data===p.g.data&&(y.parc||1)===p.n&&Math.abs(y.valor-p.g.valor)<=0.05
+        &&finFat1(y)!==finFat1(p.g)&&finNorm(y.desc).replace(/[^a-z0-9]+/g,' ').split(' ').some(t=>tk.has(t)));
+      acao=fragmento?'fragmento'
+        :fin.gastos.some(y=>y.id!==p.g.id&&finMesmaCompra(y,{cartao:cid,n:p.n,fat1:finFat1(p.g),vParc:r2(p.g.valor/p.n),data:p.g.data,desc:p.g.desc}))?'copia':'mover';
+    }
     return {id:p.g.id,desc:p.g.desc,data:p.g.data,valor:p.valor,k:p.k,n:p.n,origem:p.g.origem,acao,marcado:true};
   });
   /* Fatura anterior: o PDF traz o total real dela e os pagamentos — melhor fonte que o valor
@@ -797,9 +824,12 @@ export function finImpFaturaPreview(){
   const jaNoApp=r2(finTodasParcelas().filter(p=>p.cartao===c.id&&p.fat===ym).reduce((s,p)=>s+p.valor,0));
   const sob=FIN_FAT.sobrando||[];
   const idsNoMes=new Set(finTodasParcelas().filter(p=>p.cartao===c.id&&p.fat===ym).map(p=>p.g.id));
-  const aposImport=r2(jaNoApp+novos.filter(r=>!r.realinhar||!idsNoMes.has(r.realinhar)).reduce((s,r)=>s+r.valor,0)
+  const aposImport=r2(jaNoApp+novos.filter(r=>!r.realinhar||!idsNoMes.has(r.realinhar))
+      .reduce((s,r)=>s+(r.quitar?r.valor*(r.antec-1):r.valor*(r.antec||1)),0)
     -sob.filter(s=>s.marcado).reduce((s,x)=>s+x.valor,0));
-  const ACAO={excluir:'excluir — não está no PDF',copia:'excluir — cópia de outra compra igual',mover:'passar esta parcela e as seguintes para a próxima fatura'};
+  const ACAO={excluir:'excluir — não está no PDF',copia:'excluir — cópia de outra compra igual',
+    fragmento:'excluir — pedaço de compra parcelada que o banco antecipou (cada parcela tinha virado uma compra)',
+    mover:'passar esta parcela e as seguintes para a próxima fatura'};
   const fa=FIN_FAT.anterior, kAnt=fa?finFatKey(c.id,fa.ym):'', quitada=fa&&fa.pago>=fa.total-0.02;
   const antMuda=fa&&(fin.faturasValor[kAnt]!==fa.total||!!fin.faturasPagas[kAnt]!==quitada);
   /* Conferência da extração do PDF: lançamentos + linhas que não são compra (saldo anterior,
@@ -847,21 +877,25 @@ export function finImpFaturaPreview(){
 export function finImpFaturaImportar(){
   const cid=FIN_FAT.cid, ym=FIN_FAT.ym; let n=0;
   FIN_FAT.rows.filter(r=>r.incluir).forEach(r=>{
+    const quitar=g=>{ if(r.antec) g.quitadaEm=ym; };
+    if(r.quitar){   // compra já no app, agora com as parcelas restantes antecipadas para esta fatura
+      const g=fin.gastos.find(x=>x.id===r.quitar); if(g){ quitar(g); n++; return; }
+    }
     if(r.realinhar){   // mesma compra, cronograma do app deslocado: passa a seguir o do banco
       const g=fin.gastos.find(x=>x.id===r.realinhar);
       if(g){ g.fatIni=ymAdd(ym,-(r.k-1));
         const ini=Math.min(Math.max(1,parseInt(g.parcIni)||1),r.k); if(ini>1) g.parcIni=ini; else delete g.parcIni;
-        n++; return; }
+        quitar(g); n++; return; }
     }
     if(r.estender){   // fatura mais antiga da mesma compra: só antecipa o início, não cria outra
       const g=fin.gastos.find(x=>x.id===r.estender);
       if(g){ if(!g.fatIni) g.fatIni=ymAdd(ym,-(r.k-1));
         const ini=Math.max(1,parseInt(g.parcIni)||1); if(r.k<ini){ if(r.k>1) g.parcIni=r.k; else delete g.parcIni; }
-        n++; return; }
+        quitar(g); n++; return; }
     }
     if(r.cat!==r.catSug) finAprender(r.desc.replace(/[^\p{L}\p{N}]+/gu,' '),r.cat);
     const g={id:uid(),data:r.data,desc:r.desc,cat:r.cat,meio:'credito',cartao:cid,origem:'fatura',criado:Date.now()+n};
-    if(r.n>1){ Object.assign(g,{valor:r2(r.valor*r.n),parc:r.n,parcIni:r.k,fatIni:ymAdd(ym,-(r.k-1))}); }
+    if(r.n>1){ Object.assign(g,{valor:r2(r.valor*r.n),parc:r.n,parcIni:r.k,fatIni:ymAdd(ym,-(r.k-1))}); if(r.antec) g.quitadaEm=ym; }
     else Object.assign(g,{valor:r.valor,parc:1,fatIni:ym});   // força esta fatura, independente do dia de fechamento
     fin.gastos.push(g); n++;
   });

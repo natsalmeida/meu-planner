@@ -20,7 +20,7 @@ export function ymDia(ym,d){return ym+'-'+String(Math.min(Math.max(1,d),ymDias(y
 export function ymLabel(ym,longo){const[y,m]=ym.split('-');return (longo?FIN_MESES_L:FIN_MESES)[+m-1]+(longo?' de ':'/')+y;}
 export function ddmm(iso){return iso?iso.slice(8,10)+'/'+iso.slice(5,7):'—';}
 export function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
-export function finNorm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+export function finNorm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
 export const finVal=id=>{const e=document.getElementById(id);return e?e.value:'';};
 
 /* Competência = o mês cujo salário paga a conta. Conta que vence até o
@@ -37,12 +37,20 @@ export function finFaturaDaCompra(cartao,dataISO){
   const fechaYM=d>=c.fecha?ymAdd(ym,1):ym;          // comprou no dia do fechamento → próxima fatura
   return c.vence>c.fecha?fechaYM:ymAdd(fechaYM,1);  // vencimento cai depois do fechamento
 }
+/* quitadaEm (YYYY-MM): o banco ANTECIPOU as parcelas restantes para essa fatura — acontece
+   quando a compra é cancelada ou quitada antes. Parcelas que cairiam depois dela passam a
+   cair nela; nenhuma é projetada além. Sem isso, cada linha "k DE n" antecipada virava uma
+   compra própria que continuava cobrando nos meses seguintes. */
 export function finParcelas(g){
   if(g.meio!=='credito') return [];
   const n=g.parc||1, tot=Math.round(g.valor*100), base=Math.floor(tot/n), resto=tot-base*n;
   const v0=g.fatIni||finFaturaDaCompra(g.cartao,g.data);
   const ini=Math.min(n,Math.max(1,parseInt(g.parcIni)||1));
-  return Array.from({length:n},(_,k)=>({g,k:k+1,n,valor:(base+(k===0?resto:0))/100,fat:ymAdd(v0,k),cartao:g.cartao||''})).filter(p=>p.k>=ini);
+  const q=/^\d{4}-\d{2}$/.test(g.quitadaEm||'')?g.quitadaEm:'';
+  return Array.from({length:n},(_,k)=>{
+    const fat=ymAdd(v0,k);
+    return {g,k:k+1,n,valor:(base+(k===0?resto:0))/100,fat:q&&fat>q?q:fat,antecipada:!!(q&&fat>q),cartao:g.cartao||''};
+  }).filter(p=>p.k>=ini);
 }
 export function finTodasParcelas(){return fin.gastos.flatMap(finParcelas);}
 export const finFatKey=(c,ym)=>c+'_'+ym;
