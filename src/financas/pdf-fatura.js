@@ -56,6 +56,7 @@ export function finPdfLinhas(itens){
     const usados=new Set(ancoras.flatMap(x=>[x.d,x.v,x.a].filter(Boolean)));
     its.forEach(i=>{
       if(usados.has(i)||RX_DATA.test(i.s)||RX_VALOR.test(i.s)) return;
+      if(/^\d+,\d{3,}$/.test(i.s)) return;   // cotação do dólar em compra internacional (5,1955), não é descrição
       let melhor=null, dist=Infinity;
       ancoras.forEach(an=>{ const x0=an.d?an.d.x:an.a.x;
         if(i.x>x0&&i.x<an.v.x){ const dy=Math.abs(i.y-an.y); if(dy<dist){dist=dy;melhor=an;} } });
