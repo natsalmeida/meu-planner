@@ -104,6 +104,18 @@ export function finNormalize(){
     Object.keys(o).forEach(k=>{ const v=r2(o[k]); if(finCatById(k)&&v>0) lim[k]=v; });
     if(Object.keys(lim).length) fin.cfg.orcamentos=lim; else delete fin.cfg.orcamentos;
   }
+  /* Categorias de PATRIMÔNIO (financas/analytics.js): saem das saídas e entram na taxa de poupança.
+     Lista em cfg (vale para categoria padrão e criada). Semeadura única pela marca migPatrimonio:
+     se você desmarcar depois, não volta. */
+  if(!fin.cfg.migPatrimonio){
+    const seed=FIN_CATS.filter(c=>/patrim|terreno|imove/.test(finNorm(c.id+' '+c.nome))).map(c=>c.id);
+    if(seed.length) fin.cfg.catsPatrimonio=[...new Set([...(fin.cfg.catsPatrimonio||[]),...seed])];
+    fin.cfg.migPatrimonio=1;
+  }
+  if(fin.cfg.catsPatrimonio!==undefined){
+    const l=(Array.isArray(fin.cfg.catsPatrimonio)?fin.cfg.catsPatrimonio:Object.values(fin.cfg.catsPatrimonio||{})).filter(id=>finCatById(id));
+    if(l.length) fin.cfg.catsPatrimonio=[...new Set(l)]; else delete fin.cfg.catsPatrimonio;
+  }
   fin.contas.forEach(c=>{ if(!c.id)c.id=uid(); c.valor=r2(c.valor); c.ok=!!c.ok;
     if(!FIN_TIPOS[c.tipo])c.tipo='despesa'; if(typeof c.venc!=='string')c.venc='';
     if(!c.ok||c.tipo==='receita'||!/^\d{4}-\d{2}$/.test(c.pagoComp||'')||c.pagoComp>=c.comp) delete c.pagoComp; if(!/^\d{4}-\d{2}$/.test(c.comp||''))c.comp=finCompDe(c.venc||todayISO()); });

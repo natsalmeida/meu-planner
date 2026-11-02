@@ -18,6 +18,7 @@ function proximaCor() {
 }
 const nomeDuplicado = (nome, ignorarId) => FIN_CATS.some((c) => c.id !== ignorarId && finNorm(c.nome) === finNorm(nome));
 const parseKw = (t) => [...new Set(String(t || '').split(',').map((x) => finNorm(x).trim()).filter((x) => x.length >= 2))];
+const ehPatrim = (id) => Array.isArray(fin.cfg.catsPatrimonio) && fin.cfg.catsPatrimonio.includes(id);
 
 /* Cria e devolve o id; null se cancelado ou duplicado. */
 export function finCriarCat(nome, cor, kw) {
@@ -50,11 +51,24 @@ export function finCatSelect(el) {
   toast('Categoria criada');
 }
 
+/* Patrimônio: o dinheiro virou ativo (terreno, imóvel). Sai de "Para onde foi o dinheiro"
+   e conta na taxa de poupança. Vale para categoria padrão e criada; a aba Mês não muda. */
+export function finCatPatrimonio(id) {
+  if (!finCatById(id) || id === 'outros') return;
+  const l = new Set(fin.cfg.catsPatrimonio || []);
+  if (l.has(id)) l.delete(id); else l.add(id);
+  if (l.size) fin.cfg.catsPatrimonio = [...l]; else delete fin.cfg.catsPatrimonio;
+  finSave(); finCfg(); vFinancas();
+  toast(l.has(id) ? 'Conta como patrimônio — sai das saídas e entra na poupança' : 'Voltou a contar como gasto');
+}
+
 export function finCatListaHTML() {
   return FIN_CATS.map((c) => {
-    const n = fin.gastos.filter((g) => g.cat === c.id).length;
+    const n = fin.gastos.filter((g) => g.cat === c.id).length, pat = ehPatrim(c.id);
     return `<div class="fin-cat-row"><span class="tag-dot" style="background:${c.cor}"></span>
-      <span class="t">${h(c.nome)}<small>${n} ${n === 1 ? 'gasto' : 'gastos'}</small></span>
+      <span class="t">${h(c.nome)}<small>${n} ${n === 1 ? 'gasto' : 'gastos'}${pat ? ' · patrimônio' : ''}</small></span>
+      ${c.id === 'outros' ? '' : `<button class="btn sm ${pat ? '' : 'line'}" title="Patrimônio: não conta como gasto em Analytics e entra na taxa de poupança"
+        onclick="finCatPatrimonio('${c.id}')">🏠 ${pat ? 'patrimônio' : 'gasto'}</button>`}
       ${ehBase(c.id) ? '<span class="h-sub">padrão</span>'
         : `<button class="btn sm line" onclick="finCatModal('${c.id}')">Editar</button>
           <button class="icon-btn" title="Excluir" onclick="finCatExcluir('${c.id}')">✕</button>`}</div>`;
