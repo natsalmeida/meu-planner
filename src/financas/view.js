@@ -720,7 +720,7 @@ export function finFatLinha(l,c,ym){
   /* Linhas que não são compra. Caixa: "OBRIGADO PELO PAGAMENTO" (virava estorno de −R$ 3.000) e
      "AJUSTE CRED PARC…"/"AJUSTE CREDITO PARC. LOJISTA" (centavos de arredondamento das parcelas).
      Juros, anuidade e cashback NÃO entram aqui: são dinheiro real da fatura. */
-  if(/^(obrigado pelo pagamento|pagamento|pgto|pag\.? ?fat|saldo|total|subtotal|credito de pagamento|pagto|ajuste cred)/.test(nd)) return {ignorar:true,desc,valor};
+  if(/^(obrigado pelo pagamento|pagamento|pgto|pag\.? ?fat|saldo|total|subtotal|credito de pagamento|pagto|ajuste cred)/.test(nd)) return {ignorar:true,desc,valor,data};
   return {desc,data:data||ymDia(ymAdd(ym,-1),c.fecha),semData:!data,valor:r2(valor),k,n};
 }
 export function finImpFaturaAnalisar(cid){
@@ -751,6 +751,15 @@ export function finImpFaturaAnalisar(cid){
         if(r.k>=ini){ r.incluir=false; r.aviso=`já está no app: “${g.desc}” ${r.k}/${r.n}${g.origem==='voz'?' (por voz)':g.origem==='fatura'?' (outra fatura)':''}`; }
         else { r.estender=g.id; r.cat=r.catSug=g.cat;
           r.aviso=`mesma compra que “${g.desc}”, lançada a partir da ${ini}/${r.n} — vou só incluir a${ini-r.k>1?'s':''} parcela${ini-r.k>1?'s':''} ${r.k}${ini-r.k>1?'–'+(ini-1):''} nela, sem criar outra`; }
+      }else{
+        /* Mesma compra com o cronograma DESLOCADO (o app cobrava a parcela k em outro mês —
+           texto colado com numeração errada, compra lançada à mão depois do fechamento). Antes
+           virava uma 2ª compra e as duas cobravam em todas as faturas seguintes. Agora o PDF
+           manda: a compra existente é realinhada para o mês em que o banco cobra. */
+        const alt=fin.gastos.find(x=>!usados.has(x.id)&&x.cartao===cid&&finFat1(x)!==fat1&&Math.abs(finMeses(finFat1(x),fat1))<=2
+          &&finMesmaCompra(x,{cartao:cid,n:r.n,fat1:finFat1(x),vParc:r.valor,data:r.semData?'':r.data,desc:r.desc}));
+        if(alt){ usados.add(alt.id); r.realinhar=alt.id; r.cat=r.catSug=alt.cat;
+          r.aviso=`mesma compra que “${alt.desc}”, mas o app cobrava a ${r.k}/${r.n} em ${ymLabel(ymAdd(finFat1(alt),r.k-1))} — vou ajustar o cronograma para o do banco, sem criar outra`; }
       }
     }else{
       const dup=existentes.find(p=>!usados.has(p.g.id)&&Math.abs(p.valor-r.valor)<=0.02&&
@@ -760,15 +769,39 @@ export function finImpFaturaAnalisar(cid){
     }
     if(r.semData) r.aviso=(r.aviso?r.aviso+' · ':'')+'sem data na linha — usei o fechamento';
   });
+  /* O que está NESTA fatura no app e nenhuma linha explica. Só é exibido quando o PDF fechou
+     com o total impresso (aí o PDF é a verdade). Ação por caso:
+     · cópia de outra compra igual → excluir a cópia;
+     · parcela de compra parcelada sem cópia → o app adiantou o cronograma: passar para a próxima;
+     · compra à vista (voz/manual/colada) → excluir; se o banco cobrar noutra fatura, o PDF dela traz de volta. */
+  const sobra=existentes.filter(p=>!usados.has(p.g.id));
+  FIN_FAT.sobrando=sobra.map(p=>{
+    let acao='excluir';
+    if(p.n>1) acao=fin.gastos.some(y=>y.id!==p.g.id&&finMesmaCompra(y,{cartao:cid,n:p.n,fat1:finFat1(p.g),vParc:r2(p.g.valor/p.n),data:p.g.data,desc:p.g.desc}))?'copia':'mover';
+    return {id:p.g.id,desc:p.g.desc,data:p.g.data,valor:p.valor,k:p.k,n:p.n,origem:p.g.origem,acao,marcado:true};
+  });
+  /* Fatura anterior: o PDF traz o total real dela e os pagamentos — melhor fonte que o valor
+     digitado à mão ou a soma do app. */
+  const ant=ignoradas.find(i=>/^total da fatura anterior/.test(finNorm(i.desc)));
+  const pags=ignoradas.filter(i=>/pagamento/.test(finNorm(i.desc))&&i.valor<0);
+  FIN_FAT.anterior=ant&&ant.valor>0?{ym:ymAdd(ym,-1),total:r2(ant.valor),pago:r2(-pags.reduce((s,i)=>s+i.valor,0)),
+    n:pags.length,data:pags.map(i=>i.data).filter(Boolean).sort().pop()||''}:null;
   FIN_FAT.rows=rows; FIN_FAT.ignoradas=ignoradas;
   finImpFaturaPreview();
 }
+const finMeses=(a,b)=>{const[ya,ma]=a.split('-').map(Number),[yb,mb]=b.split('-').map(Number);return (yb*12+mb)-(ya*12+ma);};
 export function finImpFaturaPreview(){
   const c=fin.cartoes.find(x=>x.id===FIN_FAT.cid), ym=FIN_FAT.ym, rs=FIN_FAT.rows;
   const k=finFatKey(c.id,ym), inf=fin.faturasValor[k];
   const totLinhas=r2(rs.reduce((s,r)=>s+r.valor,0)), novos=rs.filter(r=>r.incluir);
   const jaNoApp=r2(finTodasParcelas().filter(p=>p.cartao===c.id&&p.fat===ym).reduce((s,p)=>s+p.valor,0));
-  const aposImport=r2(jaNoApp+novos.reduce((s,r)=>s+r.valor,0));
+  const sob=FIN_FAT.sobrando||[];
+  const idsNoMes=new Set(finTodasParcelas().filter(p=>p.cartao===c.id&&p.fat===ym).map(p=>p.g.id));
+  const aposImport=r2(jaNoApp+novos.filter(r=>!r.realinhar||!idsNoMes.has(r.realinhar)).reduce((s,r)=>s+r.valor,0)
+    -sob.filter(s=>s.marcado).reduce((s,x)=>s+x.valor,0));
+  const ACAO={excluir:'excluir — não está no PDF',copia:'excluir — cópia de outra compra igual',mover:'passar esta parcela e as seguintes para a próxima fatura'};
+  const fa=FIN_FAT.anterior, kAnt=fa?finFatKey(c.id,fa.ym):'', quitada=fa&&fa.pago>=fa.total-0.02;
+  const antMuda=fa&&(fin.faturasValor[kAnt]!==fa.total||!!fin.faturasPagas[kAnt]!==quitada);
   /* Conferência da extração do PDF: lançamentos + linhas que não são compra (saldo anterior,
      pagamentos, ajustes de centavos) tem que dar o total impresso. Se não der, faltou ou sobrou
      linha na leitura — e isso aparece AQUI, antes de salvar, e não no fim do mês. */
@@ -786,6 +819,15 @@ export function finImpFaturaPreview(){
       ${inf!=null?`<span>Valor informado antes <b>${brl(inf)}</b></span>`:''}
     </div>
     ${Math.abs(aposImport-totLinhas)>0.05?`<div class="fin-flag">⚠ A fatura no app não vai bater com as linhas coladas (${brl(r2(aposImport-totLinhas))}). Geralmente é um lançamento marcado como “já está no app” que na verdade é outro — confira os desmarcados.</div>`:''}
+    ${pdf&&confere&&sob.length?`<div class="fin-flag" style="display:block">
+      <b>⚠ ${sob.length} lançamento${sob.length>1?'s':''} desta fatura no app não est${sob.length>1?'ão':'á'} no PDF (${brl(r2(sob.reduce((s,x)=>s+x.valor,0)))})</b> — é isso que faz a fatura do app não bater com a do banco. Marcados serão corrigidos ao importar:
+      ${sob.map((s,i)=>`<label style="display:flex;gap:8px;align-items:flex-start;margin-top:6px;cursor:pointer;font-weight:400">
+        <input type="checkbox" ${s.marcado?'checked':''} style="width:auto;margin-top:3px" onchange="FIN_FAT.sobrando[${i}].marcado=this.checked;finImpFaturaPreview()">
+        <span>${ddmm(s.data)} · ${h(s.desc)}${s.n>1?` ${s.k}/${s.n}`:''} · <b>${brl(s.valor)}</b>${s.origem==='voz'?' 🎙':s.origem==='fatura'?' 🧾':''}<br><small>${ACAO[s.acao]}</small></span></label>`).join('')}
+    </div>`:''}
+    ${pdf&&fa&&antMuda?`<label class="fin-chk" style="margin:6px 0"><input type="checkbox" id="ffAnt" checked>
+      Fatura de ${ymLabel(fa.ym)}: o PDF diz total <b>${brl(fa.total)}</b>${quitada?` e ${fa.n} pagamento${fa.n>1?'s':''} que a quitaram${fa.data?' (último em '+ddmm(fa.data)+')':''}`:`, pagos ${brl(fa.pago)}`} — gravar esse valor${quitada?' e marcar como paga':''}
+      ${fin.faturasValor[kAnt]!=null&&fin.faturasValor[kAnt]!==fa.total?` <small>(hoje está informado ${brl(fin.faturasValor[kAnt])})</small>`:''}</label>`:''}
     ${ign.length?`<details class="h-sub" style="margin:6px 0"><summary style="cursor:pointer">${ign.length} linha${ign.length>1?'s':''} ignorada${ign.length>1?'s':''} (pagamentos, saldo anterior, ajustes de centavos) · ${brl(somaIgn)}</summary>
       ${ign.map(i=>h(i.desc)+' '+brl(i.valor)).join(' · ')}</details>`:''}
     <div class="table-wrap"><table class="fin-imp"><thead><tr><th></th><th>Data</th><th>Lançamento</th><th>Categoria</th><th>Valor</th></tr></thead><tbody>
@@ -805,6 +847,12 @@ export function finImpFaturaPreview(){
 export function finImpFaturaImportar(){
   const cid=FIN_FAT.cid, ym=FIN_FAT.ym; let n=0;
   FIN_FAT.rows.filter(r=>r.incluir).forEach(r=>{
+    if(r.realinhar){   // mesma compra, cronograma do app deslocado: passa a seguir o do banco
+      const g=fin.gastos.find(x=>x.id===r.realinhar);
+      if(g){ g.fatIni=ymAdd(ym,-(r.k-1));
+        const ini=Math.min(Math.max(1,parseInt(g.parcIni)||1),r.k); if(ini>1) g.parcIni=ini; else delete g.parcIni;
+        n++; return; }
+    }
     if(r.estender){   // fatura mais antiga da mesma compra: só antecipa o início, não cria outra
       const g=fin.gastos.find(x=>x.id===r.estender);
       if(g){ if(!g.fatIni) g.fatIni=ymAdd(ym,-(r.k-1));
@@ -819,7 +867,19 @@ export function finImpFaturaImportar(){
   });
   const infBox=document.getElementById('ffInf');
   if(infBox&&infBox.checked) delete fin.faturasValor[finFatKey(cid,ym)];
-  FIN_FAT.rows=[]; FIN_FAT.ym='';
+  // o que estava no app e o PDF não cobra
+  let corr=0; const apagar=new Set();
+  (FIN_FAT.sobrando||[]).filter(s=>s.marcado).forEach(s=>{
+    const g=fin.gastos.find(x=>x.id===s.id); if(!g) return;
+    if(s.acao==='mover'){ g.fatIni=ymAdd(finFat1(g),1); corr++; }
+    else { apagar.add(g.id); corr++; }
+  });
+  if(apagar.size) fin.gastos=fin.gastos.filter(g=>!apagar.has(g.id));
+  // fatura anterior com o valor e a quitação impressos no PDF
+  const fa=FIN_FAT.anterior, antBox=document.getElementById('ffAnt');
+  if(fa&&antBox&&antBox.checked){ const k=finFatKey(cid,fa.ym); fin.faturasValor[k]=fa.total;
+    if(fa.pago>=fa.total-0.02) fin.faturasPagas[k]=fa.data||todayISO(); }
+  FIN_FAT.rows=[]; FIN_FAT.ym=''; FIN_FAT.sobrando=[]; FIN_FAT.anterior=null;
   finSave(); closeModal(); FIN_ST.aba='cartoes'; vFinancas();
-  toast(`${n} lançamento${n!==1?'s':''} importado${n!==1?'s':''} na fatura de ${ymLabel(ym)}`);
+  toast(`${n} lançamento${n!==1?'s':''} importado${n!==1?'s':''} na fatura de ${ymLabel(ym)}${corr?` · ${corr} corrigido${corr>1?'s':''}`:''}`);
 }
